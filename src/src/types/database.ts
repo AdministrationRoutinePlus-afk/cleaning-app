@@ -81,7 +81,7 @@ export interface Customer extends BaseTable {
   user_id: string | null // FK to auth.users
   customer_code: string // 3-letter code (ABC)
   full_name: string
-  email: string
+  email: string | null // Optional
   phone: string | null
   address: string | null
   notes: string | null

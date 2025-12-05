@@ -288,8 +288,8 @@ export default function CustomerProfilePage() {
    * Saves updated customer details
    */
   const handleSave = async () => {
-    if (!editForm.full_name || !editForm.email) {
-      alert('Name and email are required')
+    if (!editForm.full_name) {
+      alert('Name is required')
       return
     }
 
@@ -299,7 +299,7 @@ export default function CustomerProfilePage() {
         .from('customers')
         .update({
           full_name: editForm.full_name,
-          email: editForm.email,
+          email: editForm.email || null,
           phone: editForm.phone || null,
           address: editForm.address || null,
           notes: editForm.notes || null,
@@ -475,7 +475,7 @@ export default function CustomerProfilePage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email *</Label>
+                    <Label>Email (optional)</Label>
                     <Input
                       type="email"
                       value={editForm.email}

@@ -122,14 +122,16 @@ export default function EmployerSchedulePage() {
       .filter(session => session.scheduled_date && session.scheduled_time)
       .map(session => {
         const [hours, minutes] = session.scheduled_time!.split(':')
-        const startDate = new Date(session.scheduled_date!)
+        // Use T00:00:00 to parse as local timezone, not UTC
+        const startDate = new Date(session.scheduled_date! + 'T00:00:00')
         startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
 
         const endDate = new Date(startDate)
         const durationMinutes = session.job_template?.duration_minutes || 60
         endDate.setMinutes(endDate.getMinutes() + durationMinutes)
 
-        const jobDate = new Date(session.scheduled_date!)
+        // Use T00:00:00 to parse as local timezone
+        const jobDate = new Date(session.scheduled_date! + 'T00:00:00')
         jobDate.setHours(0, 0, 0, 0)
         const daysUntil = differenceInDays(jobDate, today)
 
@@ -441,7 +443,7 @@ export default function EmployerSchedulePage() {
                                 {session.scheduled_date && (
                                   <>
                                     <p className="font-medium">
-                                      {format(new Date(session.scheduled_date), 'EEE, MMM d')}
+                                      {format(new Date(session.scheduled_date + 'T00:00:00'), 'EEE, MMM d')}
                                     </p>
                                     {session.scheduled_time && (
                                       <p className="text-sm text-gray-500">{session.scheduled_time}</p>

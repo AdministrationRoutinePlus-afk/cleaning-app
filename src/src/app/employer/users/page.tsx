@@ -360,7 +360,7 @@ export default function EmployerUsersPage() {
           user_id: authUserId,
           customer_code: customerForm.customer_code.toUpperCase(),
           full_name: customerForm.full_name,
-          email: customerForm.email || `${customerForm.username || 'customer'}@cleaning.local`,
+          email: customerForm.email || null,
           phone: customerForm.phone || null,
           address: customerForm.address || null,
           notes: customerForm.notes || null,
@@ -627,12 +627,11 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email (optional)</Label>
                       <Input
                         id="email"
                         type="email"
                         placeholder="john@example.com"
-                        required
                         value={customerForm.email}
                         onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
                       />

@@ -27,6 +27,7 @@ export default function EmployeeMarketplacePage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [employeeStatus, setEmployeeStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('marketplace')
 
   const supabase = createClient()
@@ -131,6 +132,17 @@ export default function EmployeeMarketplacePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       setUserId(user.id)
+
+      // Also fetch employee status to check if account is activated
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('status')
+        .eq('user_id', user.id)
+        .single()
+
+      if (employee) {
+        setEmployeeStatus(employee.status)
+      }
     }
   }
 
@@ -263,6 +275,29 @@ export default function EmployeeMarketplacePage() {
               <div className="flex items-center justify-center py-20">
                 <div className="text-gray-500">Loading jobs...</div>
               </div>
+            ) : employeeStatus === 'PENDING' ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+                <div className="text-4xl mb-4">⏳</div>
+                <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                  Account Pending Activation
+                </h3>
+                <p className="text-yellow-700 mb-2">
+                  Your account is waiting for employer approval.
+                </p>
+                <p className="text-sm text-yellow-600">
+                  Once your account is activated, you&apos;ll be able to see and claim jobs here.
+                </p>
+              </div>
+            ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+                <div className="text-4xl mb-4">🚫</div>
+                <h3 className="text-lg font-semibold text-red-800 mb-2">
+                  Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
+                </h3>
+                <p className="text-red-700">
+                  Please contact your employer to restore access.
+                </p>
+              </div>
             ) : currentJob ? (
               <div className="space-y-6">
                 {/* Instructions */}
@@ -302,9 +337,19 @@ export default function EmployeeMarketplacePage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   All caught up!
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-4">
                   No more jobs available right now. Check back later!
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.removeItem('swipeHistory')
+                    loadData()
+                  }}
+                >
+                  Reset & Show All Jobs
+                </Button>
               </div>
             )}
           </TabsContent>

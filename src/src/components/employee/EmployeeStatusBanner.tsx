@@ -1,21 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BottomNav } from '@/components/BottomNav'
-import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
 
-export default function EmployeeLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [status, setStatus] = useState<string | null>(null)
+export function EmployeeStatusGate({ children }: { children: React.ReactNode }) {
+  const [employeeStatus, setEmployeeStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   const checkStatus = async () => {
-    setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: employee } = await supabase
@@ -24,7 +18,9 @@ export default function EmployeeLayout({
         .eq('user_id', user.id)
         .single()
 
-      setStatus(employee?.status || null)
+      if (employee) {
+        setEmployeeStatus(employee.status)
+      }
     }
     setLoading(false)
   }
@@ -33,7 +29,7 @@ export default function EmployeeLayout({
     checkStatus()
   }, [])
 
-  // Loading state
+  // Show loading while checking
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -42,8 +38,8 @@ export default function EmployeeLayout({
     )
   }
 
-  // PENDING - show lock screen
-  if (status === 'PENDING') {
+  // Lock screen for PENDING accounts
+  if (employeeStatus === 'PENDING') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
@@ -54,7 +50,13 @@ export default function EmployeeLayout({
           <p className="text-gray-600 mb-6">
             Your account is being reviewed by the administrator. Please come back later.
           </p>
-          <Button variant="outline" onClick={checkStatus}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setLoading(true)
+              checkStatus()
+            }}
+          >
             Check Again
           </Button>
         </div>
@@ -62,14 +64,14 @@ export default function EmployeeLayout({
     )
   }
 
-  // INACTIVE/BLOCKED - show lock screen
-  if (status === 'INACTIVE' || status === 'BLOCKED') {
+  // Lock screen for INACTIVE/BLOCKED accounts
+  if (employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
           <div className="text-6xl mb-4">🚫</div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">
-            Account {status === 'BLOCKED' ? 'Blocked' : 'Inactive'}
+            Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
           </h1>
           <p className="text-gray-600">
             Please contact your administrator for assistance.
@@ -79,11 +81,6 @@ export default function EmployeeLayout({
     )
   }
 
-  // ACTIVE - show normal layout
-  return (
-    <>
-      {children}
-      <BottomNav profile="EMPLOYEE" />
-    </>
-  )
+  // Account is ACTIVE - show the app
+  return <>{children}</>
 }

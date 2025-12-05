@@ -68,7 +68,8 @@ export default function EmployerJobsPage() {
         .single()
 
       if (!employer) {
-        console.error('Employer record not found')
+        // Not an employer - redirect to employee or login
+        router.push('/employee/marketplace')
         return
       }
 
