@@ -1,13 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { Employee, Conversation, Message } from '@/types/database'
+import type { Employee, Conversation, Message, ScheduleMessage, JobSession, JobTemplate } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChatView } from '@/components/employer/ChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
+import { format } from 'date-fns'
+
+// Extended type for schedule messages with job details
+interface ScheduleMessageWithDetails extends ScheduleMessage {
+  job_session: JobSession & {
+    job_template: JobTemplate
+  }
+}
 
 interface ConversationWithDetails extends Conversation {
   messages: Message[]
@@ -20,6 +28,7 @@ export default function EmployeeMessagesPage() {
   const [employerConversation, setEmployerConversation] = useState<ConversationWithDetails | null>(null)
   const [announcements, setAnnouncements] = useState<ConversationWithDetails[]>([])
   const [coworkerConversation, setCoworkerConversation] = useState<ConversationWithDetails | null>(null)
+  const [jobMessages, setJobMessages] = useState<ScheduleMessageWithDetails[]>([])
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -36,6 +45,8 @@ export default function EmployeeMessagesPage() {
         loadAnnouncements()
       } else if (activeTab === 'coworkers') {
         loadCoworkerConversation()
+      } else if (activeTab === 'jobs') {
+        loadJobMessages()
       }
     }
   }, [activeTab, currentEmployee])
@@ -148,6 +159,47 @@ export default function EmployeeMessagesPage() {
     }
   }
 
+  const loadJobMessages = async () => {
+    if (!currentEmployee) return
+
+    try {
+      const { data, error } = await supabase
+        .from('schedule_messages')
+        .select(`
+          *,
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(*)
+          )
+        `)
+        .eq('employee_id', currentEmployee.id)
+        .order('sent_at', { ascending: false })
+
+      if (error) throw error
+      setJobMessages((data as ScheduleMessageWithDetails[]) || [])
+    } catch (error) {
+      console.error('Error loading job messages:', error)
+    }
+  }
+
+  const markJobMessageRead = async (messageId: string) => {
+    try {
+      await supabase
+        .from('schedule_messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', messageId)
+
+      // Update local state
+      setJobMessages(prev =>
+        prev.map(msg =>
+          msg.id === messageId ? { ...msg, read_at: new Date().toISOString() } : msg
+        )
+      )
+    } catch (error) {
+      console.error('Error marking message as read:', error)
+    }
+  }
+
   const formatAnnouncementDate = (timestamp: string) => {
     const date = new Date(timestamp)
     return date.toLocaleDateString('en-US', {
@@ -198,29 +250,30 @@ export default function EmployeeMessagesPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Messages</h1>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 mb-6">
-            <TabsTrigger value="employer" className="text-xs sm:text-sm">
-              Employer
+          {/* Compact tabs for mobile */}
+          <TabsList className="w-full grid grid-cols-5 mb-6 h-auto p-1">
+            <TabsTrigger value="employer" className="text-[10px] sm:text-sm px-1 py-2 relative">
+              Boss
               {employerConversation && hasUnreadMessages(employerConversation) && (
-                <span className="ml-1 w-2 h-2 bg-blue-500 rounded-full"></span>
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="text-xs sm:text-sm">
+            <TabsTrigger value="jobs" className="text-[10px] sm:text-sm px-1 py-2 relative">
+              Jobs
+              {jobMessages.filter(m => !m.read_at).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center">
+                  {jobMessages.filter(m => !m.read_at).length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="text-[10px] sm:text-sm px-1 py-2">
               News
-              {announcements.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs px-1">
-                  {announcements.length}
-                </Badge>
-              )}
             </TabsTrigger>
-            <TabsTrigger value="coworkers" className="text-xs sm:text-sm">
+            <TabsTrigger value="coworkers" className="text-[10px] sm:text-sm px-1 py-2">
               Team
-              {coworkerConversation && hasUnreadMessages(coworkerConversation) && (
-                <span className="ml-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-              )}
             </TabsTrigger>
-            <TabsTrigger value="exchanges" className="text-xs sm:text-sm">
-              Exchange
+            <TabsTrigger value="exchanges" className="text-[10px] sm:text-sm px-1 py-2">
+              Swap
             </TabsTrigger>
           </TabsList>
 
@@ -241,6 +294,55 @@ export default function EmployeeMessagesPage() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Jobs Tab - Messages pushed from Schedule */}
+          <TabsContent value="jobs">
+            <div className="space-y-3">
+              {jobMessages.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-gray-500">No job notifications yet</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Your employer will send you important job updates here
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                jobMessages.map((msg) => (
+                  <Card
+                    key={msg.id}
+                    className={`cursor-pointer transition-all ${!msg.read_at ? 'border-blue-500 bg-blue-50' : ''}`}
+                    onClick={() => markJobMessageRead(msg.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-mono text-sm text-gray-500">
+                            {msg.job_session?.job_template?.job_code || 'Job'}
+                          </p>
+                          <h3 className="font-medium text-gray-900">
+                            {msg.job_session?.job_template?.title || 'Job Notification'}
+                          </h3>
+                        </div>
+                        {!msg.read_at && (
+                          <Badge variant="default" className="text-xs">New</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">{msg.message}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-400">
+                        <span>
+                          {msg.job_session?.scheduled_date && (
+                            <>Scheduled: {format(new Date(msg.job_session.scheduled_date), 'MMM d, yyyy')}</>
+                          )}
+                        </span>
+                        <span>{format(new Date(msg.sent_at), 'MMM d, h:mm a')}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </TabsContent>
 
           {/* Announcements Tab */}

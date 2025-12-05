@@ -6,12 +6,14 @@ import type { EmployerSettings, CompanyInfo, ThemeType } from '@/types/database'
 import { AppearanceSettings } from '@/components/employer/AppearanceSettings'
 import { NotificationSettings } from '@/components/employer/NotificationSettings'
 import { CompanyInfoForm } from '@/components/employer/CompanyInfoForm'
+import { AccountManagement } from '@/components/employer/AccountManagement'
 import { AccountSettings } from '@/components/employer/AccountSettings'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 export default function EmployerSettingsPage() {
   const [loading, setLoading] = useState(true)
   const [employerId, setEmployerId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string>('')
   const [settings, setSettings] = useState<EmployerSettings | null>(null)
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null)
   const supabase = createClient()
@@ -29,6 +31,7 @@ export default function EmployerSettingsPage() {
         window.location.href = '/login'
         return
       }
+      setUserEmail(user.email || '')
 
       // Get employer record
       const { data: employer, error: employerError } = await supabase
@@ -102,6 +105,7 @@ export default function EmployerSettingsPage() {
     theme: ThemeType
     primaryColor: string
     language: string
+    logoUrl: string | null
   }) => {
     if (!employerId) return
 
@@ -111,6 +115,7 @@ export default function EmployerSettingsPage() {
         theme: data.theme,
         primary_color: data.primaryColor,
         language: data.language,
+        logo_url: data.logoUrl,
         updated_at: new Date().toISOString(),
       })
       .eq('employer_id', employerId)
@@ -216,6 +221,26 @@ export default function EmployerSettingsPage() {
     await loadSettings()
   }
 
+  // Change email
+  const handleChangeEmail = async (newEmail: string) => {
+    const { error } = await supabase.auth.updateUser({
+      email: newEmail,
+    })
+
+    if (error) {
+      console.error('Error changing email:', error)
+      throw error
+    }
+
+    // Also update the employer record
+    if (employerId) {
+      await supabase
+        .from('employers')
+        .update({ email: newEmail, updated_at: new Date().toISOString() })
+        .eq('id', employerId)
+    }
+  }
+
   // Change password
   const handleChangePassword = async (currentPassword: string, newPassword: string) => {
     const { error } = await supabase.auth.updateUser({
@@ -292,6 +317,8 @@ export default function EmployerSettingsPage() {
                 theme={settings.theme}
                 primaryColor={settings.primary_color}
                 language={settings.language}
+                logoUrl={settings.logo_url}
+                employerId={employerId!}
                 onSave={handleSaveAppearance}
               />
             </AccordionContent>
@@ -328,12 +355,23 @@ export default function EmployerSettingsPage() {
             </AccordionContent>
           </AccordionItem>
 
+          <AccordionItem value="management" className="bg-white rounded-lg border-0">
+            <AccordionTrigger className="px-6 hover:no-underline">
+              <span className="text-lg font-semibold">Account Management</span>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6">
+              <AccountManagement />
+            </AccordionContent>
+          </AccordionItem>
+
           <AccordionItem value="account" className="bg-white rounded-lg border-0">
             <AccordionTrigger className="px-6 hover:no-underline">
               <span className="text-lg font-semibold">Account & Security</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AccountSettings
+                currentEmail={userEmail}
+                onChangeEmail={handleChangeEmail}
                 onChangePassword={handleChangePassword}
                 onLogout={handleLogout}
                 onDeleteAccount={handleDeleteAccount}

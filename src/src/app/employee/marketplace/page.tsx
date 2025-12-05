@@ -74,12 +74,20 @@ export default function EmployeeMarketplacePage() {
       const swipeHistory = getSwipeHistory()
       const swipedIds = new Set(swipeHistory.map(s => s.jobSessionId))
 
-      const availableJobs = (offeredJobs || []).filter(
-        job => !swipedIds.has(job.id)
-      ) as JobSessionWithDetails[]
+      // Deduplicate and filter out swiped jobs + jobs without job_template
+      const availableJobs = (offeredJobs || [])
+        .filter(job => job.job_template !== null) // Filter out orphaned sessions
+        .filter(job => !swipedIds.has(job.id))
+        .filter((job, index, self) => index === self.findIndex(j => j.id === job.id)) as JobSessionWithDetails[]
 
       setMarketplaceJobs(availableJobs)
-      setInterestedJobs((claimedJobs || []) as JobSessionWithDetails[])
+
+      // Deduplicate claimed jobs by ID (in case of duplicates) + filter out orphaned
+      const uniqueClaimedJobs = (claimedJobs || [])
+        .filter(job => job.job_template !== null)
+        .filter((job, index, self) => index === self.findIndex(j => j.id === job.id)
+      ) as JobSessionWithDetails[]
+      setInterestedJobs(uniqueClaimedJobs)
 
       // Load skipped jobs from localStorage
       const skipped = swipeHistory
@@ -98,7 +106,12 @@ export default function EmployeeMarketplacePage() {
           `)
           .in('id', skipped)
 
-        setSkippedJobs((skippedData || []) as JobSessionWithDetails[])
+        // Deduplicate skipped jobs + filter out orphaned
+        const uniqueSkipped = (skippedData || [])
+          .filter(job => job.job_template !== null)
+          .filter((job, index, self) => index === self.findIndex(j => j.id === job.id)
+        ) as JobSessionWithDetails[]
+        setSkippedJobs(uniqueSkipped)
       }
 
     } catch (error) {

@@ -41,14 +41,32 @@ export default function EmployerUsersPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // New customer form state - includes all fields from the plan
+  // New customer form state
   const [customerForm, setCustomerForm] = useState({
     customer_code: '',
     full_name: '',
     email: '',
     phone: '',
     address: '',
-    notes: ''  // Internal notes about the customer
+    notes: '',
+    // Optional account credentials
+    create_account: false,
+    username: '',
+    password: ''
+  })
+
+  // New employee form state
+  const [employeeSheetOpen, setEmployeeSheetOpen] = useState(false)
+  const [employeeForm, setEmployeeForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    address: '',
+    notes: '',
+    // Optional account credentials
+    create_account: false,
+    username: '',
+    password: ''
   })
 
   // Load employees and customers
@@ -173,6 +191,83 @@ export default function EmployerUsersPage() {
     router.push(`/employer/users/employee/${employee.id}`)
   }
 
+  // Create new employee
+  const handleCreateEmployee = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      // Get employer record
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!employer) throw new Error('Employer not found')
+
+      let authUserId: string | null = null
+
+      // Create auth account if requested (via server-side API)
+      if (employeeForm.create_account && employeeForm.username && employeeForm.password) {
+        const response = await fetch('/api/auth/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: employeeForm.username,
+            password: employeeForm.password,
+            full_name: employeeForm.full_name,
+            role: 'employee'
+          })
+        })
+
+        const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create account')
+        }
+        authUserId = result.user_id
+      }
+
+      // Create employee record
+      const { error: employeeError } = await supabase
+        .from('employees')
+        .insert({
+          user_id: authUserId,
+          full_name: employeeForm.full_name,
+          email: employeeForm.email || `${employeeForm.username || 'employee'}@cleaning.local`,
+          phone: employeeForm.phone || null,
+          address: employeeForm.address || null,
+          notes: employeeForm.notes || null,
+          status: 'ACTIVE', // Created by employer = already active
+          created_by: employer.id
+        })
+
+      if (employeeError) throw employeeError
+
+      // Reset form and reload
+      setEmployeeForm({
+        full_name: '',
+        email: '',
+        phone: '',
+        address: '',
+        notes: '',
+        create_account: false,
+        username: '',
+        password: ''
+      })
+      setEmployeeSheetOpen(false)
+      await loadData()
+    } catch (error) {
+      console.error('Error creating employee:', error)
+      alert('Failed to create employee. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   // Navigate to detailed customer profile page with job history, evaluations, strikes
   const handleEditCustomer = (customer: Customer) => {
     router.push(`/employer/users/customer/${customer.id}`)
@@ -227,28 +322,48 @@ export default function EmployerUsersPage() {
         return
       }
 
-      // Get employer record to use employer.id for created_by FK
+      // Get employer record
       const { data: employer } = await supabase
         .from('employers')
         .select('id')
         .eq('user_id', user.id)
         .single()
 
-      if (!employer) {
-        throw new Error('Employer not found')
+      if (!employer) throw new Error('Employer not found')
+
+      let authUserId: string | null = null
+
+      // Create auth account if requested (via server-side API)
+      if (customerForm.create_account && customerForm.username && customerForm.password) {
+        const response = await fetch('/api/auth/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: customerForm.username,
+            password: customerForm.password,
+            full_name: customerForm.full_name,
+            role: 'customer'
+          })
+        })
+
+        const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create account')
+        }
+        authUserId = result.user_id
       }
 
-      // Create customer record (without auth user for now - can be invited later)
+      // Create customer record
       const { error: customerError } = await supabase
         .from('customers')
         .insert({
-          user_id: null, // Customer can be linked to auth user later via invite
+          user_id: authUserId,
           customer_code: customerForm.customer_code.toUpperCase(),
           full_name: customerForm.full_name,
-          email: customerForm.email,
+          email: customerForm.email || `${customerForm.username || 'customer'}@cleaning.local`,
           phone: customerForm.phone || null,
           address: customerForm.address || null,
-          notes: customerForm.notes || null,  // Internal notes about the customer
+          notes: customerForm.notes || null,
           status: 'ACTIVE',
           created_by: employer.id
         })
@@ -262,7 +377,10 @@ export default function EmployerUsersPage() {
         email: '',
         phone: '',
         address: '',
-        notes: ''
+        notes: '',
+        create_account: false,
+        username: '',
+        password: ''
       })
       setSheetOpen(false)
       await loadData()
@@ -299,6 +417,117 @@ export default function EmployerUsersPage() {
 
           {/* EMPLOYEES TAB */}
           <TabsContent value="employees" className="space-y-4">
+            <div className="flex justify-end">
+              <Sheet open={employeeSheetOpen} onOpenChange={setEmployeeSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button>Add Employee</Button>
+                </SheetTrigger>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Create New Employee</SheetTitle>
+                    <SheetDescription>
+                      Add a new employee to your team. Optionally create login credentials.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <form onSubmit={handleCreateEmployee} className="space-y-4 mt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="emp_full_name">Full Name *</Label>
+                      <Input
+                        id="emp_full_name"
+                        placeholder="John Doe"
+                        required
+                        value={employeeForm.full_name}
+                        onChange={(e) => setEmployeeForm({ ...employeeForm, full_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emp_email">Email</Label>
+                      <Input
+                        id="emp_email"
+                        type="email"
+                        placeholder="john@example.com"
+                        value={employeeForm.email}
+                        onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emp_phone">Phone</Label>
+                      <Input
+                        id="emp_phone"
+                        type="tel"
+                        placeholder="+1 (555) 123-4567"
+                        value={employeeForm.phone}
+                        onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emp_address">Address</Label>
+                      <Input
+                        id="emp_address"
+                        placeholder="123 Main St, City, State"
+                        value={employeeForm.address}
+                        onChange={(e) => setEmployeeForm({ ...employeeForm, address: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emp_notes">Notes (optional)</Label>
+                      <Input
+                        id="emp_notes"
+                        placeholder="Internal notes..."
+                        value={employeeForm.notes}
+                        onChange={(e) => setEmployeeForm({ ...employeeForm, notes: e.target.value })}
+                      />
+                    </div>
+
+                    {/* Account Section */}
+                    <div className="border-t pt-4 mt-4">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <input
+                          type="checkbox"
+                          id="emp_create_account"
+                          checked={employeeForm.create_account}
+                          onChange={(e) => setEmployeeForm({ ...employeeForm, create_account: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor="emp_create_account" className="font-medium">Create login account</Label>
+                      </div>
+
+                      {employeeForm.create_account && (
+                        <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                          <div className="space-y-2">
+                            <Label htmlFor="emp_username">Username *</Label>
+                            <Input
+                              id="emp_username"
+                              placeholder="johndoe"
+                              required={employeeForm.create_account}
+                              value={employeeForm.username}
+                              onChange={(e) => setEmployeeForm({ ...employeeForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="emp_password">Password *</Label>
+                            <Input
+                              id="emp_password"
+                              type="password"
+                              placeholder="Minimum 6 characters"
+                              required={employeeForm.create_account}
+                              minLength={6}
+                              value={employeeForm.password}
+                              onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={submitting}>
+                      {submitting ? 'Creating...' : 'Create Employee'}
+                    </Button>
+                  </form>
+                </SheetContent>
+              </Sheet>
+            </div>
+
             <Tabs value={employeeTab} onValueChange={(v) => setEmployeeTab(v as typeof employeeTab)} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="active">Active</TabsTrigger>
@@ -436,6 +665,48 @@ export default function EmployerUsersPage() {
                         onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })}
                       />
                     </div>
+
+                    {/* Account Section */}
+                    <div className="border-t pt-4 mt-4">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <input
+                          type="checkbox"
+                          id="cust_create_account"
+                          checked={customerForm.create_account}
+                          onChange={(e) => setCustomerForm({ ...customerForm, create_account: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor="cust_create_account" className="font-medium">Create login account</Label>
+                      </div>
+
+                      {customerForm.create_account && (
+                        <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                          <div className="space-y-2">
+                            <Label htmlFor="cust_username">Username *</Label>
+                            <Input
+                              id="cust_username"
+                              placeholder="johndoe"
+                              required={customerForm.create_account}
+                              value={customerForm.username}
+                              onChange={(e) => setCustomerForm({ ...customerForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="cust_password">Password *</Label>
+                            <Input
+                              id="cust_password"
+                              type="password"
+                              placeholder="Minimum 6 characters"
+                              required={customerForm.create_account}
+                              minLength={6}
+                              value={customerForm.password}
+                              onChange={(e) => setCustomerForm({ ...customerForm, password: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <Button type="submit" className="w-full" disabled={submitting}>
                       {submitting ? 'Creating...' : 'Create Customer'}
                     </Button>

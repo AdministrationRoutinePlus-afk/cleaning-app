@@ -93,19 +93,37 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
     if (!newMessage.trim() || !currentUserId || sending) return
 
     setSending(true)
+    const messageContent = newMessage.trim()
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversationId,
           sender_id: currentUserId,
-          content: newMessage.trim(),
+          content: messageContent,
           is_system: false,
           sent_at: new Date().toISOString()
         })
+        .select()
+        .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error sending message:', error)
+        alert(`Failed to send: ${error.message}`)
+        return
+      }
+
       setNewMessage('')
+
+      // Manually add message if realtime doesn't work
+      if (data) {
+        setMessages(prev => {
+          // Check if message already exists (from realtime)
+          if (prev.some(m => m.id === data.id)) return prev
+          return [...prev, data]
+        })
+      }
     } catch (error) {
       console.error('Error sending message:', error)
       alert('Failed to send message')

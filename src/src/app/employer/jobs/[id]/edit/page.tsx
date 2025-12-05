@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import type { Customer, JobTemplate, DayOfWeek } from '@/types/database'
+import type { Customer, JobTemplate, DayOfWeek, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
+import { addDays, format, parseISO, nextDay } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -17,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
+import { X, Plus, Calendar } from 'lucide-react'
 
 export default function EditJobPage() {
   const router = useRouter()
@@ -27,8 +30,13 @@ export default function EditJobPage() {
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [job, setJob] = useState<JobTemplate | null>(null)
   const [steps, setSteps] = useState<Step[]>([])
+
+  // Scheduling state
+  const [newSpecificDate, setNewSpecificDate] = useState('')
+  const [newExcludeDate, setNewExcludeDate] = useState('')
 
   // Form state
   const [formData, setFormData] = useState({
@@ -41,7 +49,43 @@ export default function EditJobPage() {
     timezone: 'America/Toronto',
     is_recurring: false,
     notes: '',
+    // Window-based scheduling
+    window_start_day: '' as string,
+    window_end_day: '' as string,
+    time_window_start: '',
+    time_window_end: '',
+    // Scheduling dates
+    specific_dates: [] as string[],
+    start_date: '',
+    end_date: '',
+    exclude_dates: [] as string[],
+    preferred_employee_id: '',
   })
+
+  const DAYS_OF_WEEK = [
+    { value: 'SUN', label: 'Sunday' },
+    { value: 'MON', label: 'Monday' },
+    { value: 'TUE', label: 'Tuesday' },
+    { value: 'WED', label: 'Wednesday' },
+    { value: 'THU', label: 'Thursday' },
+    { value: 'FRI', label: 'Friday' },
+    { value: 'SAT', label: 'Saturday' },
+  ]
+
+  const TIME_OPTIONS = [
+    '00:00', '01:00', '02:00', '03:00', '04:00', '05:00',
+    '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+    '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+    '18:00', '19:00', '20:00', '21:00', '22:00', '23:00',
+  ]
+
+  const formatTime12h = (time: string) => {
+    const hour = parseInt(time.split(':')[0])
+    if (hour === 0) return '12:00 AM'
+    if (hour < 12) return `${hour}:00 AM`
+    if (hour === 12) return '12:00 PM'
+    return `${hour - 12}:00 PM`
+  }
 
   useEffect(() => {
     fetchJobData()
@@ -96,6 +140,17 @@ export default function EditJobPage() {
         timezone: jobData.timezone || 'America/Toronto',
         is_recurring: jobData.is_recurring || false,
         notes: jobData.notes || '',
+        // Window-based scheduling
+        window_start_day: jobData.window_start_day || '',
+        window_end_day: jobData.window_end_day || '',
+        time_window_start: jobData.time_window_start || '',
+        time_window_end: jobData.time_window_end || '',
+        // Scheduling dates
+        specific_dates: jobData.specific_dates || [],
+        start_date: jobData.start_date || '',
+        end_date: jobData.end_date || '',
+        exclude_dates: jobData.exclude_dates || [],
+        preferred_employee_id: jobData.preferred_employee_id || '',
       })
 
       // Fetch customers
@@ -107,6 +162,16 @@ export default function EditJobPage() {
         .order('full_name', { ascending: true })
 
       setCustomers(customersData || [])
+
+      // Fetch employees
+      const { data: employeesData } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('created_by', employer.id)
+        .eq('status', 'ACTIVE')
+        .order('full_name', { ascending: true })
+
+      setEmployees(employeesData || [])
 
       // Fetch steps with checklist items and images
       const { data: stepsData } = await supabase
@@ -156,6 +221,159 @@ export default function EditJobPage() {
     }
   }
 
+  /**
+   * Create job sessions based on window-based scheduling
+   *
+   * Window-based model:
+   * - A job has a time window from (start_day, start_time) to (end_day, end_time)
+   * - Example: Friday 5pm to Sunday 8pm
+   * - For recurring jobs: creates one session per week
+   * - For one-time jobs: creates sessions for specific dates
+   */
+  const createJobSessions = async (
+    jobTemplateId: string,
+    jobCode: string,
+    sessionData: {
+      is_recurring: boolean
+      window_start_day: string
+      window_end_day: string
+      time_window_start: string
+      time_window_end: string
+      start_date: string
+      end_date: string
+      specific_dates: string[]
+      exclude_dates: string[]
+    }
+  ) => {
+    try {
+      // Map day abbreviations to date-fns day numbers (0 = Sunday, 1 = Monday, etc.)
+      const dayMap: Record<string, number> = {
+        'SUN': 0, 'MON': 1, 'TUE': 2, 'WED': 3, 'THU': 4, 'FRI': 5, 'SAT': 6
+      }
+
+      const sessions: Array<{
+        job_template_id: string
+        session_code: string
+        full_job_code: string
+        scheduled_date: string
+        scheduled_end_date: string | null
+        scheduled_time: string | null
+        status: string
+      }> = []
+
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      let sessionCounter = 1
+
+      const generateSessionCode = () => {
+        const code = `A${String(sessionCounter).padStart(3, '0')}`
+        sessionCounter++
+        return code
+      }
+
+      // Parse exclude dates
+      const excludeDates = new Set(sessionData.exclude_dates)
+
+      console.log('=== SESSION CREATION (Window-based - Edit) ===')
+      console.log('is_recurring:', sessionData.is_recurring)
+      console.log('window:', sessionData.window_start_day, sessionData.time_window_start, '→', sessionData.window_end_day, sessionData.time_window_end)
+
+      // Calculate how many days the window spans
+      const startDayNum = dayMap[sessionData.window_start_day] ?? 0
+      const endDayNum = dayMap[sessionData.window_end_day] ?? startDayNum
+      let windowDays = endDayNum - startDayNum
+      if (windowDays < 0) windowDays += 7 // Handle wrap around (e.g., Sat to Mon)
+      if (windowDays === 0 && sessionData.window_start_day !== sessionData.window_end_day) windowDays = 7
+
+      console.log('Window spans', windowDays, 'days')
+
+      if (sessionData.is_recurring) {
+        // Recurring: Create one session per week from start_date to end_date
+        const startDate = sessionData.start_date ? new Date(sessionData.start_date + 'T00:00:00') : today
+        const endDate = sessionData.end_date ? new Date(sessionData.end_date + 'T00:00:00') : addDays(today, 30)
+
+        console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'))
+
+        // Find the first occurrence of window_start_day on or after startDate
+        let currentDate = new Date(startDate)
+        const targetDayNum = dayMap[sessionData.window_start_day]
+
+        // Move to the first window_start_day
+        while (currentDate.getDay() !== targetDayNum) {
+          currentDate = addDays(currentDate, 1)
+        }
+
+        console.log('First window starts:', format(currentDate, 'yyyy-MM-dd (EEEE)'))
+
+        // Create sessions week by week
+        while (currentDate <= endDate) {
+          const windowStart = new Date(currentDate)
+          const windowEnd = addDays(windowStart, windowDays)
+          const dateStr = format(windowStart, 'yyyy-MM-dd')
+
+          // Check if this week should be skipped
+          if (!excludeDates.has(dateStr)) {
+            const sessionCode = generateSessionCode()
+            sessions.push({
+              job_template_id: jobTemplateId,
+              session_code: sessionCode,
+              full_job_code: `${jobCode}-${sessionCode}`,
+              scheduled_date: dateStr,
+              scheduled_end_date: windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : null,
+              scheduled_time: sessionData.time_window_start || null,
+              status: 'OFFERED'
+            })
+            console.log(`Session ${sessionCode}: ${dateStr} → ${windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : 'same day'}`)
+          } else {
+            console.log(`Skipped: ${dateStr} (excluded)`)
+          }
+
+          // Move to next week
+          currentDate = addDays(currentDate, 7)
+        }
+      } else {
+        // One-time: Create sessions for specific dates
+        const datesToCreate = sessionData.specific_dates.filter(d => !excludeDates.has(d)).sort()
+
+        console.log('Specific dates:', datesToCreate)
+
+        for (const dateStr of datesToCreate) {
+          const windowStart = new Date(dateStr + 'T00:00:00')
+          const windowEnd = addDays(windowStart, windowDays)
+
+          const sessionCode = generateSessionCode()
+          sessions.push({
+            job_template_id: jobTemplateId,
+            session_code: sessionCode,
+            full_job_code: `${jobCode}-${sessionCode}`,
+            scheduled_date: dateStr,
+            scheduled_end_date: windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : null,
+            scheduled_time: sessionData.time_window_start || null,
+            status: 'OFFERED'
+          })
+          console.log(`Session ${sessionCode}: ${dateStr}`)
+        }
+      }
+
+      // Insert all sessions
+      if (sessions.length > 0) {
+        const { error: sessionsError } = await supabase
+          .from('job_sessions')
+          .insert(sessions)
+
+        if (sessionsError) {
+          console.error('Error creating job sessions:', sessionsError)
+        } else {
+          console.log(`Created ${sessions.length} job session(s)`)
+        }
+      } else {
+        console.log('No sessions to create')
+      }
+    } catch (error) {
+      console.error('Error in createJobSessions:', error)
+    }
+  }
+
   const handleSubmit = async (status: 'DRAFT' | 'ACTIVE') => {
     try {
       setLoading(true)
@@ -184,6 +402,20 @@ export default function EditJobPage() {
         notes: formData.notes || null,
         status: status,
         updated_at: new Date().toISOString(),
+        // Window-based scheduling fields
+        window_start_day: formData.window_start_day || null,
+        window_end_day: formData.window_end_day || null,
+        time_window_start: formData.time_window_start || null,
+        time_window_end: formData.time_window_end || null,
+        // Scheduling dates
+        specific_dates: formData.specific_dates.length > 0 ? formData.specific_dates : null,
+        start_date: formData.start_date || null,
+        end_date: formData.end_date || null,
+        exclude_dates: formData.exclude_dates.length > 0 ? formData.exclude_dates : null,
+        preferred_employee_id: formData.preferred_employee_id || null,
+        // Legacy fields (keep for backward compatibility)
+        available_days: [],
+        frequency_per_week: null,
       }
 
       // Update job template
@@ -193,6 +425,23 @@ export default function EditJobPage() {
         .eq('id', jobId)
 
       if (error) throw error
+
+      // If job was DRAFT and is now being ACTIVATED, create job sessions
+      // This ensures the job appears on the calendar
+      if (job.status === 'DRAFT' && status === 'ACTIVE') {
+        // Use form data for scheduling fields
+        await createJobSessions(jobId, job.job_code, {
+          is_recurring: formData.is_recurring,
+          window_start_day: formData.window_start_day,
+          window_end_day: formData.window_end_day,
+          time_window_start: formData.time_window_start,
+          time_window_end: formData.time_window_end,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          specific_dates: formData.specific_dates,
+          exclude_dates: formData.exclude_dates,
+        })
+      }
 
       // Delete existing steps (cascade will handle checklist and images)
       await supabase
@@ -449,6 +698,297 @@ export default function EditJobPage() {
                 placeholder="Notes visible only to you..."
                 rows={2}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Scheduling Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Scheduling
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Step 1: Job Type */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Job Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={!formData.is_recurring ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, is_recurring: false })}
+                  className="flex-1"
+                >
+                  One-time
+                </Button>
+                <Button
+                  type="button"
+                  variant={formData.is_recurring ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, is_recurring: true })}
+                  className="flex-1"
+                >
+                  Recurring
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200" />
+
+            {/* Step 2: Time Window */}
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Job Window</Label>
+              <p className="text-sm text-gray-600">
+                When can this job be done? Employee can complete it anytime within this window.
+              </p>
+
+              {/* Window Start */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">From Day</Label>
+                    <Select
+                      value={formData.window_start_day}
+                      onValueChange={(value) => setFormData({ ...formData, window_start_day: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAYS_OF_WEEK.map(day => (
+                          <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">From Time</Label>
+                    <Select
+                      value={formData.time_window_start}
+                      onValueChange={(value) => setFormData({ ...formData, time_window_start: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Start time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.map(time => (
+                          <SelectItem key={time} value={time}>{formatTime12h(time)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <span className="text-gray-400 text-sm">to</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">To Day</Label>
+                    <Select
+                      value={formData.window_end_day}
+                      onValueChange={(value) => setFormData({ ...formData, window_end_day: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DAYS_OF_WEEK.map(day => (
+                          <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">To Time</Label>
+                    <Select
+                      value={formData.time_window_end}
+                      onValueChange={(value) => setFormData({ ...formData, time_window_end: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="End time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.map(time => (
+                          <SelectItem key={time} value={time}>{formatTime12h(time)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Window Preview */}
+                {formData.window_start_day && formData.window_end_day && (
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-2">
+                    <p className="text-sm text-blue-800 font-medium">
+                      {DAYS_OF_WEEK.find(d => d.value === formData.window_start_day)?.label} {formData.time_window_start ? formatTime12h(formData.time_window_start) : ''}
+                      {' → '}
+                      {DAYS_OF_WEEK.find(d => d.value === formData.window_end_day)?.label} {formData.time_window_end ? formatTime12h(formData.time_window_end) : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200" />
+
+            {/* Step 3: Date Range or Specific Dates */}
+            {formData.is_recurring ? (
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Recurring Period</Label>
+                <p className="text-sm text-gray-600">
+                  One job session will be created for each week in this period.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-gray-600">End Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.end_date}
+                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                      min={formData.start_date || undefined}
+                    />
+                  </div>
+                </div>
+
+                {/* Skip Dates */}
+                <div className="space-y-2 pt-2">
+                  <Label className="text-sm">Skip Dates (Optional)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={newExcludeDate}
+                      onChange={(e) => setNewExcludeDate(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (newExcludeDate && !formData.exclude_dates.includes(newExcludeDate)) {
+                          setFormData({
+                            ...formData,
+                            exclude_dates: [...formData.exclude_dates, newExcludeDate].sort()
+                          })
+                          setNewExcludeDate('')
+                        }
+                      }}
+                      disabled={!newExcludeDate}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {formData.exclude_dates.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.exclude_dates.map(date => (
+                        <Badge key={date} variant="outline" className="flex items-center gap-1 text-red-600 border-red-300">
+                          {format(parseISO(date), 'MMM d')}
+                          <button
+                            type="button"
+                            onClick={() => setFormData({
+                              ...formData,
+                              exclude_dates: formData.exclude_dates.filter(d => d !== date)
+                            })}
+                            className="ml-1 hover:text-red-700"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Select Date(s)</Label>
+                <p className="text-sm text-gray-600">
+                  Pick the specific date(s) when this job should be done.
+                </p>
+
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={newSpecificDate}
+                    onChange={(e) => setNewSpecificDate(e.target.value)}
+                    min={format(new Date(), 'yyyy-MM-dd')}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (newSpecificDate && !formData.specific_dates.includes(newSpecificDate)) {
+                        setFormData({
+                          ...formData,
+                          specific_dates: [...formData.specific_dates, newSpecificDate].sort()
+                        })
+                        setNewSpecificDate('')
+                      }
+                    }}
+                    disabled={!newSpecificDate}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                {formData.specific_dates.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.specific_dates.map(date => (
+                      <Badge key={date} variant="secondary" className="flex items-center gap-1 py-1">
+                        {format(parseISO(date), 'EEE, MMM d')}
+                        <button
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            specific_dates: formData.specific_dates.filter(d => d !== date)
+                          })}
+                          className="ml-1 hover:text-red-500"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="border-t border-gray-200" />
+
+            {/* Preferred Employee */}
+            <div className="space-y-2">
+              <Label>Assign To (Optional)</Label>
+              <Select
+                value={formData.preferred_employee_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, preferred_employee_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Anyone available" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Anyone available</SelectItem>
+                  {employees.map(employee => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

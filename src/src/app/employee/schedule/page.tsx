@@ -242,7 +242,10 @@ END:VCALENDAR`
               onView={setView}
               date={date}
               onNavigate={setDate}
-              views={['month', 'week', 'day', 'agenda']}
+              views={['month', 'week', 'work_week', 'day', 'agenda']}
+              messages={{
+                work_week: '2 Weeks'
+              }}
               popup
             />
           </div>

@@ -27,8 +27,32 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
   const loadConversations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
+      // First get conversation IDs where user is a participant
+      const { data: participations, error: partError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', user.id)
+
+      if (partError) {
+        console.error('Error loading participations:', partError)
+        setConversations([])
+        return
+      }
+
+      if (!participations || participations.length === 0) {
+        // No conversations yet - this is normal
+        setConversations([])
+        return
+      }
+
+      const conversationIds = participations.map(p => p.conversation_id)
+
+      // Now fetch the full conversation details
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -37,18 +61,19 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
           messages(*)
         `)
         .eq('type', 'DIRECT')
+        .in('id', conversationIds)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error loading conversations:', error)
+        setConversations([])
+        return
+      }
 
-      // Filter conversations where current user is a participant
-      const userConversations = (data as ConversationWithDetails[]).filter(conv =>
-        conv.conversation_participants?.some(p => p.user_id === user.id)
-      )
-
-      setConversations(userConversations)
+      setConversations((data as ConversationWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading conversations:', error)
+      setConversations([])
     } finally {
       setLoading(false)
     }

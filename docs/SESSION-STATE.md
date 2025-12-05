@@ -1,14 +1,51 @@
 # Session State - Cleaning App
 
 **Last Updated:** December 5, 2025
-**Status:** ACTIVE - Working on EMPLOYER Tab 2
+**Status:** COMPLETE - All 3 Profiles Verified and Fixed
 
 ---
 
 ## LAST SESSION SUMMARY (Dec 5, 2025)
 
+### EMPLOYEE PROFILE FIXES
+**Task:** Verify Employee Profile against detailed plan and fix all gaps
+**Result:** All 5 gaps identified and fixed
+
+**Fixes Applied:**
+1. **Job Image Display** - Added `image_url` to job_templates, updated MarketplaceJobCard
+2. **My Jobs 5 Tabs** - Added Pending, Refused sections (was 4 tabs, now 5)
+3. **Cancel Interest** - Added button + dialog on pending jobs
+4. **Request Exchange** - Added button + dialog on approved jobs
+5. **Two Weeks View** - Added work_week to Employee Schedule calendar
+
+**SQL to Run:**
+```sql
+-- Run these in Supabase SQL Editor:
+
+-- 1. Add image_url to job_templates
+ALTER TABLE job_templates ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT NULL;
+
+-- 2. Add REFUSED status (if enum exists)
+-- Note: May need to check if enum already has this value
+ALTER TYPE job_session_status ADD VALUE IF NOT EXISTS 'REFUSED' AFTER 'APPROVED';
+```
+
+### Previous: RLS FIX SESSION
+**Problem:** Jobs and Settings pages not loading due to RLS policy conflicts
+**Root Cause:** Duplicate/conflicting policy names from multiple SQL fix attempts
+**Solution:** Dropped ALL policies using dynamic SQL, recreated with unique names
+
+**Tables fixed:**
+- `employers` - policies: employers_select, employers_insert, employers_update
+- `job_templates` - policies: job_templates_employer_select/insert/update/delete
+- `employer_settings` - policies: employer_settings_select/insert/update
+- `company_info` - policies: company_info_select/insert/update
+
+---
+
 **JOBS TAB - COMPLETED!**
 **EMPLOYER TAB 2: EMPLOYEES/CUSTOMERS - COMPLETED!**
+**EMPLOYER TAB 3: SCHEDULE - COMPLETED!**
 
 ### Tab 1: JOBS - All features implemented
 - 3 sections (Draft/Active/Current)
@@ -39,15 +76,37 @@
 - Evaluations submitted by customer
 - Strikes system (MINOR/MAJOR/CRITICAL severity)
 
+### Tab 3: SCHEDULE - All features implemented
+**Calendar Views:**
+- Day, Week, 2 Weeks (work_week), Month views
+- Navigation between dates
+- Mobile responsive design
+
+**Job Colors (urgency-based for OFFERED, status-based for others):**
+- Gray = Open (>4 days away)
+- Orange = Warning (≤4 days away)
+- Red = Urgent (≤2 days away)
+- Yellow = Claimed
+- Blue = Approved/Assigned
+- Purple = In Progress
+- Green = Completed
+- Gray with red dashed border = Cancelled
+- Teal = Evaluated
+
+**Job Popup Actions:**
+- View job details (code, date, time, duration, address, description)
+- View assigned employee info
+- Move Job (reschedule to new date/time)
+- Modify Price/Hour (override template price for this session)
+- Push to Messages (send notification to assigned employee)
+- Cancel Job
+
 **Files created/modified:**
-- `/src/app/employer/users/page.tsx` - Users management with full comments
-- `/src/app/employer/users/employee/[id]/page.tsx` - NEW - Employee profile
-- `/src/app/employer/users/customer/[id]/page.tsx` - NEW - Customer profile
-- `/src/components/employer/EmployeeCard.tsx` - Updated with reactivate
-- `/src/components/employer/CustomerCard.tsx` - Already complete
+- `/src/app/employer/schedule/page.tsx` - Enhanced with urgency colors, 2 weeks view
+- `/src/components/employer/ScheduleJobPopup.tsx` - Added Modify Price and Push to Messages
 
 **Next up:**
-- EMPLOYER Tab 3: Schedule page
+- EMPLOYER Tab 4: Messages page
 
 ---
 
@@ -64,13 +123,26 @@ Read these files to continue:
 
 ## COMPLETED
 
-- Database (24 tables, RLS, storage)
-- Employer features (5 tabs)
-- Employee features (5 tabs)
-- Customer features (3 tabs)
-- Test agents - found 10 bugs, all fixed
+- Database (24 tables + fcm_tokens, RLS, storage)
+- Employer features (5 tabs) ✅
+  - Tab 1: Jobs
+  - Tab 2: Users (Employees/Customers)
+  - Tab 3: Schedule
+  - Tab 4: Messages
+  - Tab 5: Settings (Logo, Notifications with Firebase, Company Info, Account Management, Security)
+- Employee features (5/5 tabs) ✅
+  - Tab 1: Marketplace ✅
+  - Tab 2: My Jobs ✅
+  - Tab 3: Schedule ✅
+  - Tab 4: Messages ✅
+  - Tab 5: Profile/Settings ✅ (Personal Info, Documents, Availability, Push Notifications, Logout)
+- Customer features (3/3 tabs) ✅
+  - Tab 1: Reviews ✅ (Pending/Submitted, 1-5 stars + notes)
+  - Tab 2: My Jobs ✅ (Read-only job templates with step-by-step)
+  - Tab 3: Messages ✅ (Direct chat with employer)
 - Apple-like UI design system applied
 - Logo integrated (Routine+ / Groupe ABR)
+- Firebase push notifications setup (permission request working)
 
 ---
 

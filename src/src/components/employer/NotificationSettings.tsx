@@ -1,10 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Bell, BellOff, CheckCircle } from 'lucide-react'
+import {
+  requestNotificationPermission,
+  getNotificationPermissionStatus,
+  areNotificationsEnabled
+} from '@/lib/firebase/notifications'
 
 interface NotificationSettingsProps {
   pushEnabled: boolean
@@ -49,9 +55,37 @@ export function NotificationSettings({
     reminder6Hours,
   })
   const [saving, setSaving] = useState(false)
+  const [permissionStatus, setPermissionStatus] = useState<string>('default')
+  const [requestingPermission, setRequestingPermission] = useState(false)
+
+  // Check notification permission on mount
+  useEffect(() => {
+    const status = getNotificationPermissionStatus()
+    setPermissionStatus(status)
+  }, [])
 
   const updateSetting = (key: keyof typeof settings, value: boolean) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
+  // Handle push notification toggle
+  const handlePushToggle = async (checked: boolean) => {
+    if (checked && permissionStatus !== 'granted') {
+      // Request permission first
+      setRequestingPermission(true)
+      const token = await requestNotificationPermission()
+      setRequestingPermission(false)
+
+      if (token) {
+        setPermissionStatus('granted')
+        updateSetting('pushEnabled', true)
+      } else {
+        // Permission denied or error
+        setPermissionStatus(getNotificationPermissionStatus())
+      }
+    } else {
+      updateSetting('pushEnabled', checked)
+    }
   }
 
   const handleSave = async () => {
@@ -74,15 +108,47 @@ export function NotificationSettings({
         <div className="space-y-4">
           <h3 className="font-medium text-sm text-gray-700">General</h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="push_enabled" className="flex-1">
-                Push Notifications
-              </Label>
-              <Switch
-                id="push_enabled"
-                checked={settings.pushEnabled}
-                onCheckedChange={(checked) => updateSetting('pushEnabled', checked)}
-              />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {permissionStatus === 'granted' ? (
+                    <Bell className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <BellOff className="w-4 h-4 text-gray-400" />
+                  )}
+                  <Label htmlFor="push_enabled" className="flex-1">
+                    Push Notifications
+                  </Label>
+                </div>
+                <Switch
+                  id="push_enabled"
+                  checked={settings.pushEnabled}
+                  onCheckedChange={handlePushToggle}
+                  disabled={requestingPermission || permissionStatus === 'denied'}
+                />
+              </div>
+              {/* Permission status indicator */}
+              {permissionStatus === 'granted' && (
+                <p className="text-xs text-green-600 flex items-center gap-1 ml-6">
+                  <CheckCircle className="w-3 h-3" />
+                  Notifications enabled
+                </p>
+              )}
+              {permissionStatus === 'denied' && (
+                <p className="text-xs text-red-600 ml-6">
+                  Notifications blocked. Enable in browser settings.
+                </p>
+              )}
+              {permissionStatus === 'default' && !requestingPermission && (
+                <p className="text-xs text-gray-500 ml-6">
+                  Enable to receive alerts on your device
+                </p>
+              )}
+              {requestingPermission && (
+                <p className="text-xs text-blue-600 ml-6">
+                  Requesting permission...
+                </p>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <Label htmlFor="sound_enabled" className="flex-1">

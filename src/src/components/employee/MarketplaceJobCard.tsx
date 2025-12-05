@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
 
 interface MarketplaceJobCardProps {
@@ -14,6 +16,16 @@ interface MarketplaceJobCardProps {
 
 export function MarketplaceJobCard({ jobSession, onSwipe }: MarketplaceJobCardProps) {
   const { job_template } = jobSession
+  const [imageError, setImageError] = useState(false)
+
+  // Guard against null job_template
+  if (!job_template) {
+    return (
+      <div className="relative w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl overflow-hidden p-6 text-center text-gray-500">
+        Job data unavailable
+      </div>
+    )
+  }
 
   // Format duration
   const formatDuration = (minutes: number | null) => {
@@ -37,6 +49,26 @@ export function MarketplaceJobCard({ jobSession, onSwipe }: MarketplaceJobCardPr
     return `$${price.toFixed(2)}/hr`
   }
 
+  // Format available days
+  const formatDays = (days: string[] | null) => {
+    if (!days || days.length === 0) return null
+    const dayMap: Record<string, string> = {
+      'MON': 'Mon', 'TUE': 'Tue', 'WED': 'Wed', 'THU': 'Thu', 'FRI': 'Fri', 'SAT': 'Sat', 'SUN': 'Sun'
+    }
+    return days.map(d => dayMap[d] || d).join(', ')
+  }
+
+  // Format scheduled date
+  const formatScheduledDate = (date: string | null) => {
+    if (!date) return null
+    const d = new Date(date + 'T00:00:00')
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
+  const hasImage = job_template.image_url && !imageError
+  const scheduledDateFormatted = formatScheduledDate(jobSession.scheduled_date)
+  const daysFormatted = formatDays(job_template.available_days)
+
   return (
     <motion.div
       className="relative w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl overflow-hidden"
@@ -44,75 +76,93 @@ export function MarketplaceJobCard({ jobSession, onSwipe }: MarketplaceJobCardPr
     >
       {/* Job Image or Placeholder */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-50">
-        <div className="w-full h-full flex items-center justify-center">
-          <div className="text-6xl text-blue-300">
-            {job_template.customer?.customer_code || '🧹'}
+        {hasImage ? (
+          <Image
+            src={job_template.image_url!}
+            alt={job_template.title}
+            fill
+            className="object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-6xl text-blue-300">
+              {job_template.customer?.customer_code || '🧹'}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Content Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
-        {/* Job Code Badge */}
-        <div className="mb-4">
-          <span className="inline-block bg-white/90 text-gray-900 font-bold text-sm px-3 py-1 rounded-full">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-5">
+        {/* Top Badges */}
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          <span className="inline-block bg-white/90 text-gray-900 font-bold text-xs px-2.5 py-1 rounded-full">
             {job_template.job_code}
           </span>
+          {scheduledDateFormatted && (
+            <span className="inline-block bg-blue-500 text-white font-medium text-xs px-2.5 py-1 rounded-full">
+              📅 {scheduledDateFormatted}
+            </span>
+          )}
         </div>
 
         {/* Main Info */}
-        <div className="space-y-2 mb-4">
-          <h2 className="text-2xl font-bold text-white leading-tight">
+        <div className="space-y-1 mb-3">
+          <h2 className="text-xl font-bold text-white leading-tight">
             {job_template.title}
           </h2>
-
           {job_template.customer && (
-            <p className="text-white/90 text-sm">
-              Client: {job_template.customer.full_name}
+            <p className="text-white/80 text-sm">
+              {job_template.customer.full_name}
             </p>
           )}
         </div>
 
+        {/* Description */}
+        {job_template.description && (
+          <p className="text-white/80 text-sm line-clamp-2 mb-3">
+            {job_template.description}
+          </p>
+        )}
+
         {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-            <p className="text-white/70 text-xs mb-1">Duration</p>
-            <p className="text-white font-semibold">
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="bg-white/15 backdrop-blur-sm rounded-lg p-2 text-center">
+            <p className="text-white/60 text-[10px] uppercase">Duration</p>
+            <p className="text-white font-semibold text-sm">
               {formatDuration(job_template.duration_minutes)}
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-            <p className="text-white/70 text-xs mb-1">Pay Rate</p>
-            <p className="text-white font-semibold">
+          <div className="bg-white/15 backdrop-blur-sm rounded-lg p-2 text-center">
+            <p className="text-white/60 text-[10px] uppercase">Pay</p>
+            <p className="text-white font-semibold text-sm">
               {formatPrice(job_template.price_per_hour)}
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 col-span-2">
-            <p className="text-white/70 text-xs mb-1">Time Window</p>
-            <p className="text-white font-semibold">
-              {formatTimeWindow(job_template.time_window_start, job_template.time_window_end)}
+          <div className="bg-white/15 backdrop-blur-sm rounded-lg p-2 text-center">
+            <p className="text-white/60 text-[10px] uppercase">Time</p>
+            <p className="text-white font-semibold text-sm">
+              {job_template.time_window_start ? job_template.time_window_start.slice(0, 5) : '—'}
             </p>
           </div>
         </div>
 
-        {/* Description */}
-        {job_template.description && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-            <p className="text-white/90 text-sm line-clamp-3">
-              {job_template.description}
-            </p>
+        {/* Days/Schedule */}
+        {daysFormatted && (
+          <div className="bg-white/15 backdrop-blur-sm rounded-lg p-2 mb-2">
+            <p className="text-white/60 text-[10px] uppercase mb-1">Schedule</p>
+            <p className="text-white text-sm">{daysFormatted}</p>
           </div>
         )}
 
         {/* Address */}
         {job_template.address && (
-          <div className="mt-2">
-            <p className="text-white/70 text-xs">
-              📍 {job_template.address}
-            </p>
-          </div>
+          <p className="text-white/60 text-xs truncate">
+            📍 {job_template.address}
+          </p>
         )}
       </div>
 

@@ -81,6 +81,16 @@ export default function EmployeeProfilePage() {
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
 
+  // Credentials state
+  const [credentials, setCredentials] = useState<{ username: string } | null>(null)
+  const [credentialsLoading, setCredentialsLoading] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [showCreateAccount, setShowCreateAccount] = useState(false)
+  const [newAccountForm, setNewAccountForm] = useState({ username: '', password: '' })
+  const [accountCreating, setAccountCreating] = useState(false)
+
   // Load all data when component mounts or employeeId changes
   useEffect(() => {
     loadData()
@@ -127,6 +137,11 @@ export default function EmployeeProfilePage() {
       setEmployee(employeeData)
       setNotesValue(employeeData.notes || '')
 
+      // Load credentials if employee has user_id
+      if (employeeData.user_id) {
+        loadCredentials(employeeData.user_id)
+      }
+
       // Load strikes for this employee (target_type = EMPLOYEE, target_id = employeeId)
       const { data: strikesData } = await supabase
         .from('strikes')
@@ -162,6 +177,107 @@ export default function EmployeeProfilePage() {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * Loads credentials for an employee with a linked auth account
+   */
+  const loadCredentials = async (userId: string) => {
+    setCredentialsLoading(true)
+    try {
+      const response = await fetch('/api/auth/get-user-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      })
+      const result = await response.json()
+      if (response.ok && result.success) {
+        setCredentials({ username: result.username })
+      }
+    } catch (error) {
+      console.error('Error loading credentials:', error)
+    } finally {
+      setCredentialsLoading(false)
+    }
+  }
+
+  /**
+   * Updates password for an employee's auth account
+   */
+  const handleUpdatePassword = async () => {
+    if (!employee?.user_id || !newPassword) return
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
+    }
+
+    setPasswordSaving(true)
+    try {
+      const response = await fetch('/api/auth/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: employee.user_id, new_password: newPassword })
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to update password')
+
+      alert('Password updated successfully')
+      setShowPasswordForm(false)
+      setNewPassword('')
+    } catch (error) {
+      console.error('Error updating password:', error)
+      alert(error instanceof Error ? error.message : 'Failed to update password')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }
+
+  /**
+   * Creates a new auth account for an employee without one
+   */
+  const handleCreateAccount = async () => {
+    if (!newAccountForm.username || !newAccountForm.password) {
+      alert('Username and password are required')
+      return
+    }
+    if (newAccountForm.password.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
+    }
+
+    setAccountCreating(true)
+    try {
+      const response = await fetch('/api/auth/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newAccountForm.username,
+          password: newAccountForm.password,
+          full_name: employee?.full_name,
+          role: 'employee'
+        })
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Failed to create account')
+
+      // Link the auth user to the employee
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ user_id: result.user_id })
+        .eq('id', employeeId)
+
+      if (updateError) throw updateError
+
+      alert('Account created successfully')
+      setShowCreateAccount(false)
+      setNewAccountForm({ username: '', password: '' })
+      await loadData()
+    } catch (error) {
+      console.error('Error creating account:', error)
+      alert(error instanceof Error ? error.message : 'Failed to create account')
+    } finally {
+      setAccountCreating(false)
     }
   }
 
@@ -368,6 +484,101 @@ export default function EmployeeProfilePage() {
                 <p className="text-gray-700">{employee.notes || 'No notes'}</p>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Login Credentials Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Login Credentials</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {credentialsLoading ? (
+              <p className="text-gray-500">Loading credentials...</p>
+            ) : employee.user_id && credentials ? (
+              // Has account - show credentials
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Username</p>
+                    <p className="font-medium font-mono">{credentials.username}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Password</p>
+                    <p className="font-medium text-gray-400">••••••••</p>
+                  </div>
+                </div>
+
+                {showPasswordForm ? (
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <Label>New Password</Label>
+                    <Input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password (min 6 chars)"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleUpdatePassword} disabled={passwordSaving}>
+                        {passwordSaving ? 'Saving...' : 'Update Password'}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setShowPasswordForm(false)
+                        setNewPassword('')
+                      }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setShowPasswordForm(true)}>
+                    Change Password
+                  </Button>
+                )}
+              </div>
+            ) : (
+              // No account - show create option
+              <div className="space-y-4">
+                <p className="text-gray-500">No login account linked to this employee.</p>
+
+                {showCreateAccount ? (
+                  <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="space-y-2">
+                      <Label>Username</Label>
+                      <Input
+                        value={newAccountForm.username}
+                        onChange={(e) => setNewAccountForm({ ...newAccountForm, username: e.target.value })}
+                        placeholder="Enter username"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Password</Label>
+                      <Input
+                        type="password"
+                        value={newAccountForm.password}
+                        onChange={(e) => setNewAccountForm({ ...newAccountForm, password: e.target.value })}
+                        placeholder="Enter password (min 6 chars)"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleCreateAccount} disabled={accountCreating}>
+                        {accountCreating ? 'Creating...' : 'Create Account'}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setShowCreateAccount(false)
+                        setNewAccountForm({ username: '', password: '' })
+                      }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button onClick={() => setShowCreateAccount(true)}>
+                    Create Login Account
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

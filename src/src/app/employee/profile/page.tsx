@@ -12,6 +12,11 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { DocumentUpload } from '@/components/employee/DocumentUpload'
 import { AvailabilityEditor } from '@/components/employee/AvailabilityEditor'
+import { Bell, BellOff, CheckCircle, LogOut } from 'lucide-react'
+import {
+  requestNotificationPermission,
+  getNotificationPermissionStatus,
+} from '@/lib/firebase/notifications'
 
 export default function EmployeeProfilePage() {
   const [activeTab, setActiveTab] = useState('personal')
@@ -30,11 +35,16 @@ export default function EmployeeProfilePage() {
   const [pushEnabled, setPushEnabled] = useState(true)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [permissionStatus, setPermissionStatus] = useState<string>('default')
+  const [requestingPermission, setRequestingPermission] = useState(false)
 
   const supabase = createClient()
 
   useEffect(() => {
     loadEmployeeProfile()
+    // Check notification permission on mount
+    const status = getNotificationPermissionStatus()
+    setPermissionStatus(status)
   }, [])
 
   const loadEmployeeProfile = async () => {
@@ -115,6 +125,30 @@ export default function EmployeeProfilePage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Handle push notification toggle
+  const handlePushToggle = async (checked: boolean) => {
+    if (checked && permissionStatus !== 'granted') {
+      setRequestingPermission(true)
+      const token = await requestNotificationPermission()
+      setRequestingPermission(false)
+
+      if (token) {
+        setPermissionStatus('granted')
+        setPushEnabled(true)
+      } else {
+        setPermissionStatus(getNotificationPermissionStatus())
+      }
+    } else {
+      setPushEnabled(checked)
+    }
+  }
+
+  // Logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
   }
 
   const handleChangePassword = async () => {
@@ -296,18 +330,56 @@ export default function EmployeeProfilePage() {
                 <CardTitle>Settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="push-notifications">Push Notifications</Label>
-                    <p className="text-sm text-gray-600">
-                      Receive notifications about jobs and messages
-                    </p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {permissionStatus === 'granted' ? (
+                        <Bell className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <BellOff className="w-4 h-4 text-gray-400" />
+                      )}
+                      <div>
+                        <Label htmlFor="push-notifications">Push Notifications</Label>
+                        <p className="text-sm text-gray-600">
+                          Receive alerts about jobs and messages
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="push-notifications"
+                      checked={pushEnabled}
+                      onCheckedChange={handlePushToggle}
+                      disabled={requestingPermission || permissionStatus === 'denied'}
+                    />
                   </div>
-                  <Switch
-                    id="push-notifications"
-                    checked={pushEnabled}
-                    onCheckedChange={setPushEnabled}
-                  />
+                  {permissionStatus === 'granted' && (
+                    <p className="text-xs text-green-600 flex items-center gap-1 ml-6">
+                      <CheckCircle className="w-3 h-3" />
+                      Notifications enabled
+                    </p>
+                  )}
+                  {permissionStatus === 'denied' && (
+                    <p className="text-xs text-red-600 ml-6">
+                      Notifications blocked. Enable in browser settings.
+                    </p>
+                  )}
+                  {requestingPermission && (
+                    <p className="text-xs text-blue-600 ml-6">
+                      Requesting permission...
+                    </p>
+                  )}
+                </div>
+
+                {/* Logout */}
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={handleLogout}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
                 </div>
               </CardContent>
             </Card>

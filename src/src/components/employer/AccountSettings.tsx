@@ -18,12 +18,19 @@ import {
 } from '@/components/ui/alert-dialog'
 
 interface AccountSettingsProps {
+  currentEmail: string
+  onChangeEmail: (newEmail: string) => Promise<void>
   onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>
   onLogout: () => Promise<void>
   onDeleteAccount: () => Promise<void>
 }
 
-export function AccountSettings({ onChangePassword, onLogout, onDeleteAccount }: AccountSettingsProps) {
+export function AccountSettings({ currentEmail, onChangeEmail, onChangePassword, onLogout, onDeleteAccount }: AccountSettingsProps) {
+  const [newEmail, setNewEmail] = useState('')
+  const [changingEmail, setChangingEmail] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [emailSuccess, setEmailSuccess] = useState('')
+
   const [passwordData, setPasswordData] = useState({
     current: '',
     new: '',
@@ -31,6 +38,39 @@ export function AccountSettings({ onChangePassword, onLogout, onDeleteAccount }:
   })
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordError, setPasswordError] = useState('')
+
+  const handleEmailChange = async () => {
+    setEmailError('')
+    setEmailSuccess('')
+
+    if (!newEmail) {
+      setEmailError('Email is required')
+      return
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newEmail)) {
+      setEmailError('Please enter a valid email address')
+      return
+    }
+
+    if (newEmail === currentEmail) {
+      setEmailError('New email must be different from current email')
+      return
+    }
+
+    setChangingEmail(true)
+    try {
+      await onChangeEmail(newEmail)
+      setEmailSuccess('Verification email sent! Check your inbox to confirm the change.')
+      setNewEmail('')
+    } catch (error) {
+      setEmailError(error instanceof Error ? error.message : 'Failed to change email')
+    } finally {
+      setChangingEmail(false)
+    }
+  }
 
   const handlePasswordChange = async () => {
     setPasswordError('')
@@ -68,8 +108,43 @@ export function AccountSettings({ onChangePassword, onLogout, onDeleteAccount }:
         <CardDescription>Manage your account settings</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Change Password */}
+        {/* Change Email */}
         <div className="space-y-4">
+          <h3 className="font-medium text-sm text-gray-700">Change Email</h3>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Current Email</Label>
+              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{currentEmail}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new_email">New Email</Label>
+              <Input
+                id="new_email"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="Enter new email address"
+              />
+            </div>
+            {emailError && (
+              <p className="text-sm text-red-600">{emailError}</p>
+            )}
+            {emailSuccess && (
+              <p className="text-sm text-green-600">{emailSuccess}</p>
+            )}
+            <Button
+              onClick={handleEmailChange}
+              disabled={changingEmail}
+              variant="outline"
+              className="w-full"
+            >
+              {changingEmail ? 'Sending Verification...' : 'Change Email'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Change Password */}
+        <div className="space-y-4 pt-4 border-t">
           <h3 className="font-medium text-sm text-gray-700">Change Password</h3>
           <div className="space-y-3">
             <div className="space-y-2">

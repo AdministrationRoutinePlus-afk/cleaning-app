@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react'
 export default function EmployeeJobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobSessionFull[]>([])
-  const [activeTab, setActiveTab] = useState<string>('interested')
+  const [activeTab, setActiveTab] = useState<string>('pending')
   const supabase = createClient()
 
   // Fetch jobs for the current employee
@@ -70,19 +70,21 @@ export default function EmployeeJobsPage() {
   }, [])
 
   // Filter jobs by status for each tab
-  const interestedJobs = jobs.filter(job => job.status === 'CLAIMED')
+  const pendingJobs = jobs.filter(job => job.status === 'CLAIMED') // Waiting for employer approval
   const approvedJobs = jobs.filter(job => job.status === 'APPROVED')
   const inProgressJobs = jobs.filter(job => job.status === 'IN_PROGRESS')
   const completedJobs = jobs.filter(job =>
     job.status === 'COMPLETED' || job.status === 'EVALUATED'
   )
+  const refusedJobs = jobs.filter(job => job.status === 'REFUSED')
 
   // Get job count for each tab
   const getCounts = () => ({
-    interested: interestedJobs.length,
+    pending: pendingJobs.length,
     approved: approvedJobs.length,
     inProgress: inProgressJobs.length,
-    completed: completedJobs.length
+    completed: completedJobs.length,
+    refused: refusedJobs.length
   })
 
   const counts = getCounts()
@@ -131,52 +133,60 @@ export default function EmployeeJobsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="interested" className="text-xs sm:text-sm">
-              Interested
-              {counts.interested > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-yellow-500 text-white rounded-full">
-                  {counts.interested}
+          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+            <TabsTrigger value="pending" className="text-[10px] sm:text-sm px-1 py-2 relative">
+              Pending
+              {counts.pending > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-yellow-500 text-white rounded-full flex items-center justify-center">
+                  {counts.pending}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="approved" className="text-xs sm:text-sm">
+            <TabsTrigger value="approved" className="text-[10px] sm:text-sm px-1 py-2 relative">
               Approved
               {counts.approved > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-green-500 text-white rounded-full">
+                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-green-500 text-white rounded-full flex items-center justify-center">
                   {counts.approved}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="in-progress" className="text-xs sm:text-sm">
-              In Progress
+            <TabsTrigger value="in-progress" className="text-[10px] sm:text-sm px-1 py-2 relative">
+              Active
               {counts.inProgress > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
+                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-blue-500 text-white rounded-full flex items-center justify-center">
                   {counts.inProgress}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs sm:text-sm">
-              Completed
+            <TabsTrigger value="completed" className="text-[10px] sm:text-sm px-1 py-2 relative">
+              Done
               {counts.completed > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-500 text-white rounded-full">
+                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-purple-500 text-white rounded-full flex items-center justify-center">
                   {counts.completed}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="refused" className="text-[10px] sm:text-sm px-1 py-2 relative">
+              Refused
+              {counts.refused > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-red-500 text-white rounded-full flex items-center justify-center">
+                  {counts.refused}
                 </span>
               )}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="interested" className="mt-6">
+          <TabsContent value="pending" className="mt-6">
             {renderJobList(
-              interestedJobs,
-              'No jobs claimed yet. Visit the Marketplace to find jobs!'
+              pendingJobs,
+              'No pending jobs. Jobs you claim will appear here while waiting for employer approval.'
             )}
           </TabsContent>
 
           <TabsContent value="approved" className="mt-6">
             {renderJobList(
               approvedJobs,
-              'No approved jobs. Jobs you claim will appear here once approved by the employer.'
+              'No approved jobs yet. Once the employer approves your claims, they appear here.'
             )}
           </TabsContent>
 
@@ -191,6 +201,13 @@ export default function EmployeeJobsPage() {
             {renderJobList(
               completedJobs,
               'No completed jobs yet. Finished jobs will appear here.'
+            )}
+          </TabsContent>
+
+          <TabsContent value="refused" className="mt-6">
+            {renderJobList(
+              refusedJobs,
+              'No refused jobs. Jobs declined by the employer will appear here.'
             )}
           </TabsContent>
         </Tabs>

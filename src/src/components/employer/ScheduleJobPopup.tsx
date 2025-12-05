@@ -1,20 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+/**
+ * ScheduleJobPopup Component
+ *
+ * A modal dialog that displays job session details and provides actions for
+ * managing scheduled jobs from the employer's calendar view.
+ *
+ * FEATURES:
+ * - View job details: code, date, time, duration, rate, address, description
+ * - View assigned employee info (if any)
+ * - Cancel Job: Sets job status to CANCELLED
+ * - Move Job (Reschedule): Change scheduled date and time
+ * - Modify Price/Hour: Override the job template's price for this session
+ * - Push to Messages: Send a notification/message to the assigned employee
+ *
+ * BUSINESS LOGIC:
+ * - Cancel and Reschedule are disabled for CANCELLED and COMPLETED jobs
+ * - Modify Price is disabled for CANCELLED and COMPLETED jobs
+ * - Push to Messages requires an assigned employee
+ */
+
+import { useState, useEffect } from 'react'
 import type { JobSession, JobTemplate, Employee, JobSessionStatus } from '@/types/database'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
 
+// Extended job session with related data from joins
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate
   employee: Employee | null
 }
 
+// Component props
 interface ScheduleJobPopupProps {
   jobSession: JobSessionWithDetails | null
   open: boolean
@@ -23,14 +47,75 @@ interface ScheduleJobPopupProps {
 }
 
 export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: ScheduleJobPopupProps) {
+  // UI state for different action modes
   const [isRescheduling, setIsRescheduling] = useState(false)
+  const [isModifyingPrice, setIsModifyingPrice] = useState(false)
+  const [isPushingMessage, setIsPushingMessage] = useState(false)
+
+  // Form state for reschedule action
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
+
+  // Form state for modify price action
+  const [newPrice, setNewPrice] = useState('')
+
+  // Form state for push to messages action
+  const [messageContent, setMessageContent] = useState('')
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([])
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
+  const [selectAll, setSelectAll] = useState(false)
+
+  // Loading state for async operations
   const [loading, setLoading] = useState(false)
+
+  const supabase = createClient()
+
+  // Load all active employees when opening push message panel
+  useEffect(() => {
+    if (isPushingMessage) {
+      loadEmployees()
+    }
+  }, [isPushingMessage])
+
+  const loadEmployees = async () => {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('status', 'ACTIVE')
+      .order('full_name')
+
+    if (!error && data) {
+      setAllEmployees(data)
+      // Pre-select assigned employee if any
+      if (jobSession?.assigned_to) {
+        setSelectedEmployeeIds([jobSession.assigned_to])
+      }
+    }
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked)
+    if (checked) {
+      setSelectedEmployeeIds(allEmployees.map(e => e.id))
+    } else {
+      setSelectedEmployeeIds([])
+    }
+  }
+
+  const handleToggleEmployee = (employeeId: string) => {
+    setSelectedEmployeeIds(prev => {
+      if (prev.includes(employeeId)) {
+        return prev.filter(id => id !== employeeId)
+      } else {
+        return [...prev, employeeId]
+      }
+    })
+  }
 
   if (!jobSession) return null
 
-  const supabase = createClient()
+  // Check if job can be modified (not cancelled or completed)
+  const canModify = jobSession.status !== 'CANCELLED' && jobSession.status !== 'COMPLETED' && jobSession.status !== 'EVALUATED'
 
   const getStatusColor = (status: JobSessionStatus): string => {
     switch (status) {
@@ -76,6 +161,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     }
   }
 
+  /**
+   * Handle rescheduling: Updates the job session's date and time
+   */
   const handleReschedule = async () => {
     if (!newDate || !newTime) {
       alert('Please provide both date and time')
@@ -108,8 +196,106 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     }
   }
 
+  /**
+   * Handle price modification: Sets a price override for this specific session
+   * The price_override field takes precedence over the job template's price_per_hour
+   */
+  const handleModifyPrice = async () => {
+    const priceValue = parseFloat(newPrice)
+    if (isNaN(priceValue) || priceValue <= 0) {
+      alert('Please enter a valid price')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({
+          price_override: priceValue
+        })
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      alert('Price updated successfully')
+      setIsModifyingPrice(false)
+      setNewPrice('')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error modifying price:', error)
+      alert('Failed to modify price')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Handle push to messages: Creates schedule_message records to notify
+   * selected employees about this job with a custom note from the employer
+   */
+  const handlePushMessage = async () => {
+    if (!messageContent.trim()) {
+      alert('Please enter a message')
+      return
+    }
+
+    if (selectedEmployeeIds.length === 0) {
+      alert('Please select at least one employee')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Create schedule_message records for each selected employee
+      const messagesToInsert = selectedEmployeeIds.map(employeeId => ({
+        job_session_id: jobSession.id,
+        employee_id: employeeId,
+        message: messageContent.trim()
+      }))
+
+      const { error } = await supabase
+        .from('schedule_messages')
+        .insert(messagesToInsert)
+
+      if (error) {
+        console.error('Insert error details:', error)
+        throw new Error(error.message || JSON.stringify(error))
+      }
+
+      alert(`Message sent to ${selectedEmployeeIds.length} employee(s) successfully`)
+      setIsPushingMessage(false)
+      setMessageContent('')
+      setSelectedEmployeeIds([])
+      setSelectAll(false)
+      onClose()
+    } catch (error) {
+      console.error('Error sending message:', error)
+      alert('Failed to send message')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Reset all action modes when closing the popup
+   */
+  const handleClose = () => {
+    setIsRescheduling(false)
+    setIsModifyingPrice(false)
+    setIsPushingMessage(false)
+    setNewDate('')
+    setNewTime('')
+    setNewPrice('')
+    setMessageContent('')
+    setSelectedEmployeeIds([])
+    setSelectAll(false)
+    onClose()
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -147,9 +333,17 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                   <span className="font-medium">Duration:</span> {jobSession.job_template.duration_minutes} min
                 </div>
               )}
-              {jobSession.job_template.price_per_hour && (
+              {/* Show price - prefer override if set, otherwise template price */}
+              {(jobSession.price_override || jobSession.job_template.price_per_hour) && (
                 <div>
-                  <span className="font-medium">Rate:</span> ${jobSession.job_template.price_per_hour}/hr
+                  <span className="font-medium">Rate:</span>{' '}
+                  {jobSession.price_override ? (
+                    <span className="text-green-600 font-medium">
+                      ${jobSession.price_override}/hr (override)
+                    </span>
+                  ) : (
+                    <span>${jobSession.job_template.price_per_hour}/hr</span>
+                  )}
                 </div>
               )}
             </div>
@@ -193,7 +387,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             )}
           </div>
 
-          {/* Reschedule Section */}
+          {/* Reschedule Section - allows changing job date and time */}
           {isRescheduling && (
             <div className="border rounded-lg p-4 space-y-4 bg-blue-50">
               <h3 className="font-semibold text-lg">Reschedule Job</h3>
@@ -227,26 +421,154 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               </div>
             </div>
           )}
+
+          {/* Modify Price Section - override the template's default price for this session */}
+          {isModifyingPrice && (
+            <div className="border rounded-lg p-4 space-y-4 bg-green-50">
+              <h3 className="font-semibold text-lg">Modify Price/Hour</h3>
+              <p className="text-sm text-gray-600">
+                Current rate: ${jobSession.price_override || jobSession.job_template.price_per_hour || 0}/hr
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="new-price">New Rate ($/hr)</Label>
+                <Input
+                  id="new-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g., 25.00"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleModifyPrice} disabled={loading}>
+                  {loading ? 'Saving...' : 'Update Price'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsModifyingPrice(false)} disabled={loading}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Push to Messages Section - send a notification to selected employees */}
+          {isPushingMessage && (
+            <div className="border rounded-lg p-4 space-y-4 bg-purple-50">
+              <h3 className="font-semibold text-lg">Notify Employees About This Job</h3>
+
+              {/* Employee Selection */}
+              <div className="space-y-2">
+                <Label>Select Employees to Notify</Label>
+                <div className="border rounded-lg p-3 bg-white max-h-40 overflow-y-auto space-y-2">
+                  {/* Select All */}
+                  <div className="flex items-center space-x-2 pb-2 border-b">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectAll}
+                      onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                    />
+                    <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                      Select All ({allEmployees.length} employees)
+                    </label>
+                  </div>
+
+                  {/* Individual Employees */}
+                  {allEmployees.length === 0 ? (
+                    <p className="text-sm text-gray-500">No active employees found</p>
+                  ) : (
+                    allEmployees.map(emp => (
+                      <div key={emp.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`emp-${emp.id}`}
+                          checked={selectedEmployeeIds.includes(emp.id)}
+                          onCheckedChange={() => handleToggleEmployee(emp.id)}
+                        />
+                        <label htmlFor={`emp-${emp.id}`} className="text-sm cursor-pointer flex-1">
+                          {emp.full_name}
+                          {jobSession.assigned_to === emp.id && (
+                            <Badge variant="outline" className="ml-2 text-xs">Assigned</Badge>
+                          )}
+                        </label>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">
+                  {selectedEmployeeIds.length} employee(s) selected
+                </p>
+              </div>
+
+              {/* Message Input */}
+              <div className="space-y-2">
+                <Label htmlFor="message-content">Message</Label>
+                <Textarea
+                  id="message-content"
+                  placeholder="e.g., This job is urgent and needs to be claimed today!"
+                  rows={3}
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handlePushMessage}
+                  disabled={loading || selectedEmployeeIds.length === 0}
+                >
+                  {loading ? 'Sending...' : `Send to ${selectedEmployeeIds.length} Employee(s)`}
+                </Button>
+                <Button variant="outline" onClick={() => setIsPushingMessage(false)} disabled={loading}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
+        {/* Footer with action buttons - hidden when any action panel is open */}
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          {!isRescheduling && (
+          {!isRescheduling && !isModifyingPrice && !isPushingMessage && (
             <>
+              {/* Move Job (Reschedule) - disabled for completed/cancelled jobs */}
               <Button
                 variant="outline"
                 onClick={() => setIsRescheduling(true)}
-                disabled={loading || jobSession.status === 'CANCELLED' || jobSession.status === 'COMPLETED'}
+                disabled={loading || !canModify}
               >
-                Reschedule
+                Move Job
               </Button>
+
+              {/* Modify Price - disabled for completed/cancelled jobs */}
+              <Button
+                variant="outline"
+                onClick={() => setIsModifyingPrice(true)}
+                disabled={loading || !canModify}
+              >
+                Modify Price
+              </Button>
+
+              {/* Push to Messages - notify employees about this job */}
+              <Button
+                variant="outline"
+                onClick={() => setIsPushingMessage(true)}
+                disabled={loading}
+              >
+                Push to Messages
+              </Button>
+
+              {/* Cancel Job - disabled for completed/cancelled jobs */}
               <Button
                 variant="destructive"
                 onClick={handleCancel}
-                disabled={loading || jobSession.status === 'CANCELLED' || jobSession.status === 'COMPLETED'}
+                disabled={loading || !canModify}
               >
                 {loading ? 'Cancelling...' : 'Cancel Job'}
               </Button>
-              <Button variant="outline" onClick={onClose}>
+
+              {/* Close button */}
+              <Button variant="secondary" onClick={handleClose}>
                 Close
               </Button>
             </>

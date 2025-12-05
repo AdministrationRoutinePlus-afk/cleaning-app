@@ -16,6 +16,7 @@ export type JobSessionStatus =
   | 'OFFERED'      // Posted to marketplace, waiting for employee
   | 'CLAIMED'      // Employee picked it, waiting approval
   | 'APPROVED'     // Employer approved, scheduled
+  | 'REFUSED'      // Employer refused employee's claim
   | 'IN_PROGRESS'  // Employee working on it
   | 'COMPLETED'    // Job finished
   | 'EVALUATED'    // Customer submitted rating
@@ -115,15 +116,26 @@ export interface JobTemplate extends BaseTable {
   price_per_hour: number | null
   notes: string | null
   timezone: string
-  available_days: DayOfWeek[]
-  time_window_start: string | null // TIME
-  time_window_end: string | null // TIME
+  // Window-based scheduling: Job can be done from (start_day, start_time) to (end_day, end_time)
+  window_start_day: DayOfWeek | null // Day the window starts (e.g., FRI)
+  window_end_day: DayOfWeek | null // Day the window ends (e.g., SUN)
+  time_window_start: string | null // TIME when window starts (e.g., 17:00)
+  time_window_end: string | null // TIME when window ends (e.g., 20:00)
   is_recurring: boolean
-  frequency_per_week: number | null
   status: JobTemplateStatus
   customer_id: string | null // FK to customers
   created_by: string // FK to employers
   updated_at: string
+  image_url: string | null // Main job image for marketplace display
+  // Scheduling fields
+  specific_dates: string[] | null // Array of specific dates for one-time jobs (YYYY-MM-DD format)
+  start_date: string | null // Start date for recurring job scheduling
+  end_date: string | null // End date for recurring job scheduling (null = indefinite)
+  exclude_dates: string[] | null // Dates to skip (holidays, etc.)
+  preferred_employee_id: string | null // FK to employees - auto-assign preference
+  // Legacy fields (kept for backward compatibility)
+  available_days: DayOfWeek[] // @deprecated - use window_start_day/window_end_day
+  frequency_per_week: number | null // @deprecated - no longer used
 }
 
 export interface JobStep extends BaseTable {
@@ -154,8 +166,9 @@ export interface JobSession extends BaseTable {
   job_template_id: string // FK to job_templates
   session_code: string // A001, A002...
   full_job_code: string | null // ABC-01A-A001
-  scheduled_date: string | null // DATE
-  scheduled_time: string | null // TIME
+  scheduled_date: string | null // DATE - start of window
+  scheduled_end_date: string | null // DATE - end of window (for multi-day jobs)
+  scheduled_time: string | null // TIME - start time
   assigned_to: string | null // FK to employees
   status: JobSessionStatus
   price_override: number | null
