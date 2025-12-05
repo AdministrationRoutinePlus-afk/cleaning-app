@@ -40,6 +40,15 @@ export default function EmployeeMarketplacePage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
+      // Get employee ID for this user
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      const employeeId = employee?.id
+
       // Load marketplace jobs (OFFERED status)
       const { data: offeredJobs, error: offeredError } = await supabase
         .from('job_sessions')
@@ -56,20 +65,24 @@ export default function EmployeeMarketplacePage() {
       if (offeredError) throw offeredError
 
       // Load interested jobs (CLAIMED status by current user)
-      const { data: claimedJobs, error: claimedError } = await supabase
-        .from('job_sessions')
-        .select(`
-          *,
-          job_template:job_templates(
+      let claimedJobs: typeof offeredJobs = []
+      if (employeeId) {
+        const { data, error: claimedError } = await supabase
+          .from('job_sessions')
+          .select(`
             *,
-            customer:customers(*)
-          )
-        `)
-        .eq('status', 'CLAIMED')
-        .eq('assigned_to', userId)
-        .order('created_at', { ascending: false })
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          `)
+          .eq('status', 'CLAIMED')
+          .eq('assigned_to', employeeId)
+          .order('created_at', { ascending: false })
 
-      if (claimedError) throw claimedError
+        if (claimedError) throw claimedError
+        claimedJobs = data
+      }
 
       // Filter out jobs that have been swiped on
       const swipeHistory = getSwipeHistory()
@@ -225,6 +238,44 @@ export default function EmployeeMarketplacePage() {
     }
   }
 
+  // Reset all - unclaim jobs and clear history
+  const handleResetAll = async () => {
+    try {
+      // Get employee ID
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      if (employee) {
+        // Unclaim all jobs claimed by this employee (set back to OFFERED)
+        await supabase
+          .from('job_sessions')
+          .update({
+            status: 'OFFERED',
+            assigned_to: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('assigned_to', employee.id)
+          .eq('status', 'CLAIMED')
+      }
+
+      // Clear localStorage
+      localStorage.removeItem('swipeHistory')
+
+      // Reset state
+      setCurrentIndex(0)
+      setSkippedJobs([])
+      setInterestedJobs([])
+
+      // Reload data
+      await loadData()
+    } catch (error) {
+      console.error('Error resetting:', error)
+    }
+  }
+
   const handleRestoreJob = async (job: JobSessionWithDetails) => {
     // Remove from swipe history
     removeFromSwipeHistory(job.id)
@@ -343,10 +394,7 @@ export default function EmployeeMarketplacePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    localStorage.removeItem('swipeHistory')
-                    loadData()
-                  }}
+                  onClick={handleResetAll}
                 >
                   Reset & Show All Jobs
                 </Button>
