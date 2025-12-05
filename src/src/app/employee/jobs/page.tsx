@@ -1,11 +1,199 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import type { JobSessionFull, JobSessionStatus } from '@/types/database'
+import { createClient } from '@/lib/supabase/client'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MyJobCard } from '@/components/employee/MyJobCard'
+import { Loader2 } from 'lucide-react'
+
 export default function EmployeeJobsPage() {
+  const [loading, setLoading] = useState(true)
+  const [jobs, setJobs] = useState<JobSessionFull[]>([])
+  const [activeTab, setActiveTab] = useState<string>('interested')
+  const supabase = createClient()
+
+  // Fetch jobs for the current employee
+  const fetchJobs = async () => {
+    setLoading(true)
+    try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        console.error('Error getting user:', userError)
+        return
+      }
+
+      // Get employee record for current user
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (employeeError || !employeeData) {
+        console.error('Error getting employee:', employeeError)
+        return
+      }
+
+      // Fetch job sessions with related data
+      const { data, error } = await supabase
+        .from('job_sessions')
+        .select(`
+          *,
+          job_template:job_templates(
+            *,
+            customer:customers(*)
+          )
+        `)
+        .eq('assigned_to', employeeData.id)
+        .order('scheduled_date', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching jobs:', error)
+        return
+      }
+
+      // Type assertion to ensure proper typing
+      const typedData = data as unknown as JobSessionFull[]
+      setJobs(typedData || [])
+    } catch (error) {
+      console.error('Error in fetchJobs:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load jobs on mount
+  useEffect(() => {
+    fetchJobs()
+  }, [])
+
+  // Filter jobs by status for each tab
+  const interestedJobs = jobs.filter(job => job.status === 'CLAIMED')
+  const approvedJobs = jobs.filter(job => job.status === 'APPROVED')
+  const inProgressJobs = jobs.filter(job => job.status === 'IN_PROGRESS')
+  const completedJobs = jobs.filter(job =>
+    job.status === 'COMPLETED' || job.status === 'EVALUATED'
+  )
+
+  // Get job count for each tab
+  const getCounts = () => ({
+    interested: interestedJobs.length,
+    approved: approvedJobs.length,
+    inProgress: inProgressJobs.length,
+    completed: completedJobs.length
+  })
+
+  const counts = getCounts()
+
+  // Render job list
+  const renderJobList = (jobList: JobSessionFull[], emptyMessage: string) => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      )
+    }
+
+    if (jobList.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500">{emptyMessage}</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-4">
+        {jobList.map(job => (
+          <MyJobCard
+            key={job.id}
+            jobSession={job}
+            onStatusChange={fetchJobs}
+          />
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">My Jobs</h1>
-        <p className="text-gray-600">View your interested, pending, approved, and refused jobs.</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto p-4 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Jobs</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Manage your job assignments and track progress
+          </p>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="interested" className="text-xs sm:text-sm">
+              Interested
+              {counts.interested > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-yellow-500 text-white rounded-full">
+                  {counts.interested}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="text-xs sm:text-sm">
+              Approved
+              {counts.approved > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-green-500 text-white rounded-full">
+                  {counts.approved}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="in-progress" className="text-xs sm:text-sm">
+              In Progress
+              {counts.inProgress > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
+                  {counts.inProgress}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs sm:text-sm">
+              Completed
+              {counts.completed > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-500 text-white rounded-full">
+                  {counts.completed}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="interested" className="mt-6">
+            {renderJobList(
+              interestedJobs,
+              'No jobs claimed yet. Visit the Marketplace to find jobs!'
+            )}
+          </TabsContent>
+
+          <TabsContent value="approved" className="mt-6">
+            {renderJobList(
+              approvedJobs,
+              'No approved jobs. Jobs you claim will appear here once approved by the employer.'
+            )}
+          </TabsContent>
+
+          <TabsContent value="in-progress" className="mt-6">
+            {renderJobList(
+              inProgressJobs,
+              'No jobs in progress. Start an approved job to see it here.'
+            )}
+          </TabsContent>
+
+          <TabsContent value="completed" className="mt-6">
+            {renderJobList(
+              completedJobs,
+              'No completed jobs yet. Finished jobs will appear here.'
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
