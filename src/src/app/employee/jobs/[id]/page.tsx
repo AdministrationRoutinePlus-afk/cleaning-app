@@ -27,9 +27,16 @@ import {
   CheckCircle2,
   AlertCircle,
   MapPin,
-  Clock
+  Clock,
+  XCircle
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+
+interface ScheduleMessage {
+  id: string
+  message: string
+  created_at: string
+}
 
 interface JobData {
   session: JobSession & {
@@ -43,6 +50,7 @@ interface JobData {
   })[]
   stepProgress: JobSessionProgress[]
   checklistProgress: JobSessionChecklistProgress[]
+  refuseMessage?: ScheduleMessage | null
 }
 
 export default function JobExecutionPage() {
@@ -110,11 +118,27 @@ export default function JobExecutionPage() {
 
       if (checklistError) throw checklistError
 
+      // Fetch refuse message if job is REFUSED
+      let refuseMessage: ScheduleMessage | null = null
+      if (session.status === 'REFUSED') {
+        const { data: messages } = await supabase
+          .from('schedule_messages')
+          .select('id, message, created_at')
+          .eq('job_session_id', sessionId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (messages && messages.length > 0) {
+          refuseMessage = messages[0]
+        }
+      }
+
       setJobData({
         session: session as any,
         steps: steps as any,
         stepProgress: stepProgress || [],
-        checklistProgress: checklistProgress || []
+        checklistProgress: checklistProgress || [],
+        refuseMessage
       })
 
       // Auto-start job if not started
@@ -291,7 +315,11 @@ export default function JobExecutionPage() {
               Back
             </Button>
 
-            <Badge className={jobData.session.status === 'IN_PROGRESS' ? 'bg-amber-500' : 'bg-blue-600'}>
+            <Badge className={
+              jobData.session.status === 'IN_PROGRESS' ? 'bg-amber-500' :
+              jobData.session.status === 'REFUSED' ? 'bg-red-500' :
+              'bg-blue-600'
+            }>
               {jobData.session.status === 'IN_PROGRESS' ? 'In Progress' : jobData.session.status}
             </Badge>
           </div>
@@ -321,15 +349,42 @@ export default function JobExecutionPage() {
             )}
           </div>
 
-          <ProgressBar
-            current={completedStepsCount}
-            total={totalSteps}
-            label="Overall Progress"
-          />
+          {jobData.session.status !== 'REFUSED' && (
+            <ProgressBar
+              current={completedStepsCount}
+              total={totalSteps}
+              label="Overall Progress"
+            />
+          )}
         </div>
       </div>
 
-      {/* View Mode Selector */}
+      {/* Refusal Reason Banner - shown when job is REFUSED */}
+      {jobData.session.status === 'REFUSED' && (
+        <div className="max-w-6xl mx-auto p-4">
+          <Card className="p-6 bg-red-50 border-red-200">
+            <div className="flex items-start gap-3">
+              <XCircle className="w-8 h-8 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-900 text-lg mb-2">Claim Refused</h3>
+                {jobData.refuseMessage ? (
+                  <div>
+                    <p className="text-red-800 font-medium mb-1">Reason from employer:</p>
+                    <p className="text-red-700 bg-red-100 p-3 rounded-lg">
+                      {jobData.refuseMessage.message.replace('Your claim was refused: ', '')}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-red-700">Your claim for this job was refused by the employer.</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* View Mode Selector - hidden for REFUSED jobs */}
+      {jobData.session.status !== 'REFUSED' && (
       <div className="max-w-6xl mx-auto p-4">
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'swipe')} className="mb-4">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
@@ -451,6 +506,7 @@ export default function JobExecutionPage() {
           </Card>
         )}
       </div>
+      )}
 
       {/* Complete Job Confirmation Dialog */}
       <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>

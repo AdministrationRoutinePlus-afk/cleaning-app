@@ -51,6 +51,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const [isRescheduling, setIsRescheduling] = useState(false)
   const [isModifyingPrice, setIsModifyingPrice] = useState(false)
   const [isPushingMessage, setIsPushingMessage] = useState(false)
+  const [isRefusing, setIsRefusing] = useState(false)
 
   // Form state for reschedule action
   const [newDate, setNewDate] = useState('')
@@ -64,6 +65,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
+
+  // Form state for refuse action
+  const [refuseReason, setRefuseReason] = useState('')
 
   // Loading state for async operations
   const [loading, setLoading] = useState(false)
@@ -156,6 +160,80 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     } catch (error) {
       console.error('Error cancelling job session:', error)
       alert('Failed to cancel job session')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Handle approving a CLAIMED job - sets status to APPROVED
+   */
+  const handleApprove = async () => {
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({
+          status: 'APPROVED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      alert('Job approved successfully!')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error approving job:', error)
+      alert('Failed to approve job')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Handle refusing a CLAIMED job - sets status to REFUSED and keeps employee assigned
+   * so they can see the refusal reason
+   */
+  const handleRefuse = async () => {
+    if (!refuseReason.trim()) {
+      alert('Please provide a reason for refusing')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Update job session to REFUSED (keep assigned_to so employee can see it)
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({
+          status: 'REFUSED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      // Send a message to the employee with the reason
+      if (jobSession.assigned_to) {
+        await supabase
+          .from('schedule_messages')
+          .insert({
+            job_session_id: jobSession.id,
+            employee_id: jobSession.assigned_to,
+            message: `Your claim was refused: ${refuseReason.trim()}`
+          })
+      }
+
+      alert('Claim refused.')
+      setIsRefusing(false)
+      setRefuseReason('')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error refusing job:', error)
+      alert('Failed to refuse job')
     } finally {
       setLoading(false)
     }
@@ -285,10 +363,12 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     setIsRescheduling(false)
     setIsModifyingPrice(false)
     setIsPushingMessage(false)
+    setIsRefusing(false)
     setNewDate('')
     setNewTime('')
     setNewPrice('')
     setMessageContent('')
+    setRefuseReason('')
     setSelectedEmployeeIds([])
     setSelectAll(false)
     onClose()
@@ -452,6 +532,38 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             </div>
           )}
 
+          {/* Refuse Claim Section - refuse with a reason message */}
+          {isRefusing && (
+            <div className="border rounded-lg p-4 space-y-4 bg-red-50">
+              <h3 className="font-semibold text-lg">Refuse Claim</h3>
+              <p className="text-sm text-gray-600">
+                Please provide a reason for refusing this claim. The employee will see this message.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="refuse-reason">Reason</Label>
+                <Textarea
+                  id="refuse-reason"
+                  placeholder="e.g., Schedule conflict, position already filled, etc."
+                  rows={3}
+                  value={refuseReason}
+                  onChange={(e) => setRefuseReason(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={handleRefuse}
+                  disabled={loading || !refuseReason.trim()}
+                >
+                  {loading ? 'Refusing...' : 'Confirm Refuse'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsRefusing(false)} disabled={loading}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Push to Messages Section - send a notification to selected employees */}
           {isPushingMessage && (
             <div className="border rounded-lg p-4 space-y-4 bg-purple-50">
@@ -529,8 +641,28 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
         {/* Footer with action buttons - hidden when any action panel is open */}
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          {!isRescheduling && !isModifyingPrice && !isPushingMessage && (
+          {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && (
             <>
+              {/* Approve/Refuse buttons - only shown for CLAIMED jobs */}
+              {jobSession.status === 'CLAIMED' && (
+                <>
+                  <Button
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={handleApprove}
+                    disabled={loading}
+                  >
+                    {loading ? 'Approving...' : 'Approve'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setIsRefusing(true)}
+                    disabled={loading}
+                  >
+                    Refuse
+                  </Button>
+                </>
+              )}
+
               {/* Move Job (Reschedule) - disabled for completed/cancelled jobs */}
               <Button
                 variant="outline"
@@ -558,14 +690,16 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 Push to Messages
               </Button>
 
-              {/* Cancel Job - disabled for completed/cancelled jobs */}
-              <Button
-                variant="destructive"
-                onClick={handleCancel}
-                disabled={loading || !canModify}
-              >
-                {loading ? 'Cancelling...' : 'Cancel Job'}
-              </Button>
+              {/* Cancel Job - disabled for completed/cancelled jobs, hidden for CLAIMED */}
+              {jobSession.status !== 'CLAIMED' && (
+                <Button
+                  variant="destructive"
+                  onClick={handleCancel}
+                  disabled={loading || !canModify}
+                >
+                  {loading ? 'Cancelling...' : 'Cancel Job'}
+                </Button>
+              )}
 
               {/* Close button */}
               <Button variant="secondary" onClick={handleClose}>

@@ -64,7 +64,7 @@ export default function EmployeeMarketplacePage() {
 
       if (offeredError) throw offeredError
 
-      // Load interested jobs (CLAIMED status by current user)
+      // Load interested jobs (CLAIMED, APPROVED, REFUSED by current user)
       let claimedJobs: typeof offeredJobs = []
       if (employeeId) {
         const { data, error: claimedError } = await supabase
@@ -76,7 +76,7 @@ export default function EmployeeMarketplacePage() {
               customer:customers(*)
             )
           `)
-          .eq('status', 'CLAIMED')
+          .in('status', ['CLAIMED', 'APPROVED', 'REFUSED'])
           .eq('assigned_to', employeeId)
           .order('created_at', { ascending: false })
 
@@ -506,9 +506,19 @@ function JobListCard({
           <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
             {job_template.job_code}
           </span>
-          {status === 'pending' && (
+          {status === 'pending' && job.status === 'CLAIMED' && (
             <span className="ml-2 inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">
               Pending Approval
+            </span>
+          )}
+          {job.status === 'APPROVED' && (
+            <span className="ml-2 inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
+              Approved!
+            </span>
+          )}
+          {job.status === 'REFUSED' && (
+            <span className="ml-2 inline-block bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
+              Refused
             </span>
           )}
         </div>
@@ -524,6 +534,19 @@ function JobListCard({
       {job_template.customer && (
         <p className="text-sm text-gray-600 mb-2">
           Client: {job_template.customer.full_name}
+        </p>
+      )}
+
+      {/* Scheduled Date */}
+      {job.scheduled_date && (
+        <p className="text-sm text-blue-600 font-medium mb-2">
+          📅 {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+          {job.scheduled_time && ` @ ${job.scheduled_time.slice(0, 5)}`}
         </p>
       )}
 

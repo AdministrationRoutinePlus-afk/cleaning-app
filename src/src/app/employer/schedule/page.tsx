@@ -119,12 +119,18 @@ export default function EmployerSchedulePage() {
     today.setHours(0, 0, 0, 0)
 
     return filteredSessions
-      .filter(session => session.scheduled_date && session.scheduled_time)
+      .filter(session => session.scheduled_date)
       .map(session => {
-        const [hours, minutes] = session.scheduled_time!.split(':')
         // Use T00:00:00 to parse as local timezone, not UTC
         const startDate = new Date(session.scheduled_date! + 'T00:00:00')
-        startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+
+        // Set time if available, otherwise default to 9:00 AM
+        if (session.scheduled_time) {
+          const [hours, minutes] = session.scheduled_time.split(':')
+          startDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0)
+        } else {
+          startDate.setHours(9, 0, 0, 0)
+        }
 
         const endDate = new Date(startDate)
         const durationMinutes = session.job_template?.duration_minutes || 60
