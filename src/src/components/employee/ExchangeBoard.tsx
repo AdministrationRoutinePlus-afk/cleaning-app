@@ -78,7 +78,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
             *,
             job_template:job_templates(job_code, title, description)
           ),
-          from_employee:employees!job_exchanges_from_employee_id_fkey(*)
+          from_employee:employees!from_employee_id(*)
         `)
         .eq('status', 'PENDING')
         .is('to_employee_id', null)
@@ -102,7 +102,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
             *,
             job_template:job_templates(job_code, title, description)
           ),
-          from_employee:employees!job_exchanges_from_employee_id_fkey(*)
+          from_employee:employees!from_employee_id(*)
         `)
         .or(`from_employee_id.eq.${employeeId},to_employee_id.eq.${employeeId}`)
         .order('requested_at', { ascending: false })
@@ -142,10 +142,29 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
   const handleAskForJob = async (exchangeId: string) => {
     try {
+      // Check if employee already requested this job
+      const { data: existingRequest } = await supabase
+        .from('job_exchanges')
+        .select('id, to_employee_id')
+        .eq('id', exchangeId)
+        .single()
+
+      if (existingRequest?.to_employee_id === employeeId) {
+        alert('You have already requested this job exchange.')
+        return
+      }
+
+      if (existingRequest?.to_employee_id) {
+        alert('Another employee has already requested this job exchange.')
+        await loadData()
+        return
+      }
+
       const { error } = await supabase
         .from('job_exchanges')
         .update({ to_employee_id: employeeId })
         .eq('id', exchangeId)
+        .is('to_employee_id', null) // Additional safety check
 
       if (error) throw error
 

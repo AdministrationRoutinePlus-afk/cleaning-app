@@ -23,7 +23,7 @@ export default function EmployerJobsPage() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.push('/auth/login')
+        router.push('/login')
         return
       }
 

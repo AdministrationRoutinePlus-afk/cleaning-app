@@ -1,6 +1,24 @@
 'use client'
 
+/**
+ * Employer Users Management Page (Tab 2)
+ *
+ * This page manages both employees and customers with the following features:
+ *
+ * EMPLOYEES:
+ * - Three subsections: Active, Pending, Inactive/Blocked
+ * - Status management: Activate pending employees, deactivate, block
+ * - View Profile: Navigate to detailed employee profile with job history, evaluations, strikes
+ *
+ * CUSTOMERS:
+ * - Customer creation with 3-letter code (e.g., ABC)
+ * - Status management: Deactivate, block
+ * - View Jobs: Navigate to jobs filtered by customer
+ * - Edit customer details
+ */
+
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Employee, Customer, EmployeeStatus, CustomerStatus, NewCustomer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -12,6 +30,7 @@ import { EmployeeCard } from '@/components/employer/EmployeeCard'
 import { CustomerCard } from '@/components/employer/CustomerCard'
 
 export default function EmployerUsersPage() {
+  const router = useRouter()
   const supabase = createClient()
 
   // State
@@ -22,13 +41,14 @@ export default function EmployerUsersPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // New customer form state
+  // New customer form state - includes all fields from the plan
   const [customerForm, setCustomerForm] = useState({
     customer_code: '',
     full_name: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    notes: ''  // Internal notes about the customer
   })
 
   // Load employees and customers
@@ -119,6 +139,21 @@ export default function EmployerUsersPage() {
     }
   }
 
+  // Reactivate an inactive employee (back to ACTIVE status)
+  const handleReactivateEmployee = async (employee: Employee) => {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ status: 'ACTIVE' as EmployeeStatus })
+        .eq('id', employee.id)
+
+      if (error) throw error
+      await loadData()
+    } catch (error) {
+      console.error('Error reactivating employee:', error)
+    }
+  }
+
   const handleBlockEmployee = async (employee: Employee) => {
     try {
       const { error } = await supabase
@@ -133,15 +168,14 @@ export default function EmployerUsersPage() {
     }
   }
 
+  // Navigate to detailed employee profile page with job history, evaluations, strikes
   const handleViewEmployeeProfile = (employee: Employee) => {
-    // TODO: Navigate to employee profile page
-    console.log('View employee profile:', employee.id)
+    router.push(`/employer/users/employee/${employee.id}`)
   }
 
-  // Customer handlers
+  // Navigate to detailed customer profile page with job history, evaluations, strikes
   const handleEditCustomer = (customer: Customer) => {
-    // TODO: Open edit dialog
-    console.log('Edit customer:', customer.id)
+    router.push(`/employer/users/customer/${customer.id}`)
   }
 
   const handleDeactivateCustomer = async (customer: Customer) => {
@@ -172,9 +206,9 @@ export default function EmployerUsersPage() {
     }
   }
 
+  // Navigate to customer profile (jobs tab is shown there)
   const handleViewCustomerJobs = (customer: Customer) => {
-    // TODO: Navigate to jobs filtered by customer
-    console.log('View customer jobs:', customer.id)
+    router.push(`/employer/users/customer/${customer.id}`)
   }
 
   // Create new customer
@@ -189,37 +223,35 @@ export default function EmployerUsersPage() {
       // Validate customer code (3 letters)
       if (!/^[A-Z]{3}$/.test(customerForm.customer_code)) {
         alert('Customer code must be exactly 3 uppercase letters')
+        setSubmitting(false)
         return
       }
 
-      // Create auth user for customer
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: customerForm.email,
-        email_confirm: true,
-        user_metadata: {
-          full_name: customerForm.full_name,
-          user_type: 'CUSTOMER'
-        }
-      })
+      // Get employer record to use employer.id for created_by FK
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
 
-      if (authError) throw authError
-
-      // Create customer record
-      const newCustomer: NewCustomer = {
-        user_id: authData.user.id,
-        customer_code: customerForm.customer_code.toUpperCase(),
-        full_name: customerForm.full_name,
-        email: customerForm.email,
-        phone: customerForm.phone || null,
-        address: customerForm.address || null,
-        notes: null,
-        status: 'ACTIVE',
-        created_by: user.id
+      if (!employer) {
+        throw new Error('Employer not found')
       }
 
+      // Create customer record (without auth user for now - can be invited later)
       const { error: customerError } = await supabase
         .from('customers')
-        .insert([newCustomer])
+        .insert({
+          user_id: null, // Customer can be linked to auth user later via invite
+          customer_code: customerForm.customer_code.toUpperCase(),
+          full_name: customerForm.full_name,
+          email: customerForm.email,
+          phone: customerForm.phone || null,
+          address: customerForm.address || null,
+          notes: customerForm.notes || null,  // Internal notes about the customer
+          status: 'ACTIVE',
+          created_by: employer.id
+        })
 
       if (customerError) throw customerError
 
@@ -229,7 +261,8 @@ export default function EmployerUsersPage() {
         full_name: '',
         email: '',
         phone: '',
-        address: ''
+        address: '',
+        notes: ''
       })
       setSheetOpen(false)
       await loadData()
@@ -318,6 +351,7 @@ export default function EmployerUsersPage() {
                       <EmployeeCard
                         key={employee.id}
                         employee={employee}
+                        onReactivate={handleReactivateEmployee}
                         onViewProfile={handleViewEmployeeProfile}
                       />
                     ))}
@@ -391,6 +425,15 @@ export default function EmployerUsersPage() {
                         placeholder="123 Main St, City, State"
                         value={customerForm.address}
                         onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Notes (optional)</Label>
+                      <Input
+                        id="notes"
+                        placeholder="Internal notes about this customer..."
+                        value={customerForm.notes}
+                        onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })}
                       />
                     </div>
                     <Button type="submit" className="w-full" disabled={submitting}>

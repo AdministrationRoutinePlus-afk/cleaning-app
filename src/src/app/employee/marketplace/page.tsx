@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
@@ -36,20 +36,7 @@ export default function EmployeeMarketplacePage() {
     loadUser()
   }, [])
 
-  useEffect(() => {
-    if (userId) {
-      loadData()
-    }
-  }, [userId])
-
-  const loadUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      setUserId(user.id)
-    }
-  }
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       // Load marketplace jobs (OFFERED status)
@@ -118,6 +105,19 @@ export default function EmployeeMarketplacePage() {
       console.error('Error loading jobs:', error)
     } finally {
       setLoading(false)
+    }
+  }, [userId, supabase])
+
+  useEffect(() => {
+    if (userId) {
+      loadData()
+    }
+  }, [userId, loadData])
+
+  const loadUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      setUserId(user.id)
     }
   }
 

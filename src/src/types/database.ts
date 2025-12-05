@@ -141,6 +141,8 @@ export interface JobStepImage extends BaseTable {
   caption: string | null
 }
 
+// Note: JobStepChecklist intentionally does not extend BaseTable.
+// This is a simple lookup table with minimal fields and no created_at tracking needed.
 export interface JobStepChecklist {
   id: string
   job_step_id: string // FK to job_steps
@@ -302,6 +304,8 @@ export interface EmployeeAvailability {
   timezone: string
 }
 
+// Note: EmployeeAvailabilityDate intentionally does not extend BaseTable.
+// This is a configuration table where created_at tracking is not required.
 export interface EmployeeAvailabilityDate {
   id: string
   employee_id: string // FK to employees

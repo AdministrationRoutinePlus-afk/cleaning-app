@@ -7,7 +7,7 @@ interface StepChecklistProps {
   items: JobStepChecklist[]
   sessionId: string
   progress: JobSessionChecklistProgress[]
-  onToggle: (itemId: string, isChecked: boolean) => Promise<void>
+  onToggle: (itemId: string, isChecked: boolean) => Promise<void> // Receives NEW state (after toggle)
   disabled?: boolean
 }
 

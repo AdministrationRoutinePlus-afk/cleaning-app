@@ -1,11 +1,11 @@
 {
-  "name": "Cleaning App",
-  "short_name": "CleaningApp",
+  "name": "Routine+",
+  "short_name": "Routine+",
   "description": "Job ticket marketplace for cleaning services",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1464ee",
+  "background_color": "#f5f5f7",
+  "theme_color": "#1d1d1f",
   "orientation": "portrait",
   "icons": [
     {

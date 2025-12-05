@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -83,23 +84,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Welcome Back
-          </CardTitle>
-          <CardDescription className="text-center">
-            Enter your credentials to access your account
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleLogin}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-md animate-fade-in">
+        <div className="flex justify-center mb-8">
+          <Image
+            src="/logo.png"
+            alt="Routine+"
+            width={200}
+            height={60}
+            priority
+            className="h-12 w-auto"
+          />
+        </div>
+        <Card className="w-full">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-semibold text-center tracking-tight">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-center">
+              Enter your credentials to access your account
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleLogin}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl text-sm animate-scale-in">
+                  {error}
+                </div>
+              )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -134,23 +146,25 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full"
+              size="lg"
               disabled={loading}
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
 
-            <div className="text-sm text-center text-gray-600">
+            <div className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}
               <Link
                 href="/register"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-accent hover:text-accent/80 font-medium transition-colors"
               >
                 Register here
               </Link>
             </div>
           </CardFooter>
         </form>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }

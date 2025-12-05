@@ -36,6 +36,18 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
 
     setUploading(true)
     try {
+      // Check if bucket exists and is accessible
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets()
+
+      if (bucketError) {
+        throw new Error('Unable to access storage. Please contact your administrator.')
+      }
+
+      const bucketExists = buckets?.some(b => b.name === 'employee-documents')
+      if (!bucketExists) {
+        throw new Error('Document storage is not configured. Please contact your administrator to set up the employee-documents storage bucket.')
+      }
+
       // Create unique file path
       const fileExt = file.name.split('.').pop()
       const fileName = `${employeeId}-void-cheque-${Date.now()}.${fileExt}`
