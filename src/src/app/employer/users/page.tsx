@@ -77,11 +77,23 @@ export default function EmployerUsersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Get employer record to use employer.id (not user.id) for FK
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!employer) {
+        console.error('Employer not found')
+        return
+      }
+
       const { error } = await supabase
         .from('employees')
         .update({
           status: 'ACTIVE' as EmployeeStatus,
-          activated_by: user.id,
+          activated_by: employer.id,
           activated_at: new Date().toISOString()
         })
         .eq('id', employee.id)

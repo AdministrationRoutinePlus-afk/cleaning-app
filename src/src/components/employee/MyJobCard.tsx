@@ -73,7 +73,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       if (error) throw error
 
       // Redirect to step-by-step execution page
-      router.push(`/employee/jobs/${jobSession.id}/execute`)
+      router.push(`/employee/jobs/${jobSession.id}`)
 
       // Trigger refresh if callback provided
       if (onStatusChange) {
@@ -89,7 +89,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
   // Handle View Steps button click
   const handleViewSteps = () => {
-    router.push(`/employee/jobs/${jobSession.id}/execute`)
+    router.push(`/employee/jobs/${jobSession.id}`)
   }
 
   // Handle View Details button click
