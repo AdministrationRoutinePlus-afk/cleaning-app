@@ -77,7 +77,7 @@ export default function EmployeeMarketplacePage() {
 
       // Deduplicate and filter out swiped jobs + jobs without job_template
       const availableJobs = (offeredJobs || [])
-        .filter(job => job.job_template !== null) // Filter out orphaned sessions
+        .filter(job => job.job_template !== null)
         .filter(job => !swipedIds.has(job.id))
         .filter((job, index, self) => index === self.findIndex(j => j.id === job.id)) as JobSessionWithDetails[]
 
