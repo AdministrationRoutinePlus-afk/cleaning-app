@@ -41,7 +41,7 @@ export default function LoginPage() {
       const { data: employerData } = await supabase
         .from('employers')
         .select('id')
-        .eq('auth_user_id', authData.user.id)
+        .eq('user_id', authData.user.id)
         .single()
 
       if (employerData) {
@@ -53,7 +53,7 @@ export default function LoginPage() {
       const { data: employeeData } = await supabase
         .from('employees')
         .select('id')
-        .eq('auth_user_id', authData.user.id)
+        .eq('user_id', authData.user.id)
         .single()
 
       if (employeeData) {
@@ -65,7 +65,7 @@ export default function LoginPage() {
       const { data: customerData } = await supabase
         .from('customers')
         .select('id')
-        .eq('auth_user_id', authData.user.id)
+        .eq('user_id', authData.user.id)
         .single()
 
       if (customerData) {

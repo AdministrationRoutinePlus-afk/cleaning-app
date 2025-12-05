@@ -66,7 +66,7 @@ export default function RegisterPage() {
         const { error: profileError } = await supabase
           .from('employers')
           .insert({
-            auth_user_id: authData.user.id,
+            user_id: authData.user.id,
             full_name: fullName,
             email: email,
             phone: '', // Will be updated in settings
@@ -82,7 +82,7 @@ export default function RegisterPage() {
         const { error: profileError } = await supabase
           .from('employees')
           .insert({
-            auth_user_id: authData.user.id,
+            user_id: authData.user.id,
             full_name: fullName,
             email: email,
             phone: '', // Will be updated in settings
