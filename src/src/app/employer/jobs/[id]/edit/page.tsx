@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
 import { X, Plus, Calendar } from 'lucide-react'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function EditJobPage() {
   const router = useRouter()
@@ -552,11 +553,7 @@ export default function EditJobPage() {
   }
 
   if (initialLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <p className="text-gray-500">Loading job...</p>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   if (!job) {

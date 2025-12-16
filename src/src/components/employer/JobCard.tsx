@@ -251,6 +251,23 @@ export function JobCard({ job, onUpdate }: JobCardProps) {
           </div>
         </div>
 
+        {(job.time_window_start || job.time_window_end) && (
+          <div className="pt-2">
+            <div className="bg-blue-50 p-2 rounded border border-blue-200">
+              <p className="text-xs text-blue-700 font-medium mb-1">Time Window</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">
+                  {job.time_window_start ? job.time_window_start.substring(0, 5) : 'Not set'}
+                </span>
+                <span className="text-gray-400">→</span>
+                <span className="text-gray-600">
+                  {job.time_window_end ? job.time_window_end.substring(0, 5) : 'Not set'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {job.address && (
           <div className="pt-1">
             <p className="text-xs text-gray-500">Address</p>

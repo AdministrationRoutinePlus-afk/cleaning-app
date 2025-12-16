@@ -7,6 +7,7 @@ import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 type JobSessionWithDetails = JobSession & {
   job_template: JobTemplate & {
@@ -288,71 +289,114 @@ export default function EmployeeMarketplacePage() {
   const currentJob = marketplaceJobs[currentIndex]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
       <div className="max-w-2xl mx-auto p-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Job Marketplace</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">Job Marketplace</h1>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="marketplace">
-              Marketplace
-              {marketplaceJobs.length > currentIndex && (
-                <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
-                  {marketplaceJobs.length - currentIndex}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="interested">
-              Interested
-              {interestedJobs.length > 0 && (
-                <span className="ml-2 bg-green-500 text-white text-xs rounded-full px-2 py-0.5">
-                  {interestedJobs.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="garbage">
-              Skipped
-              {skippedJobs.length > 0 && (
-                <span className="ml-2 bg-gray-500 text-white text-xs rounded-full px-2 py-0.5">
-                  {skippedJobs.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="mb-6 space-y-3">
+            {/* Marketplace - Big Tab on Top */}
+            <button
+              onClick={() => setActiveTab('marketplace')}
+              className={`w-full py-4 px-6 rounded-2xl font-bold text-lg transition-all ${
+                activeTab === 'marketplace'
+                  ? 'bg-white/20 backdrop-blur-md text-white shadow-lg scale-105 border-2 border-white/40'
+                  : 'bg-white/5 backdrop-blur-sm text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span>Marketplace</span>
+                {marketplaceJobs.length > currentIndex && (
+                  <span className={`text-sm rounded-full px-3 py-1 ${
+                    activeTab === 'marketplace'
+                      ? 'bg-white/30 text-white'
+                      : 'bg-white/10 text-gray-400'
+                  }`}>
+                    {marketplaceJobs.length - currentIndex} available
+                  </span>
+                )}
+              </div>
+            </button>
+
+            {/* Interested & Skipped - Smaller Tabs Below */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setActiveTab('interested')}
+                className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'interested'
+                    ? 'bg-white/20 backdrop-blur-md text-white shadow-md scale-105 border-2 border-white/40'
+                    : 'bg-white/5 backdrop-blur-sm text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <span>Interested</span>
+                  {interestedJobs.length > 0 && (
+                    <span className={`text-xs rounded-full px-2 py-0.5 ${
+                      activeTab === 'interested'
+                        ? 'bg-white/30 text-white'
+                        : 'bg-white/10 text-gray-400'
+                    }`}>
+                      {interestedJobs.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('garbage')}
+                className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'garbage'
+                    ? 'bg-white/20 backdrop-blur-md text-white shadow-md scale-105 border-2 border-white/40'
+                    : 'bg-white/5 backdrop-blur-sm text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <span>Skipped</span>
+                  {skippedJobs.length > 0 && (
+                    <span className={`text-xs rounded-full px-2 py-0.5 ${
+                      activeTab === 'garbage'
+                        ? 'bg-white/30 text-white'
+                        : 'bg-white/10 text-gray-400'
+                    }`}>
+                      {skippedJobs.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+          </div>
 
           {/* MARKETPLACE TAB */}
           <TabsContent value="marketplace" className="mt-0">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-gray-500">Loading jobs...</div>
-              </div>
+              <LoadingSpinner size="lg" />
             ) : employeeStatus === 'PENDING' ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+              <div className="bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-md rounded-2xl p-8 text-center">
                 <div className="text-4xl mb-4">⏳</div>
-                <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                <h3 className="text-lg font-semibold text-yellow-300 mb-2">
                   Account Pending Activation
                 </h3>
-                <p className="text-yellow-700 mb-2">
+                <p className="text-yellow-200/80 mb-2">
                   Your account is waiting for employer approval.
                 </p>
-                <p className="text-sm text-yellow-600">
+                <p className="text-sm text-yellow-200/60">
                   Once your account is activated, you&apos;ll be able to see and claim jobs here.
                 </p>
               </div>
             ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+              <div className="bg-red-500/10 border border-red-500/30 backdrop-blur-md rounded-2xl p-8 text-center">
                 <div className="text-4xl mb-4">🚫</div>
-                <h3 className="text-lg font-semibold text-red-800 mb-2">
+                <h3 className="text-lg font-semibold text-red-300 mb-2">
                   Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
                 </h3>
-                <p className="text-red-700">
+                <p className="text-red-200/80">
                   Please contact your employer to restore access.
                 </p>
               </div>
             ) : currentJob ? (
               <div className="space-y-6">
                 {/* Instructions */}
-                <p className="text-center text-gray-600 text-sm">
+                <p className="text-center text-gray-300 text-sm">
                   Swipe right to show interest, swipe left to skip
                 </p>
 
@@ -367,7 +411,7 @@ export default function EmployeeMarketplacePage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-full w-16 h-16 border-2 border-red-500 text-red-500 hover:bg-red-50"
+                    className="rounded-full w-16 h-16 border-2 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-500 bg-black/20 backdrop-blur-md transition-all"
                     onClick={() => handleSwipe('left')}
                   >
                     <span className="text-2xl">✕</span>
@@ -375,7 +419,7 @@ export default function EmployeeMarketplacePage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-full w-16 h-16 border-2 border-green-500 text-green-500 hover:bg-green-50"
+                    className="rounded-full w-16 h-16 border-2 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:border-green-500 bg-black/20 backdrop-blur-md transition-all"
                     onClick={() => handleSwipe('right')}
                   >
                     <span className="text-2xl">♥</span>
@@ -383,18 +427,19 @@ export default function EmployeeMarketplacePage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <div className="text-4xl mb-4">🎉</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-white mb-2">
                   All caught up!
                 </h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-gray-300 mb-4">
                   No more jobs available right now. Check back later!
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleResetAll}
+                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
                 >
                   Reset & Show All Jobs
                 </Button>
@@ -405,12 +450,12 @@ export default function EmployeeMarketplacePage() {
           {/* INTERESTED TAB */}
           <TabsContent value="interested" className="mt-0">
             {interestedJobs.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <div className="text-4xl mb-4">👀</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-white mb-2">
                   No interested jobs yet
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-300">
                   Swipe right on jobs you like to see them here!
                 </p>
               </div>
@@ -426,12 +471,12 @@ export default function EmployeeMarketplacePage() {
           {/* GARBAGE/SKIPPED TAB */}
           <TabsContent value="garbage" className="mt-0">
             {skippedJobs.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <div className="text-4xl mb-4">🗑️</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-white mb-2">
                   No skipped jobs
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-300">
                   Jobs you skip will appear here. You can restore them anytime!
                 </p>
               </div>
@@ -500,67 +545,94 @@ function JobListCard({
   const { job_template } = job
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-4 border border-white/20">
       <div className="flex justify-between items-start mb-2">
         <div>
-          <span className="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+          <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-1 rounded-full">
             {job_template.job_code}
           </span>
           {status === 'pending' && job.status === 'CLAIMED' && (
-            <span className="ml-2 inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">
+            <span className="ml-2 inline-block bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-2 py-1 rounded-full">
               Pending Approval
             </span>
           )}
           {job.status === 'APPROVED' && (
-            <span className="ml-2 inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">
+            <span className="ml-2 inline-block bg-green-500/20 text-green-300 text-xs font-semibold px-2 py-1 rounded-full">
               Approved!
             </span>
           )}
           {job.status === 'REFUSED' && (
-            <span className="ml-2 inline-block bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
+            <span className="ml-2 inline-block bg-red-500/20 text-red-300 text-xs font-semibold px-2 py-1 rounded-full">
               Refused
             </span>
           )}
         </div>
         {onRestore && (
-          <Button size="sm" variant="outline" onClick={onRestore}>
+          <Button size="sm" variant="outline" onClick={onRestore} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
             Restore
           </Button>
         )}
       </div>
 
-      <h3 className="font-semibold text-gray-900 mb-1">{job_template.title}</h3>
+      <h3 className="font-semibold text-white mb-1">{job_template.title}</h3>
 
       {job_template.customer && (
-        <p className="text-sm text-gray-600 mb-2">
+        <p className="text-sm text-gray-300 mb-2">
           Client: {job_template.customer.full_name}
         </p>
       )}
 
       {/* Scheduled Date */}
       {job.scheduled_date && (
-        <p className="text-sm text-blue-600 font-medium mb-2">
-          📅 {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+        <p className="text-sm text-blue-400 font-medium mb-2">
+          {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
             weekday: 'short',
             month: 'short',
             day: 'numeric',
             year: 'numeric'
           })}
-          {job.scheduled_time && ` @ ${job.scheduled_time.slice(0, 5)}`}
         </p>
       )}
 
-      <div className="flex gap-4 text-sm text-gray-600">
+      {/* Time Window */}
+      {job.scheduled_date && (job_template.time_window_start || job_template.time_window_end) && (
+        <div className="bg-white/5 p-2 rounded-lg mb-2 space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Window Start:</span>
+            <span className="text-white font-medium">
+              {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              })}
+              {job_template.time_window_start && ` at ${job_template.time_window_start.substring(0, 5)}`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Window End:</span>
+            <span className="text-white font-medium">
+              {new Date((job.scheduled_end_date || job.scheduled_date) + 'T00:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              })}
+              {job_template.time_window_end && ` at ${job_template.time_window_end.substring(0, 5)}`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-4 text-sm text-gray-300">
         {job_template.duration_minutes && (
-          <span>⏱ {Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m</span>
+          <span>{Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m</span>
         )}
         {job_template.price_per_hour && (
-          <span>💰 ${job_template.price_per_hour}/hr</span>
+          <span>${job_template.price_per_hour}/hr</span>
         )}
       </div>
 
       {job_template.description && (
-        <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+        <p className="mt-2 text-sm text-gray-400 line-clamp-2">
           {job_template.description}
         </p>
       )}

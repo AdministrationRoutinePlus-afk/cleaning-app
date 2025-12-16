@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { JobCard } from '@/components/employer/JobCard'
 import { format } from 'date-fns'
 import { History } from 'lucide-react'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 // Type for grouped sessions: Customer -> Job -> Sessions
 interface GroupedSessions {
@@ -186,15 +187,7 @@ export default function EmployerJobsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <p className="text-gray-500">Loading...</p>
-          </div>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   return (

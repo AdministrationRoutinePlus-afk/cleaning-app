@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { EmployeeCard } from '@/components/employer/EmployeeCard'
 import { CustomerCard } from '@/components/employer/CustomerCard'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function EmployerUsersPage() {
   const router = useRouter()
@@ -393,13 +394,7 @@ export default function EmployerUsersPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-7xl mx-auto">
-          <p>Loading...</p>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   return (

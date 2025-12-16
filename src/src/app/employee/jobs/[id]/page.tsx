@@ -31,6 +31,7 @@ import {
   XCircle
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 interface ScheduleMessage {
   id: string
@@ -275,24 +276,22 @@ export default function JobExecutionPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading job...</p>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   if (!jobData) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Job not found</h2>
-          <p className="text-gray-600 mb-4">This job does not exist or you don't have access to it.</p>
-          <Button onClick={() => router.push('/employee/jobs')}>Back to Jobs</Button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
+        <Card className="p-8 text-center bg-white/10 backdrop-blur-md border-white/20">
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Job not found</h2>
+          <p className="text-gray-300 mb-4">This job does not exist or you don't have access to it.</p>
+          <Button
+            onClick={() => router.push('/employee/jobs')}
+            className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
+          >
+            Back to Jobs
+          </Button>
         </Card>
       </div>
     )
@@ -301,34 +300,35 @@ export default function JobExecutionPage() {
   const currentStep = jobData.steps[currentStepIndex]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center justify-between mb-3">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/employee/jobs')}
+              className="text-white hover:bg-white/10"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
 
             <Badge className={
-              jobData.session.status === 'IN_PROGRESS' ? 'bg-amber-500' :
-              jobData.session.status === 'REFUSED' ? 'bg-red-500' :
-              'bg-blue-600'
+              jobData.session.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+              jobData.session.status === 'REFUSED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+              'bg-blue-500/20 text-blue-300 border border-blue-500/30'
             }>
               {jobData.session.status === 'IN_PROGRESS' ? 'In Progress' : jobData.session.status}
             </Badge>
           </div>
 
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
+          <h1 className="text-xl font-bold text-white mb-2">
             {jobData.session.job_template.title}
           </h1>
 
-          <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-4">
+          <div className="flex flex-wrap gap-3 text-sm text-gray-300 mb-4">
             {jobData.session.job_template.customer && (
               <div className="flex items-center gap-1">
                 <span className="font-medium">Customer:</span>
@@ -362,20 +362,20 @@ export default function JobExecutionPage() {
       {/* Refusal Reason Banner - shown when job is REFUSED */}
       {jobData.session.status === 'REFUSED' && (
         <div className="max-w-6xl mx-auto p-4">
-          <Card className="p-6 bg-red-50 border-red-200">
+          <Card className="p-6 bg-red-500/10 border-red-500/30 backdrop-blur-md">
             <div className="flex items-start gap-3">
-              <XCircle className="w-8 h-8 text-red-500 flex-shrink-0 mt-0.5" />
+              <XCircle className="w-8 h-8 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="font-semibold text-red-900 text-lg mb-2">Claim Refused</h3>
+                <h3 className="font-semibold text-red-300 text-lg mb-2">Claim Refused</h3>
                 {jobData.refuseMessage ? (
                   <div>
-                    <p className="text-red-800 font-medium mb-1">Reason from employer:</p>
-                    <p className="text-red-700 bg-red-100 p-3 rounded-lg">
+                    <p className="text-red-300 font-medium mb-1">Reason from employer:</p>
+                    <p className="text-red-200 bg-red-500/20 p-3 rounded-lg border border-red-500/30">
                       {jobData.refuseMessage.message.replace('Your claim was refused: ', '')}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-red-700">Your claim for this job was refused by the employer.</p>
+                  <p className="text-red-300">Your claim for this job was refused by the employer.</p>
                 )}
               </div>
             </div>
@@ -455,19 +455,19 @@ export default function JobExecutionPage() {
                     variant="outline"
                     onClick={handlePreviousStep}
                     disabled={currentStepIndex === 0}
-                    className="flex-1"
+                    className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
                   >
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Previous
                   </Button>
-                  <span className="text-sm text-gray-600 whitespace-nowrap">
+                  <span className="text-sm text-gray-300 whitespace-nowrap">
                     {currentStepIndex + 1} of {totalSteps}
                   </span>
                   <Button
                     variant="outline"
                     onClick={handleNextStep}
                     disabled={currentStepIndex === totalSteps - 1}
-                    className="flex-1"
+                    className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
                   >
                     Next
                     <ChevronRight className="w-4 h-4 ml-1" />
@@ -480,17 +480,17 @@ export default function JobExecutionPage() {
 
         {/* Complete Job Button */}
         {allStepsComplete && (
-          <Card className="p-6 mt-6 bg-green-50 border-green-200">
+          <Card className="p-6 mt-6 bg-green-500/10 border-green-500/30 backdrop-blur-md">
             <div className="flex items-center gap-3 mb-4">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
+              <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
-                <h3 className="font-semibold text-green-900">All steps completed!</h3>
-                <p className="text-sm text-green-700">Ready to mark this job as complete.</p>
+                <h3 className="font-semibold text-green-300">All steps completed!</h3>
+                <p className="text-sm text-green-400">Ready to mark this job as complete.</p>
               </div>
             </div>
             <Button
               onClick={() => setShowCompleteDialog(true)}
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
               size="lg"
             >
               Complete Job
@@ -499,8 +499,8 @@ export default function JobExecutionPage() {
         )}
 
         {!allStepsComplete && totalSteps > 0 && (
-          <Card className="p-4 mt-6 bg-blue-50 border-blue-200">
-            <p className="text-sm text-blue-900 text-center">
+          <Card className="p-4 mt-6 bg-blue-500/10 border-blue-500/30 backdrop-blur-md">
+            <p className="text-sm text-blue-300 text-center">
               Complete all steps to finish this job ({completedStepsCount}/{totalSteps} done)
             </p>
           </Card>

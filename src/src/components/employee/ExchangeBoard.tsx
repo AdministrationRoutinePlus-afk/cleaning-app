@@ -12,6 +12,8 @@ interface JobSessionWithDetails extends JobSession {
     job_code: string
     title: string
     description: string | null
+    time_window_start: string | null
+    time_window_end: string | null
   }
 }
 
@@ -55,7 +57,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
         .from('job_sessions')
         .select(`
           *,
-          job_template:job_templates(job_code, title, description)
+          job_template:job_templates(job_code, title, description, time_window_start, time_window_end)
         `)
         .eq('assigned_to', employeeId)
         .eq('status', 'APPROVED')
@@ -76,7 +78,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
           *,
           job_session:job_sessions(
             *,
-            job_template:job_templates(job_code, title, description)
+            job_template:job_templates(job_code, title, description, time_window_start, time_window_end)
           ),
           from_employee:employees!from_employee_id(*)
         `)
@@ -100,7 +102,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
           *,
           job_session:job_sessions(
             *,
-            job_template:job_templates(job_code, title, description)
+            job_template:job_templates(job_code, title, description, time_window_start, time_window_end)
           ),
           from_employee:employees!from_employee_id(*)
         `)
@@ -179,6 +181,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Not scheduled'
     return new Date(dateStr).toLocaleDateString('en-US', {
+      weekday: 'short',
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -190,24 +193,33 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
     return timeStr.substring(0, 5)
   }
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-      PENDING: { variant: 'default', label: 'Pending' },
-      APPROVED: { variant: 'secondary', label: 'Approved' },
-      DENIED: { variant: 'destructive', label: 'Denied' }
+  const getJobTimeWindow = (job: JobSessionWithDetails) => {
+    return {
+      startDate: job.scheduled_date,
+      startTime: job.job_template.time_window_start,
+      endDate: job.scheduled_end_date || job.scheduled_date,
+      endTime: job.job_template.time_window_end
     }
-    const config = variants[status] || { variant: 'outline' as const, label: status }
-    return <Badge variant={config.variant}>{config.label}</Badge>
+  }
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { className: string; label: string }> = {
+      PENDING: { className: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 font-bold', label: 'Pending' },
+      APPROVED: { className: 'bg-green-500/20 text-green-300 border border-green-500/50 font-bold', label: 'Approved' },
+      DENIED: { className: 'bg-red-500/20 text-red-300 border border-red-500/50 font-bold', label: 'Denied' }
+    }
+    const config = variants[status] || { className: 'bg-white/20 text-white border border-white/50 font-bold', label: status }
+    return <Badge className={config.className}>{config.label}</Badge>
   }
 
   if (loading) {
     return (
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
+          <Card key={i} className="bg-white/10 backdrop-blur-md border-white/20 animate-pulse">
             <CardContent className="p-4">
-              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+              <div className="h-4 bg-white/20 rounded w-1/3 mb-2"></div>
+              <div className="h-3 bg-white/20 rounded w-2/3"></div>
             </CardContent>
           </Card>
         ))}
@@ -219,74 +231,88 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
     <div className="space-y-4">
       {/* Tab Selection */}
       <div className="grid grid-cols-3 gap-2">
-        <Button
-          variant={activeTab === 'post' ? 'default' : 'outline'}
+        <button
           onClick={() => setActiveTab('post')}
-          className="text-xs sm:text-sm"
+          className={`py-3 px-3 rounded-lg font-semibold text-xs transition-all ${
+            activeTab === 'post'
+              ? 'bg-orange-500/20 text-orange-300 border-2 border-orange-500/50 scale-105 shadow-lg'
+              : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
+          }`}
         >
           Post Job
-        </Button>
-        <Button
-          variant={activeTab === 'available' ? 'default' : 'outline'}
+        </button>
+        <button
           onClick={() => setActiveTab('available')}
-          className="text-xs sm:text-sm"
+          className={`py-3 px-3 rounded-lg font-semibold text-xs transition-all ${
+            activeTab === 'available'
+              ? 'bg-orange-500/20 text-orange-300 border-2 border-orange-500/50 scale-105 shadow-lg'
+              : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
+          }`}
         >
           Available ({availableExchanges.length})
-        </Button>
-        <Button
-          variant={activeTab === 'my-requests' ? 'default' : 'outline'}
+        </button>
+        <button
           onClick={() => setActiveTab('my-requests')}
-          className="text-xs sm:text-sm"
+          className={`py-3 px-3 rounded-lg font-semibold text-xs transition-all ${
+            activeTab === 'my-requests'
+              ? 'bg-orange-500/20 text-orange-300 border-2 border-orange-500/50 scale-105 shadow-lg'
+              : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
+          }`}
         >
           My Requests
-        </Button>
+        </button>
       </div>
 
       {/* Post Job Tab */}
       {activeTab === 'post' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-400">
             Post your approved jobs for exchange with other employees
           </p>
 
           {myApprovedJobs.length === 0 ? (
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="p-6 text-center">
-                <p className="text-gray-500">No approved jobs to post</p>
+                <p className="text-gray-300">No approved jobs to post</p>
               </CardContent>
             </Card>
           ) : (
             myApprovedJobs.map(job => (
-              <Card key={job.id}>
+              <Card key={job.id} className="bg-white/10 backdrop-blur-md border-2 border-white/20 hover:border-orange-500/50 transition-all">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-base">{job.job_template.job_code}</CardTitle>
-                      <p className="text-sm text-gray-600 mt-1">{job.job_template.title}</p>
+                      <CardTitle className="text-base text-white font-mono">{job.job_template.job_code}</CardTitle>
+                      <p className="text-sm text-gray-300 mt-1">{job.job_template.title}</p>
                     </div>
-                    <Badge variant="secondary">APPROVED</Badge>
+                    <Badge className="bg-green-500/20 text-green-300 border border-green-500/50 font-bold">APPROVED</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pb-3">
-                  <div className="space-y-1 text-sm">
-                    <p className="text-gray-700">
-                      <span className="font-medium">Date:</span> {formatDate(job.scheduled_date)}
-                    </p>
-                    {job.scheduled_time && (
-                      <p className="text-gray-700">
-                        <span className="font-medium">Time:</span> {formatTime(job.scheduled_time)}
-                      </p>
-                    )}
+                  <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Window Start:</span>
+                      <span className="text-white font-medium">
+                        {formatDate(job.scheduled_date)}
+                        {job.job_template.time_window_start && ` at ${formatTime(job.job_template.time_window_start)}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Window End:</span>
+                      <span className="text-white font-medium">
+                        {formatDate(job.scheduled_end_date || job.scheduled_date)}
+                        {job.job_template.time_window_end && ` at ${formatTime(job.job_template.time_window_end)}`}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button
+                  <button
                     onClick={() => handlePostForExchange(job.id)}
-                    className="w-full"
-                    size="sm"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                   >
                     Post for Exchange
-                  </Button>
+                  </button>
                 </CardFooter>
               </Card>
             ))
@@ -297,68 +323,71 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
       {/* Available Tab */}
       {activeTab === 'available' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-400">
             Jobs posted by other employees for exchange
           </p>
 
           {availableExchanges.length === 0 ? (
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="p-6 text-center">
-                <p className="text-gray-500">No jobs available for exchange</p>
+                <p className="text-gray-300">No jobs available for exchange</p>
               </CardContent>
             </Card>
           ) : (
             availableExchanges.map(exchange => (
-              <Card key={exchange.id}>
+              <Card key={exchange.id} className="bg-white/10 backdrop-blur-md border-2 border-white/20 hover:border-orange-500/50 transition-all">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-base">
+                      <CardTitle className="text-base text-white font-mono">
                         {exchange.job_session.job_template.job_code}
                       </CardTitle>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-gray-300 mt-1">
                         {exchange.job_session.job_template.title}
                       </p>
                     </div>
-                    {getStatusBadge(exchange.status)}
+                    <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 font-bold">PENDING</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pb-3">
                   <div className="space-y-2 text-sm">
-                    <div>
-                      <p className="text-gray-700">
-                        <span className="font-medium">Date:</span>{' '}
-                        {formatDate(exchange.job_session.scheduled_date)}
-                      </p>
-                      {exchange.job_session.scheduled_time && (
-                        <p className="text-gray-700">
-                          <span className="font-medium">Time:</span>{' '}
-                          {formatTime(exchange.job_session.scheduled_time)}
-                        </p>
-                      )}
+                    <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Window Start:</span>
+                        <span className="text-white font-medium">
+                          {formatDate(exchange.job_session.scheduled_date)}
+                          {exchange.job_session.job_template.time_window_start && ` at ${formatTime(exchange.job_session.job_template.time_window_start)}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Window End:</span>
+                        <span className="text-white font-medium">
+                          {formatDate(exchange.job_session.scheduled_end_date || exchange.job_session.scheduled_date)}
+                          {exchange.job_session.job_template.time_window_end && ` at ${formatTime(exchange.job_session.job_template.time_window_end)}`}
+                        </span>
+                      </div>
                     </div>
                     <div>
-                      <p className="text-gray-700">
-                        <span className="font-medium">Posted by:</span>{' '}
+                      <p className="text-gray-300">
+                        <span className="font-medium text-white">Posted by:</span>{' '}
                         {exchange.from_employee.full_name}
                       </p>
                     </div>
                     {exchange.reason && (
                       <div>
-                        <p className="font-medium text-gray-700">Reason:</p>
-                        <p className="text-gray-600 text-xs italic">{exchange.reason}</p>
+                        <p className="font-medium text-white">Reason:</p>
+                        <p className="text-gray-400 text-xs italic">{exchange.reason}</p>
                       </div>
                     )}
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button
+                  <button
                     onClick={() => handleAskForJob(exchange.id)}
-                    className="w-full"
-                    size="sm"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                   >
                     Ask for it
-                  </Button>
+                  </button>
                 </CardFooter>
               </Card>
             ))
@@ -369,28 +398,28 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
       {/* My Requests Tab */}
       {activeTab === 'my-requests' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-400">
             Track your exchange requests and status
           </p>
 
           {myRequests.length === 0 ? (
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="p-6 text-center">
-                <p className="text-gray-500">No exchange requests</p>
+                <p className="text-gray-300">No exchange requests</p>
               </CardContent>
             </Card>
           ) : (
             myRequests.map(exchange => {
               const isMyPost = exchange.from_employee_id === employeeId
               return (
-                <Card key={exchange.id}>
+                <Card key={exchange.id} className="bg-white/10 backdrop-blur-md border-2 border-white/20">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-base">
+                        <CardTitle className="text-base text-white font-mono">
                           {exchange.job_session.job_template.job_code}
                         </CardTitle>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-gray-300 mt-1">
                           {exchange.job_session.job_template.title}
                         </p>
                       </div>
@@ -399,34 +428,38 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-gray-700">
-                          <span className="font-medium">Date:</span>{' '}
-                          {formatDate(exchange.job_session.scheduled_date)}
-                        </p>
-                        {exchange.job_session.scheduled_time && (
-                          <p className="text-gray-700">
-                            <span className="font-medium">Time:</span>{' '}
-                            {formatTime(exchange.job_session.scheduled_time)}
-                          </p>
-                        )}
+                      <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">Window Start:</span>
+                          <span className="text-white font-medium">
+                            {formatDate(exchange.job_session.scheduled_date)}
+                            {exchange.job_session.job_template.time_window_start && ` at ${formatTime(exchange.job_session.job_template.time_window_start)}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">Window End:</span>
+                          <span className="text-white font-medium">
+                            {formatDate(exchange.job_session.scheduled_end_date || exchange.job_session.scheduled_date)}
+                            {exchange.job_session.job_template.time_window_end && ` at ${formatTime(exchange.job_session.job_template.time_window_end)}`}
+                          </span>
+                        </div>
                       </div>
                       <div>
-                        <p className="text-gray-700">
-                          <span className="font-medium">Type:</span>{' '}
+                        <p className="text-gray-300">
+                          <span className="font-medium text-white">Type:</span>{' '}
                           {isMyPost ? 'Posted by me' : 'Requested by me'}
                         </p>
                       </div>
                       {exchange.reason && (
                         <div>
-                          <p className="font-medium text-gray-700">Reason:</p>
-                          <p className="text-gray-600 text-xs italic">{exchange.reason}</p>
+                          <p className="font-medium text-white">Reason:</p>
+                          <p className="text-gray-400 text-xs italic">{exchange.reason}</p>
                         </div>
                       )}
                       {exchange.to_employee_id && (
                         <div>
-                          <p className="text-gray-700">
-                            <span className="font-medium">Status:</span>{' '}
+                          <p className="text-gray-300">
+                            <span className="font-medium text-white">Status:</span>{' '}
                             {exchange.status === 'PENDING'
                               ? 'Waiting for employer approval'
                               : exchange.status === 'APPROVED'

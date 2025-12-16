@@ -5,7 +5,7 @@ import type { JobSessionFull, JobSessionStatus } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MyJobCard } from '@/components/employee/MyJobCard'
-import { Loader2 } from 'lucide-react'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function EmployeeJobsPage() {
   const [loading, setLoading] = useState(true)
@@ -92,17 +92,13 @@ export default function EmployeeJobsPage() {
   // Render job list
   const renderJobList = (jobList: JobSessionFull[], emptyMessage: string) => {
     if (loading) {
-      return (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-        </div>
-      )
+      return <LoadingSpinner size="lg" />
     }
 
     if (jobList.length === 0) {
       return (
         <div className="text-center py-12">
-          <p className="text-gray-500">{emptyMessage}</p>
+          <p className="text-gray-300">{emptyMessage}</p>
         </div>
       )
     }
@@ -121,60 +117,146 @@ export default function EmployeeJobsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
       <div className="max-w-2xl mx-auto p-4 space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Jobs</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-white">My Jobs</h1>
+          <p className="text-sm text-gray-300 mt-1">
             Manage your job assignments and track progress
           </p>
         </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
-            <TabsTrigger value="pending" className="text-[10px] sm:text-sm px-1 py-2 relative">
-              Pending
-              {counts.pending > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-yellow-500 text-white rounded-full flex items-center justify-center">
-                  {counts.pending}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="approved" className="text-[10px] sm:text-sm px-1 py-2 relative">
-              Approved
-              {counts.approved > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-green-500 text-white rounded-full flex items-center justify-center">
-                  {counts.approved}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="in-progress" className="text-[10px] sm:text-sm px-1 py-2 relative">
-              Active
-              {counts.inProgress > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-blue-500 text-white rounded-full flex items-center justify-center">
-                  {counts.inProgress}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="text-[10px] sm:text-sm px-1 py-2 relative">
-              Done
-              {counts.completed > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-purple-500 text-white rounded-full flex items-center justify-center">
-                  {counts.completed}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="refused" className="text-[10px] sm:text-sm px-1 py-2 relative">
-              Refused
-              {counts.refused > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] bg-red-500 text-white rounded-full flex items-center justify-center">
-                  {counts.refused}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col gap-6 mb-6">
+            {/* Top Priority Section - Active & Done */}
+            <div className="space-y-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">
+                Current Jobs
+              </div>
+
+              <button
+                onClick={() => setActiveTab('in-progress')}
+                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'in-progress'
+                    ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/50 scale-105 shadow-lg'
+                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>Active</span>
+                  {counts.inProgress > 0 && (
+                    <span className={`text-xs px-3 py-1 rounded-full ${
+                      activeTab === 'in-progress'
+                        ? 'bg-blue-400 text-black'
+                        : 'bg-blue-500/20 text-blue-400'
+                    }`}>
+                      {counts.inProgress}
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('completed')}
+                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'completed'
+                    ? 'bg-purple-500/20 text-purple-300 border-2 border-purple-500/50 scale-105 shadow-lg'
+                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>Done</span>
+                  {counts.completed > 0 && (
+                    <span className={`text-xs px-3 py-1 rounded-full ${
+                      activeTab === 'completed'
+                        ? 'bg-purple-400 text-black'
+                        : 'bg-purple-500/20 text-purple-400'
+                    }`}>
+                      {counts.completed}
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-white/10"></div>
+
+            {/* Secondary Section - Pending, Approved, Refused */}
+            <div className="space-y-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">
+                Job Status
+              </div>
+
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'pending'
+                    ? 'bg-yellow-500/20 text-yellow-300 border-2 border-yellow-500/50 scale-105 shadow-lg'
+                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>Pending</span>
+                  {counts.pending > 0 && (
+                    <span className={`text-xs px-3 py-1 rounded-full ${
+                      activeTab === 'pending'
+                        ? 'bg-yellow-400 text-black'
+                        : 'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {counts.pending}
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('approved')}
+                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'approved'
+                    ? 'bg-green-500/20 text-green-300 border-2 border-green-500/50 scale-105 shadow-lg'
+                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>Approved</span>
+                  {counts.approved > 0 && (
+                    <span className={`text-xs px-3 py-1 rounded-full ${
+                      activeTab === 'approved'
+                        ? 'bg-green-400 text-black'
+                        : 'bg-green-500/20 text-green-400'
+                    }`}>
+                      {counts.approved}
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('refused')}
+                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'refused'
+                    ? 'bg-red-500/20 text-red-300 border-2 border-red-500/50 scale-105 shadow-lg'
+                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>Refused</span>
+                  {counts.refused > 0 && (
+                    <span className={`text-xs px-3 py-1 rounded-full ${
+                      activeTab === 'refused'
+                        ? 'bg-red-400 text-black'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                      {counts.refused}
+                    </span>
+                  )}
+                </div>
+              </button>
+            </div>
+          </div>
 
           <TabsContent value="pending" className="mt-6">
             {renderJobList(

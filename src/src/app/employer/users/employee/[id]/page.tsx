@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { format } from 'date-fns'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 // Extended JobSession type with joined job_template data
 interface JobWithTemplate extends JobSession {
@@ -80,6 +81,7 @@ export default function EmployeeProfilePage() {
   // Notes edit state
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
+  const [employerNotesValue, setEmployerNotesValue] = useState('')
 
   // Credentials state
   const [credentials, setCredentials] = useState<{ username: string } | null>(null)
@@ -136,6 +138,15 @@ export default function EmployeeProfilePage() {
       }
       setEmployee(employeeData)
       setNotesValue(employeeData.notes || '')
+
+      // Parse notes to separate registration info from employer notes
+      if (employeeData.notes) {
+        const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
+        if (employeeData.notes.includes(employerNotesMarker)) {
+          const parts = employeeData.notes.split(employerNotesMarker)
+          setEmployerNotesValue(parts[1] || '')
+        }
+      }
 
       // Load credentials if employee has user_id
       if (employeeData.user_id) {
@@ -322,13 +333,26 @@ export default function EmployeeProfilePage() {
 
   /**
    * Saves employer notes about the employee
-   * Notes are only visible to the employer
+   * Preserves registration info and appends employer notes
    */
   const handleSaveNotes = async () => {
     try {
+      // Get the registration info part (everything before employer notes marker)
+      let registrationInfo = notesValue
+      const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
+
+      if (notesValue.includes(employerNotesMarker)) {
+        registrationInfo = notesValue.split(employerNotesMarker)[0]
+      }
+
+      // Combine registration info with new employer notes
+      const combinedNotes = employerNotesValue.trim()
+        ? `${registrationInfo}${employerNotesMarker}${employerNotesValue}`
+        : registrationInfo
+
       const { error } = await supabase
         .from('employees')
-        .update({ notes: notesValue || null })
+        .update({ notes: combinedNotes || null })
         .eq('id', employeeId)
 
       if (error) throw error
@@ -374,11 +398,7 @@ export default function EmployeeProfilePage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <p className="text-gray-500">Loading employee...</p>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   if (!employee) {
@@ -452,36 +472,75 @@ export default function EmployeeProfilePage() {
               )}
             </div>
 
-            {/* Notes */}
+            {/* Registration Information */}
+            {employee.notes && !employee.notes.startsWith('--- EMPLOYER NOTES ---') && (
+              <div>
+                <p className="text-sm text-gray-500 mb-2 font-semibold">Registration Information</p>
+                <div className="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  {(() => {
+                    const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
+                    const registrationPart = employee.notes.includes(employerNotesMarker)
+                      ? employee.notes.split(employerNotesMarker)[0]
+                      : employee.notes
+
+                    return registrationPart.split('\n').map((line, idx) => {
+                      const parts = line.split(': ')
+                      if (parts.length === 2) {
+                        return (
+                          <div key={idx} className="grid grid-cols-[160px_1fr] gap-3">
+                            <span className="text-sm font-semibold text-gray-700">{parts[0]}:</span>
+                            <span className="text-sm text-gray-900">{parts[1]}</span>
+                          </div>
+                        )
+                      }
+                      return null
+                    })
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* Employer Notes */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-gray-500">Notes</p>
+                <p className="text-sm text-gray-500 font-semibold">Employer Notes</p>
                 {!editingNotes && (
                   <Button variant="ghost" size="sm" onClick={() => setEditingNotes(true)}>
-                    Edit
+                    {employerNotesValue ? 'Edit' : 'Add Notes'}
                   </Button>
                 )}
               </div>
               {editingNotes ? (
                 <div className="space-y-2">
                   <Textarea
-                    value={notesValue}
-                    onChange={(e) => setNotesValue(e.target.value)}
-                    placeholder="Add notes about this employee..."
-                    rows={3}
+                    value={employerNotesValue}
+                    onChange={(e) => setEmployerNotesValue(e.target.value)}
+                    placeholder="Add private notes about this employee (only visible to employer)..."
+                    rows={4}
+                    className="border-gray-300"
                   />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleSaveNotes}>Save</Button>
                     <Button size="sm" variant="outline" onClick={() => {
                       setEditingNotes(false)
-                      setNotesValue(employee.notes || '')
+                      // Reset to saved value
+                      if (employee.notes) {
+                        const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
+                        if (employee.notes.includes(employerNotesMarker)) {
+                          setEmployerNotesValue(employee.notes.split(employerNotesMarker)[1] || '')
+                        } else {
+                          setEmployerNotesValue('')
+                        }
+                      }
                     }}>
                       Cancel
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-700">{employee.notes || 'No notes'}</p>
+                <p className="text-gray-700 text-sm bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[60px]">
+                  {employerNotesValue || <span className="italic text-gray-400">No employer notes added yet</span>}
+                </p>
               )}
             </div>
           </CardContent>
@@ -494,7 +553,7 @@ export default function EmployeeProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {credentialsLoading ? (
-              <p className="text-gray-500">Loading credentials...</p>
+              <LoadingSpinner size="sm" />
             ) : employee.user_id && credentials ? (
               // Has account - show credentials
               <div className="space-y-4">

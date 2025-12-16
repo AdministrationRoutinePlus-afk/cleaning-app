@@ -33,6 +33,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate & { customer: Customer | null }
@@ -376,7 +377,7 @@ export default function EmployerSchedulePage() {
               {loading ? (
                 <div className="bg-white rounded-lg shadow p-4">
                   <div className="flex items-center justify-center h-96">
-                    <div className="text-gray-500">Loading schedule...</div>
+                    <LoadingSpinner size="lg" />
                   </div>
                 </div>
               ) : viewMode === 'calendar' ? (

@@ -188,12 +188,12 @@ export default function EmployeeProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
           <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-12 bg-gray-200 rounded"></div>
-            <div className="h-40 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-white/10 rounded w-1/3"></div>
+            <div className="h-12 bg-white/10 rounded"></div>
+            <div className="h-40 bg-white/10 rounded"></div>
           </div>
         </div>
       </div>
@@ -202,11 +202,11 @@ export default function EmployeeProfilePage() {
 
   if (!employee) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
-          <Card>
+          <Card className="bg-white/10 backdrop-blur-md border-white/20">
             <CardContent className="p-6 text-center">
-              <p className="text-gray-500">Employee profile not found</p>
+              <p className="text-gray-300">Employee profile not found</p>
             </CardContent>
           </Card>
         </div>
@@ -215,9 +215,9 @@ export default function EmployeeProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 pb-20">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Profile & Settings</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">Profile & Settings</h1>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-3 mb-6">
@@ -235,34 +235,36 @@ export default function EmployeeProfilePage() {
           {/* Personal Info Tab */}
           <TabsContent value="personal" className="space-y-4">
             {/* Personal Information */}
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
+                <CardTitle className="text-white">Personal Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full-name">Full Name</Label>
+                  <Label htmlFor="full-name" className="text-gray-300">Full Name</Label>
                   <Input
                     id="full-name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     disabled={saving}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-gray-300">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={saving}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone" className="text-gray-300">Phone</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -270,11 +272,12 @@ export default function EmployeeProfilePage() {
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(555) 123-4567"
                     disabled={saving}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
+                  <Label htmlFor="address" className="text-gray-300">Address</Label>
                   <Textarea
                     id="address"
                     value={address}
@@ -282,6 +285,7 @@ export default function EmployeeProfilePage() {
                     placeholder="123 Main St, City, State ZIP"
                     rows={3}
                     disabled={saving}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
               </CardContent>
@@ -289,7 +293,7 @@ export default function EmployeeProfilePage() {
                 <Button
                   onClick={handleSavePersonalInfo}
                   disabled={saving || !fullName.trim() || !email.trim()}
-                  className="w-full"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {saving ? 'Saving...' : 'Save Personal Info'}
                 </Button>
@@ -297,10 +301,10 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Notes */}
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardHeader>
-                <CardTitle>Notes for Employer</CardTitle>
-                <p className="text-sm text-gray-600">
+                <CardTitle className="text-white">Notes for Employer</CardTitle>
+                <p className="text-sm text-gray-300">
                   Add any notes your employer should know
                 </p>
               </CardHeader>
@@ -311,13 +315,14 @@ export default function EmployeeProfilePage() {
                   placeholder="e.g., Allergies, special equipment needs, preferences..."
                   rows={4}
                   disabled={saving}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                 />
               </CardContent>
               <CardFooter>
                 <Button
                   onClick={handleSaveNotes}
                   disabled={saving}
-                  className="w-full"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {saving ? 'Saving...' : 'Save Notes'}
                 </Button>
@@ -325,22 +330,22 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Settings */}
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardHeader>
-                <CardTitle>Settings</CardTitle>
+                <CardTitle className="text-white">Settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {permissionStatus === 'granted' ? (
-                        <Bell className="w-4 h-4 text-green-600" />
+                        <Bell className="w-4 h-4 text-green-400" />
                       ) : (
                         <BellOff className="w-4 h-4 text-gray-400" />
                       )}
                       <div>
-                        <Label htmlFor="push-notifications">Push Notifications</Label>
-                        <p className="text-sm text-gray-600">
+                        <Label htmlFor="push-notifications" className="text-white">Push Notifications</Label>
+                        <p className="text-sm text-gray-300">
                           Receive alerts about jobs and messages
                         </p>
                       </div>
@@ -353,29 +358,29 @@ export default function EmployeeProfilePage() {
                     />
                   </div>
                   {permissionStatus === 'granted' && (
-                    <p className="text-xs text-green-600 flex items-center gap-1 ml-6">
+                    <p className="text-xs text-green-400 flex items-center gap-1 ml-6">
                       <CheckCircle className="w-3 h-3" />
                       Notifications enabled
                     </p>
                   )}
                   {permissionStatus === 'denied' && (
-                    <p className="text-xs text-red-600 ml-6">
+                    <p className="text-xs text-red-400 ml-6">
                       Notifications blocked. Enable in browser settings.
                     </p>
                   )}
                   {requestingPermission && (
-                    <p className="text-xs text-blue-600 ml-6">
+                    <p className="text-xs text-blue-400 ml-6">
                       Requesting permission...
                     </p>
                   )}
                 </div>
 
                 {/* Logout */}
-                <div className="pt-4 border-t">
+                <div className="pt-4 border-t border-white/20">
                   <Button
                     onClick={handleLogout}
                     variant="outline"
-                    className="w-full"
+                    className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     Logout
@@ -385,13 +390,13 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Change Password */}
-            <Card>
+            <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardHeader>
-                <CardTitle>Change Password</CardTitle>
+                <CardTitle className="text-white">Change Password</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
+                  <Label htmlFor="new-password" className="text-gray-300">New Password</Label>
                   <Input
                     id="new-password"
                     type="password"
@@ -399,11 +404,12 @@ export default function EmployeeProfilePage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
                     disabled={saving}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Label htmlFor="confirm-password" className="text-gray-300">Confirm Password</Label>
                   <Input
                     id="confirm-password"
                     type="password"
@@ -411,6 +417,7 @@ export default function EmployeeProfilePage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
                     disabled={saving}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
               </CardContent>
@@ -418,7 +425,7 @@ export default function EmployeeProfilePage() {
                 <Button
                   onClick={handleChangePassword}
                   disabled={saving || !newPassword || !confirmPassword}
-                  className="w-full"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {saving ? 'Changing...' : 'Change Password'}
                 </Button>

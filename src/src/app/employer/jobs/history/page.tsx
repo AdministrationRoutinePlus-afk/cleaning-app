@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Search, Star, Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 interface CompletedJob {
   id: string
@@ -259,11 +260,7 @@ export default function JobsHistoryPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <p className="text-gray-500">Loading history...</p>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   return (

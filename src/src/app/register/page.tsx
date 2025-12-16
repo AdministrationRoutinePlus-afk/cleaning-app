@@ -2,97 +2,176 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-type ProfileType = 'EMPLOYER' | 'EMPLOYEE'
+interface RegistrationData {
+  fullName: string
+  username: string
+  email: string
+  phone: string
+  password: string
+  confirmPassword: string
+  address: string
+  previousWork: string
+  workDuration: string
+  hoursPerWeek: string
+  expectedSalary: string
+  availability: string[]
+  resumeFile: File | null
+  documentsFiles: File[]
+}
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [profileType, setProfileType] = useState<ProfileType>('EMPLOYEE')
+  const [currentStep, setCurrentStep] = useState(1)
+  const totalSteps = 12
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Form data
+  const [data, setData] = useState<RegistrationData>({
+    fullName: '',
+    username: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    address: '',
+    previousWork: '',
+    workDuration: '',
+    hoursPerWeek: '',
+    expectedSalary: '',
+    availability: [],
+    resumeFile: null,
+    documentsFiles: []
+  })
+
+  const handleNext = () => {
+    setError(null)
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    } else {
+      handleSubmit()
+    }
+  }
+
+  const handleSkip = () => {
+    setError(null)
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    } else {
+      handleSubmit()
+    }
+  }
+
+  const handleBack = () => {
+    setError(null)
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const handleAvailabilityToggle = (value: string) => {
+    setData(prev => ({
+      ...prev,
+      availability: prev.availability.includes(value)
+        ? prev.availability.filter(v => v !== value)
+        : [...prev.availability, value]
+    }))
+  }
+
+  const handleSubmit = async () => {
     setLoading(true)
     setError(null)
 
-    // Validation
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long')
-      setLoading(false)
-      return
-    }
-
     try {
-      const supabase = createClient()
+      // Validation
+      if (!data.fullName || !data.username || !data.password) {
+        setError('Please provide at least name, username, and password')
+        setLoading(false)
+        return
+      }
 
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            profile_type: profileType,
-          },
-        },
+      if (data.password !== data.confirmPassword) {
+        setError('Passwords do not match')
+        setLoading(false)
+        return
+      }
+
+      if (data.password.length < 6) {
+        setError('Password must be at least 6 characters long')
+        setLoading(false)
+        return
+      }
+
+      // Create auth user using API endpoint
+      const createUserResponse = await fetch('/api/auth/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: data.username,
+          password: data.password,
+          full_name: data.fullName,
+          role: 'employee'
+        })
       })
 
-      if (authError) throw authError
-
-      if (!authData.user) {
-        throw new Error('No user returned from registration')
+      const createUserResult = await createUserResponse.json()
+      if (!createUserResponse.ok) {
+        throw new Error(createUserResult.error || 'Failed to create account')
       }
 
-      // Create profile based on type
-      if (profileType === 'EMPLOYER') {
-        const { error: profileError } = await supabase
-          .from('employers')
-          .insert({
-            user_id: authData.user.id,
-            full_name: fullName,
-            email: email,
-            phone: '', // Will be updated in settings
-          })
-
-        if (profileError) throw profileError
-
-        // Redirect to employer dashboard
-        router.push('/employer/jobs')
-      } else if (profileType === 'EMPLOYEE') {
-        const { error: profileError } = await supabase
-          .from('employees')
-          .insert({
-            user_id: authData.user.id,
-            full_name: fullName,
-            email: email,
-            phone: '', // Will be updated in settings
-            status: 'PENDING', // Employer must activate
-          })
-
-        if (profileError) throw profileError
-
-        // Show success message for employee (they need activation)
-        router.push('/employee/pending')
+      const userId = createUserResult.user_id
+      if (!userId) {
+        throw new Error('No user ID returned from registration')
       }
+
+      // Create employee profile
+      const supabase = createClient()
+      const { error: profileError } = await supabase
+        .from('employees')
+        .insert({
+          user_id: userId,
+          full_name: data.fullName,
+          email: data.email || null,
+          phone: data.phone || '',
+          address: data.address || null,
+          notes: [
+            data.previousWork ? `Previous Work: ${data.previousWork}` : '',
+            data.workDuration ? `Duration: ${data.workDuration}` : '',
+            data.hoursPerWeek ? `Hours/Week: ${data.hoursPerWeek}` : '',
+            data.expectedSalary ? `Expected Salary: ${data.expectedSalary}` : '',
+            data.availability.length > 0 ? `Availability: ${data.availability.join(', ')}` : ''
+          ].filter(Boolean).join('\n') || null,
+          status: 'PENDING',
+        })
+
+      if (profileError) throw profileError
+
+      // TODO: Upload resume and documents to storage if provided
+
+      // Auto-login the user
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: `${data.username.toLowerCase()}@cleaning.local`,
+        password: data.password,
+      })
+
+      if (loginError) {
+        console.error('Auto-login failed:', loginError)
+        // Don't throw - registration was successful, just redirect to login
+        router.push('/login')
+        return
+      }
+
+      router.push('/employee/pending')
     } catch (err: unknown) {
       console.error('Registration error:', err)
       if (err instanceof Error) {
@@ -107,138 +186,329 @@ export default function RegisterPage() {
     }
   }
 
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="fullName" className="text-gray-300 text-lg">What's your full name?</Label>
+            <Input
+              id="fullName"
+              type="text"
+              placeholder="John Doe"
+              value={data.fullName}
+              onChange={(e) => setData({ ...data, fullName: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+          </div>
+        )
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="username" className="text-gray-300 text-lg">Choose a username</Label>
+            <Input
+              id="username"
+              type="text"
+              placeholder="johndoe"
+              value={data.username}
+              onChange={(e) => setData({ ...data, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+            <p className="text-xs text-gray-400">Only lowercase letters and numbers allowed</p>
+          </div>
+        )
+
+      case 3:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="email" className="text-gray-300 text-lg">What's your email address? (optional)</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={data.email}
+              onChange={(e) => setData({ ...data, email: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+          </div>
+        )
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="phone" className="text-gray-300 text-lg">What's your phone number?</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="(555) 123-4567"
+              value={data.phone}
+              onChange={(e) => setData({ ...data, phone: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+          </div>
+        )
+
+      case 5:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="password" className="text-gray-300 text-lg">Create a password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="At least 6 characters"
+              value={data.password}
+              onChange={(e) => setData({ ...data, password: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6 mb-3"
+            />
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Confirm password"
+              value={data.confirmPassword}
+              onChange={(e) => setData({ ...data, confirmPassword: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+          </div>
+        )
+
+      case 6:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="address" className="text-gray-300 text-lg">What's your address?</Label>
+            <Textarea
+              id="address"
+              placeholder="Street, City, State, ZIP"
+              value={data.address}
+              onChange={(e) => setData({ ...data, address: e.target.value })}
+              disabled={loading}
+              rows={4}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg"
+            />
+          </div>
+        )
+
+      case 7:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="previousWork" className="text-gray-300 text-lg">What previous work experience do you have?</Label>
+            <Textarea
+              id="previousWork"
+              placeholder="Tell us about your cleaning or related experience..."
+              value={data.previousWork}
+              onChange={(e) => setData({ ...data, previousWork: e.target.value })}
+              disabled={loading}
+              rows={5}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg"
+            />
+          </div>
+        )
+
+      case 8:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="workDuration" className="text-gray-300 text-lg">How much time did you spend at your previous job?</Label>
+            <Input
+              id="workDuration"
+              type="text"
+              placeholder="e.g., 2 years, 6 months..."
+              value={data.workDuration}
+              onChange={(e) => setData({ ...data, workDuration: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+          </div>
+        )
+
+      case 9:
+        return (
+          <div className="space-y-4">
+            <Label className="text-gray-300 text-lg">How many hours per week do you want to work?</Label>
+            <div className="space-y-3">
+              {['10-20 hours', '20-30 hours', '30-40 hours', '40+ hours'].map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setData({ ...data, hoursPerWeek: option })}
+                  className={`w-full p-4 rounded-lg text-left transition-all ${
+                    data.hoursPerWeek === option
+                      ? 'bg-blue-600 text-white border-2 border-blue-500'
+                      : 'bg-white/5 text-gray-300 border-2 border-white/20 hover:bg-white/10'
+                  }`}
+                  disabled={loading}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 10:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="expectedSalary" className="text-gray-300 text-lg">What salary do you find acceptable?</Label>
+            <Input
+              id="expectedSalary"
+              type="text"
+              placeholder="e.g., $20/hour or $800/week"
+              value={data.expectedSalary}
+              onChange={(e) => setData({ ...data, expectedSalary: e.target.value })}
+              disabled={loading}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-lg py-6"
+            />
+          </div>
+        )
+
+      case 11:
+        return (
+          <div className="space-y-4">
+            <Label className="text-gray-300 text-lg">When are you available to work?</Label>
+            <div className="space-y-3">
+              {[
+                { value: 'morning', label: 'Morning (6am-12pm)' },
+                { value: 'day', label: 'Day (12pm-6pm)' },
+                { value: 'evening', label: 'Evening (6pm-10pm)' },
+                { value: 'night', label: 'Night (10pm-6am)' },
+                { value: 'weekends', label: 'Weekends' }
+              ].map((option) => (
+                <div
+                  key={option.value}
+                  className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                    data.availability.includes(option.value)
+                      ? 'bg-blue-600/20 border-blue-500'
+                      : 'bg-white/5 border-white/20 hover:bg-white/10'
+                  }`}
+                  onClick={() => handleAvailabilityToggle(option.value)}
+                >
+                  <Checkbox
+                    id={option.value}
+                    checked={data.availability.includes(option.value)}
+                    onCheckedChange={() => handleAvailabilityToggle(option.value)}
+                    disabled={loading}
+                    className="border-white/30"
+                  />
+                  <label htmlFor={option.value} className="text-gray-300 text-base cursor-pointer flex-1">
+                    {option.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 12:
+        return (
+          <div className="space-y-4">
+            <Label htmlFor="resume" className="text-gray-300 text-lg">Upload your resume (optional)</Label>
+            <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-white/40 transition-colors">
+              <Input
+                id="resume"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={(e) => setData({ ...data, resumeFile: e.target.files?.[0] || null })}
+                disabled={loading}
+                className="bg-white/5 border-white/20 text-white"
+              />
+              {data.resumeFile && (
+                <p className="text-green-400 mt-2 text-sm">✓ {data.resumeFile.name}</p>
+              )}
+            </div>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4 py-8">
+      <div className="w-full max-w-2xl">
+        {/* Logo */}
         <div className="flex justify-center mb-8">
           <Image
-            src="/logo.png"
-            alt="Routine+"
-            width={200}
-            height={60}
+            src="/logo-dark.png"
+            alt="Groupe ABR | Routine"
+            width={300}
+            height={230}
             priority
-            className="h-12 w-auto"
+            className="w-auto max-w-[280px]"
           />
         </div>
-        <Card className="w-full">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-semibold text-center tracking-tight">
-              Create Account
-            </CardTitle>
-            <CardDescription className="text-center">
-              Register as an employer or employee
-            </CardDescription>
+
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex justify-between text-sm text-gray-400 mb-2">
+            <span>Step {currentStep} of {totalSteps}</span>
+            <span>{Math.round((currentStep / totalSteps) * 100)}%</span>
+          </div>
+          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 transition-all duration-300"
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Card */}
+        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <CardHeader>
+            <CardTitle className="text-white text-2xl">Employee Registration</CardTitle>
           </CardHeader>
-          <form onSubmit={handleRegister}>
-            <CardContent className="space-y-4">
-              {error && (
-                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl text-sm animate-scale-in">
-                  {error}
-                </div>
-              )}
 
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="John Doe"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                disabled={loading}
-                autoComplete="name"
-              />
-            </div>
+          <CardContent className="min-h-[300px]">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-lg text-sm mb-4">
+                {error}
+              </div>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                disabled={loading}
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="profileType">Account Type</Label>
-              <Select
-                value={profileType}
-                onValueChange={(value) => setProfileType(value as ProfileType)}
-                disabled={loading}
-              >
-                <SelectTrigger id="profileType">
-                  <SelectValue placeholder="Select account type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EMPLOYER">
-                    Employer - Manage jobs and staff
-                  </SelectItem>
-                  <SelectItem value="EMPLOYEE">
-                    Employee - Find and complete jobs
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 mt-1">
-                Note: Customer accounts are created by employers
-              </p>
-            </div>
+            {renderStep()}
           </CardContent>
 
-          <CardFooter className="flex flex-col gap-4">
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              disabled={loading}
-            >
-              {loading ? 'Creating account...' : 'Create Account'}
-            </Button>
-
-            <div className="text-sm text-center text-muted-foreground">
-              Already have an account?{' '}
-              <Link
-                href="/login"
-                className="text-accent hover:text-accent/80 font-medium transition-colors"
+          <CardFooter className="flex justify-between gap-3">
+            {currentStep > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+                disabled={loading}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
               >
-                Sign in here
-              </Link>
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            )}
+
+            <div className="flex gap-3 ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSkip}
+                disabled={loading}
+                className="bg-white/10 border-white/20 text-gray-300 hover:bg-white/20"
+              >
+                Skip
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleNext}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {loading ? 'Processing...' : currentStep === totalSteps ? 'Submit' : 'Next'}
+                {currentStep < totalSteps && <ChevronRight className="w-4 h-4 ml-1" />}
+              </Button>
             </div>
           </CardFooter>
-        </form>
         </Card>
       </div>
     </div>

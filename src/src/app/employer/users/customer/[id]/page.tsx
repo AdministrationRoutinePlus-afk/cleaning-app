@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { format } from 'date-fns'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function CustomerProfilePage() {
   const router = useRouter()
@@ -404,11 +405,7 @@ export default function CustomerProfilePage() {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <p className="text-gray-500">Loading customer...</p>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   // Not found state
@@ -559,7 +556,7 @@ export default function CustomerProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {credentialsLoading ? (
-              <p className="text-gray-500">Loading credentials...</p>
+              <LoadingSpinner size="sm" />
             ) : customer.user_id && credentials ? (
               // Has account - show credentials
               <div className="space-y-4">

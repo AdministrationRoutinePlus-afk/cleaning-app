@@ -9,6 +9,7 @@ import { CompanyInfoForm } from '@/components/employer/CompanyInfoForm'
 import { AccountManagement } from '@/components/employer/AccountManagement'
 import { AccountSettings } from '@/components/employer/AccountSettings'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function EmployerSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -280,13 +281,7 @@ export default function EmployerSettingsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg font-medium text-gray-900">Loading settings...</div>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   if (!settings) {

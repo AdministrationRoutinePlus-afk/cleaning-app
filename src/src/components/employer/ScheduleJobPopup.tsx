@@ -400,14 +400,29 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               <div>
                 <span className="font-medium">Client Code:</span> {jobSession.job_template.client_code}
               </div>
-              <div>
-                <span className="font-medium">Date:</span>{' '}
-                {jobSession.scheduled_date ? formatDate(jobSession.scheduled_date) : 'Not scheduled'}
-              </div>
-              <div>
-                <span className="font-medium">Time:</span>{' '}
-                {jobSession.scheduled_time ? formatTime(jobSession.scheduled_time) : 'Not scheduled'}
-              </div>
+              {(jobSession.job_template.time_window_start || jobSession.job_template.time_window_end) && jobSession.scheduled_date && (
+                <div className="col-span-2">
+                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                    <span className="font-medium text-blue-700 block mb-2">Time Window</span>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">Start:</span>
+                        <span className="text-gray-700 font-medium">
+                          {formatDate(jobSession.scheduled_date)}
+                          {jobSession.job_template.time_window_start && ` at ${formatTime(jobSession.job_template.time_window_start)}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">End:</span>
+                        <span className="text-gray-700 font-medium">
+                          {formatDate(jobSession.scheduled_end_date || jobSession.scheduled_date)}
+                          {jobSession.job_template.time_window_end && ` at ${formatTime(jobSession.job_template.time_window_end)}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {jobSession.job_template.duration_minutes && (
                 <div>
                   <span className="font-medium">Duration:</span> {jobSession.job_template.duration_minutes} min

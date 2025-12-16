@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { BottomNav } from '@/components/BottomNav'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
+import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function EmployeeLayout({
   children,
@@ -35,26 +36,22 @@ export default function EmployeeLayout({
 
   // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
-      </div>
-    )
+    return <LoadingSpinner fullScreen />
   }
 
   // PENDING - show lock screen
   if (status === 'PENDING') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">⏳</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
+          <h1 className="text-xl font-bold text-white mb-2">
             Account Being Validated
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-300 mb-6">
             Your account is being reviewed by the administrator. Please come back later.
           </p>
-          <Button variant="outline" onClick={checkStatus}>
+          <Button variant="outline" onClick={checkStatus} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
             Check Again
           </Button>
         </div>
@@ -65,13 +62,13 @@ export default function EmployeeLayout({
   // INACTIVE/BLOCKED - show lock screen
   if (status === 'INACTIVE' || status === 'BLOCKED') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">🚫</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
+          <h1 className="text-xl font-bold text-white mb-2">
             Account {status === 'BLOCKED' ? 'Blocked' : 'Inactive'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-300">
             Please contact your administrator for assistance.
           </p>
         </div>
@@ -81,9 +78,11 @@ export default function EmployeeLayout({
 
   // ACTIVE - show normal layout
   return (
-    <>
-      {children}
+    <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden">
+      <div className="h-full overflow-y-auto">
+        {children}
+      </div>
       <BottomNav profile="EMPLOYEE" />
-    </>
+    </div>
   )
 }

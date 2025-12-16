@@ -67,17 +67,28 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
 
       <CardContent className="space-y-3">
         {/* Schedule Info */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-xs text-gray-500">Date</p>
-            <p className="text-sm font-medium">{formatDate(session.scheduled_date)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Time</p>
-            <p className="text-sm font-medium">
-              {session.scheduled_time ? formatTime(session.scheduled_time) : 'Not set'}
-            </p>
-          </div>
+        <div className="space-y-2">
+          {(session.job_template.time_window_start || session.job_template.time_window_end) && session.scheduled_date && (
+            <div className="bg-blue-50 p-2 rounded border border-blue-200">
+              <p className="text-xs text-blue-700 font-medium mb-1">Time Window</p>
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">Start:</span>
+                  <span className="text-gray-700 font-medium">
+                    {formatDate(session.scheduled_date)}
+                    {session.job_template.time_window_start && ` at ${formatTime(session.job_template.time_window_start)}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">End:</span>
+                  <span className="text-gray-700 font-medium">
+                    {formatDate(session.scheduled_end_date || session.scheduled_date)}
+                    {session.job_template.time_window_end && ` at ${formatTime(session.job_template.time_window_end)}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Employee Info */}

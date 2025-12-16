@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import type { JobSessionFull } from '@/types/database'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,10 +30,47 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const [loading, setLoading] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [showExchangeDialog, setShowExchangeDialog] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const supabase = createClient()
 
   const { job_template, status, scheduled_date, scheduled_time } = jobSession
-  const { job_code, title, address, customer } = job_template
+  const { job_code, title, address, customer, image_url } = job_template
+  const hasImage = image_url && !imageError
+
+  // Check if current time is within the job's time window
+  const isWithinTimeWindow = () => {
+    if (!scheduled_date) return false
+
+    const now = new Date()
+    const jobStartDate = new Date(scheduled_date)
+    const jobEndDate = jobSession.scheduled_end_date
+      ? new Date(jobSession.scheduled_end_date)
+      : new Date(scheduled_date)
+
+    // If job has time window, check times
+    if (job_template.time_window_start && job_template.time_window_end) {
+      const [startHours, startMinutes] = job_template.time_window_start.split(':').map(Number)
+      const [endHours, endMinutes] = job_template.time_window_end.split(':').map(Number)
+
+      // Set start datetime
+      const startDateTime = new Date(jobStartDate)
+      startDateTime.setHours(startHours, startMinutes, 0, 0)
+
+      // Set end datetime
+      const endDateTime = new Date(jobEndDate)
+      endDateTime.setHours(endHours, endMinutes, 0, 0)
+
+      // Check if current time is within the window
+      return now >= startDateTime && now <= endDateTime
+    }
+
+    // If no time window specified, check if it's the same day
+    const todayDateStr = now.toDateString()
+    const jobDateStr = jobStartDate.toDateString()
+    return todayDateStr === jobDateStr
+  }
+
+  const canStartJob = isWithinTimeWindow()
 
   // Format date for display
   const formatDate = (dateStr: string | null) => {
@@ -56,19 +94,19 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'CLAIMED':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
       case 'APPROVED':
-        return 'bg-green-100 text-green-800'
+        return 'bg-green-500/20 text-green-300 border border-green-500/30'
       case 'REFUSED':
-        return 'bg-red-100 text-red-800'
+        return 'bg-red-500/20 text-red-300 border border-red-500/30'
       case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
       case 'COMPLETED':
-        return 'bg-purple-100 text-purple-800'
+        return 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
       case 'EVALUATED':
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
     }
   }
 
@@ -189,7 +227,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             <Button
               onClick={handleViewDetails}
               variant="outline"
-              className="flex-1"
+              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               View
             </Button>
@@ -197,7 +235,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
               onClick={() => setShowCancelDialog(true)}
               variant="destructive"
               disabled={loading}
-              className="flex-1"
+              className="flex-1 bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30"
             >
               <X className="w-4 h-4 mr-1" />
               Cancel
@@ -207,10 +245,19 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       case 'APPROVED':
         return (
           <div className="space-y-2">
+            {!canStartJob && (
+              <div className="text-xs text-amber-400 text-center p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                ⏰ This job can only be started during its time window
+              </div>
+            )}
             <Button
               onClick={handleStartJob}
-              disabled={loading}
-              className="w-full"
+              disabled={loading || !canStartJob}
+              className={`w-full ${
+                canStartJob
+                  ? 'bg-green-500/20 border-green-500/30 text-green-300 hover:bg-green-500/30'
+                  : 'bg-gray-500/10 border-gray-500/30 text-gray-500 cursor-not-allowed'
+              }`}
             >
               {loading ? 'Starting...' : 'Start Job'}
             </Button>
@@ -218,7 +265,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
               onClick={() => setShowExchangeDialog(true)}
               variant="outline"
               disabled={loading}
-              className="w-full"
+              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               <ArrowLeftRight className="w-4 h-4 mr-1" />
               Request Exchange
@@ -230,7 +277,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <Button
             onClick={handleViewSteps}
             variant="outline"
-            className="w-full"
+            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             View Steps
           </Button>
@@ -241,7 +288,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <Button
             onClick={handleViewDetails}
             variant="outline"
-            className="w-full"
+            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             View Details
           </Button>
@@ -251,7 +298,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <Button
             onClick={handleViewDetails}
             variant="outline"
-            className="w-full"
+            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             View Details
           </Button>
@@ -262,51 +309,112 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-mono text-gray-600">{job_code}</span>
-              <Badge className={getStatusColor(status)}>
-                {status.replace('_', ' ')}
-              </Badge>
+    <Card className="w-full !bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20 relative overflow-hidden">
+      {/* Background Image with dark gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-40">
+        {hasImage ? (
+          <Image
+            src={image_url}
+            alt={title}
+            fill
+            className="object-cover opacity-30"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center opacity-20">
+            <div className="text-8xl">
+              🧹
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           </div>
+        )}
+      </div>
+
+      {/* Content Overlay - Brightness degradation gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none"></div>
+
+      <CardHeader className="pb-3 relative z-10">
+        {/* Top Badge */}
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          <span className="inline-block bg-white/20 backdrop-blur-md text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30">
+            {job_code}
+          </span>
+          <Badge className={getStatusColor(status)}>
+            {status.replace('_', ' ')}
+          </Badge>
+        </div>
+
+        {/* Main Info */}
+        <div className="space-y-1">
+          <h3 className="text-xl font-bold text-white leading-tight drop-shadow-lg">{title}</h3>
+          {customer && (
+            <p className="text-gray-300 text-sm font-medium">
+              {customer.full_name}
+            </p>
+          )}
         </div>
       </CardHeader>
 
-      <CardContent className="pb-3 space-y-2">
-        {customer && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <User className="h-4 w-4" />
-            <span>{customer.full_name}</span>
-          </div>
-        )}
+      <CardContent className="pb-3 space-y-3 relative z-10">
+        {/* Duration & Pay Rate Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Duration */}
+          {job_template.duration_minutes && (
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 text-center border border-white/20">
+              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Duration</p>
+              <p className="text-white font-bold text-base">
+                {Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m
+              </p>
+            </div>
+          )}
 
-        {address && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <MapPin className="h-4 w-4" />
-            <span>{address}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Calendar className="h-4 w-4" />
-          <span>{formatDate(scheduled_date)}</span>
+          {/* Pay Rate */}
+          {job_template.price_per_hour && (
+            <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-md rounded-xl p-3 text-center border border-yellow-500/40">
+              <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">Pay Rate</p>
+              <p className="text-white font-bold text-base">
+                ${job_template.price_per_hour.toFixed(2)}/hr
+              </p>
+            </div>
+          )}
         </div>
 
-        {scheduled_time && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Clock className="h-4 w-4" />
-            <span>{formatTime(scheduled_time)}</span>
+        {/* Start & End Date/Time - Combined */}
+        {scheduled_date && (job_template.time_window_start || job_template.time_window_end) && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Start</p>
+                <p className="text-white font-bold text-sm">
+                  {formatDate(scheduled_date)}
+                </p>
+                <p className="text-white font-bold text-base">
+                  {job_template.time_window_start ? job_template.time_window_start.slice(0, 5) : '—'}
+                </p>
+              </div>
+              <div className="text-center border-l border-white/20 pl-4">
+                <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">End</p>
+                <p className="text-white font-bold text-sm">
+                  {formatDate(jobSession.scheduled_end_date || scheduled_date)}
+                </p>
+                <p className="text-white font-bold text-base">
+                  {job_template.time_window_end ? job_template.time_window_end.slice(0, 5) : '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Address */}
+        {address && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+            <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Location</p>
+            <p className="text-white text-sm">{address}</p>
           </div>
         )}
       </CardContent>
 
       {renderActionButtons() && (
-        <CardFooter className="pt-3">
+        <CardFooter className="pt-3 relative z-10">
           {renderActionButtons()}
         </CardFooter>
       )}

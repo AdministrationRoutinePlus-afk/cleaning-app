@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import SplashProvider from "@/components/providers/SplashProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,10 +42,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Main content with bottom padding for fixed nav */}
-        <main className="pb-16">
-          {children}
-        </main>
+        <SplashProvider>
+          {/* Main content */}
+          <main>
+            {children}
+          </main>
+        </SplashProvider>
       </body>
     </html>
   );
