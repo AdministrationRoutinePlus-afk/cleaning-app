@@ -185,14 +185,14 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="flex justify-center mb-2">
+        <div className="flex justify-center overflow-hidden h-24 mb-6 -mt-8">
           <Image
             src="/logo-dark.png"
             alt="Groupe ABR | Routine"
-            width={300}
-            height={230}
+            width={600}
+            height={460}
             priority
-            className="w-auto max-w-[160px]"
+            className="w-auto max-w-[480px] object-contain object-center scale-[2.5]"
           />
         </div>
 

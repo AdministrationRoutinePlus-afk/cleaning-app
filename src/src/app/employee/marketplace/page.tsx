@@ -369,7 +369,7 @@ export default function EmployeeMarketplacePage() {
           {/* MARKETPLACE TAB */}
           <TabsContent value="marketplace" className="mt-0">
             {loading ? (
-              <LoadingSpinner size="lg" />
+              <LoadingSpinner size="md" />
             ) : employeeStatus === 'PENDING' ? (
               <div className="bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-md rounded-2xl p-8 text-center">
                 <div className="text-4xl mb-4">⏳</div>

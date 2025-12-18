@@ -92,7 +92,7 @@ export default function EmployeeJobsPage() {
   // Render job list
   const renderJobList = (jobList: JobSessionFull[], emptyMessage: string) => {
     if (loading) {
-      return <LoadingSpinner size="lg" />
+      return <LoadingSpinner size="md" />
     }
 
     if (jobList.length === 0) {

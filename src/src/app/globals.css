@@ -117,8 +117,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    background-color: #111827;
+  }
   body {
     @apply bg-background text-foreground antialiased;
+    background-color: #111827;
     font-feature-settings: "kern" 1, "liga" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

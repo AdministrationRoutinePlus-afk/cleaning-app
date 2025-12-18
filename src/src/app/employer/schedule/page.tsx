@@ -377,7 +377,7 @@ export default function EmployerSchedulePage() {
               {loading ? (
                 <div className="bg-white rounded-lg shadow p-4">
                   <div className="flex items-center justify-center h-96">
-                    <LoadingSpinner size="lg" />
+                    <LoadingSpinner size="md" />
                   </div>
                 </div>
               ) : viewMode === 'calendar' ? (
