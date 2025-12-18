@@ -136,49 +136,51 @@ export default function EmployeeJobsPage() {
                 Current Jobs
               </div>
 
-              <button
-                onClick={() => setActiveTab('in-progress')}
-                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'in-progress'
-                    ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/50 scale-105 shadow-lg'
-                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>Active</span>
-                  {counts.inProgress > 0 && (
-                    <span className={`text-xs px-3 py-1 rounded-full ${
-                      activeTab === 'in-progress'
-                        ? 'bg-blue-400 text-black'
-                        : 'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {counts.inProgress}
-                    </span>
-                  )}
-                </div>
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setActiveTab('in-progress')}
+                  className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'in-progress'
+                      ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/50 scale-105 shadow-lg'
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Active</span>
+                    {counts.inProgress > 0 && (
+                      <span className={`text-xs px-3 py-1 rounded-full ${
+                        activeTab === 'in-progress'
+                          ? 'bg-blue-400 text-black'
+                          : 'bg-blue-500/20 text-blue-400'
+                      }`}>
+                        {counts.inProgress}
+                      </span>
+                    )}
+                  </div>
+                </button>
 
-              <button
-                onClick={() => setActiveTab('completed')}
-                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'completed'
-                    ? 'bg-purple-500/20 text-purple-300 border-2 border-purple-500/50 scale-105 shadow-lg'
-                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>Done</span>
-                  {counts.completed > 0 && (
-                    <span className={`text-xs px-3 py-1 rounded-full ${
-                      activeTab === 'completed'
-                        ? 'bg-purple-400 text-black'
-                        : 'bg-purple-500/20 text-purple-400'
-                    }`}>
-                      {counts.completed}
-                    </span>
-                  )}
-                </div>
-              </button>
+                <button
+                  onClick={() => setActiveTab('completed')}
+                  className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'completed'
+                      ? 'bg-purple-500/20 text-purple-300 border-2 border-purple-500/50 scale-105 shadow-lg'
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Done</span>
+                    {counts.completed > 0 && (
+                      <span className={`text-xs px-3 py-1 rounded-full ${
+                        activeTab === 'completed'
+                          ? 'bg-purple-400 text-black'
+                          : 'bg-purple-500/20 text-purple-400'
+                      }`}>
+                        {counts.completed}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Divider */}
@@ -190,71 +192,73 @@ export default function EmployeeJobsPage() {
                 Job Status
               </div>
 
-              <button
-                onClick={() => setActiveTab('pending')}
-                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'pending'
-                    ? 'bg-yellow-500/20 text-yellow-300 border-2 border-yellow-500/50 scale-105 shadow-lg'
-                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>Pending</span>
-                  {counts.pending > 0 && (
-                    <span className={`text-xs px-3 py-1 rounded-full ${
-                      activeTab === 'pending'
-                        ? 'bg-yellow-400 text-black'
-                        : 'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {counts.pending}
-                    </span>
-                  )}
-                </div>
-              </button>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setActiveTab('pending')}
+                  className={`relative py-3 px-3 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'pending'
+                      ? 'bg-yellow-500/20 text-yellow-300 border-2 border-yellow-500/50 scale-105 shadow-lg'
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Pending</span>
+                    {counts.pending > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        activeTab === 'pending'
+                          ? 'bg-yellow-400 text-black'
+                          : 'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {counts.pending}
+                      </span>
+                    )}
+                  </div>
+                </button>
 
-              <button
-                onClick={() => setActiveTab('approved')}
-                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'approved'
-                    ? 'bg-green-500/20 text-green-300 border-2 border-green-500/50 scale-105 shadow-lg'
-                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>Approved</span>
-                  {counts.approved > 0 && (
-                    <span className={`text-xs px-3 py-1 rounded-full ${
-                      activeTab === 'approved'
-                        ? 'bg-green-400 text-black'
-                        : 'bg-green-500/20 text-green-400'
-                    }`}>
-                      {counts.approved}
-                    </span>
-                  )}
-                </div>
-              </button>
+                <button
+                  onClick={() => setActiveTab('approved')}
+                  className={`relative py-3 px-3 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'approved'
+                      ? 'bg-green-500/20 text-green-300 border-2 border-green-500/50 scale-105 shadow-lg'
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Approved</span>
+                    {counts.approved > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        activeTab === 'approved'
+                          ? 'bg-green-400 text-black'
+                          : 'bg-green-500/20 text-green-400'
+                      }`}>
+                        {counts.approved}
+                      </span>
+                    )}
+                  </div>
+                </button>
 
-              <button
-                onClick={() => setActiveTab('refused')}
-                className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'refused'
-                    ? 'bg-red-500/20 text-red-300 border-2 border-red-500/50 scale-105 shadow-lg'
-                    : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>Refused</span>
-                  {counts.refused > 0 && (
-                    <span className={`text-xs px-3 py-1 rounded-full ${
-                      activeTab === 'refused'
-                        ? 'bg-red-400 text-black'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}>
-                      {counts.refused}
-                    </span>
-                  )}
-                </div>
-              </button>
+                <button
+                  onClick={() => setActiveTab('refused')}
+                  className={`relative py-3 px-3 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'refused'
+                      ? 'bg-red-500/20 text-red-300 border-2 border-red-500/50 scale-105 shadow-lg'
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Refused</span>
+                    {counts.refused > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        activeTab === 'refused'
+                          ? 'bg-red-400 text-black'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {counts.refused}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 

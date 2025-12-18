@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import Image from 'next/image'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
 
@@ -88,175 +88,139 @@ export function MarketplaceJobCard({ jobSession, onSwipe }: MarketplaceJobCardPr
 
   return (
     <motion.div
-      className="relative w-full max-w-sm mx-auto bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-3xl shadow-2xl overflow-hidden border border-gray-700/50"
+      className="relative w-full max-w-xs mx-auto bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl shadow-2xl overflow-hidden border border-gray-700/50"
       style={{ aspectRatio: '3/4' }}
       whileHover={{ scale: 1.02, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)" }}
       transition={{ duration: 0.3, ease: "easeOut" }}
     >
-      {/* Job Image Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-40">
-        {hasImage ? (
-          <Image
-            src={job_template.image_url!}
-            alt={job_template.title}
-            fill
-            className="object-cover opacity-30"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center opacity-20">
-            <div className="text-8xl">
-              🧹
+      {/* Job Image - Upper Right Box */}
+      <div className="absolute top-3 right-3 w-[200px] h-[200px] rounded-lg border border-white/20 bg-gray-800/80 shadow-lg z-10 p-2">
+        <div className="relative w-full h-full rounded overflow-hidden">
+          {hasImage ? (
+            <Image
+              src={job_template.image_url!}
+              alt={job_template.title}
+              fill
+              className="object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-white/10 rounded">
+              <span className="text-6xl">🧹</span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Content Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent flex flex-col justify-end p-6">
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/40 flex flex-col justify-end p-4">
         {/* Top Badge */}
-        <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <motion.span
-            className="inline-block bg-white/20 backdrop-blur-md text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30"
-            whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.25)" }}
-            transition={{ type: "spring", stiffness: 400 }}
-          >
+        <div className="mb-3 flex items-center gap-2 flex-wrap">
+          <span className="inline-block bg-gray-800/80 text-white font-bold text-[10px] px-2 py-1 rounded-full shadow-lg border border-white/30">
             {job_template.job_code}
-          </motion.span>
+          </span>
         </div>
 
         {/* Main Info */}
-        <div className="space-y-1 mb-4">
-          <h2 className="text-2xl font-bold text-white leading-tight drop-shadow-lg">
+        <div className="space-y-0.5 mb-3">
+          <h2 className="text-lg font-bold text-white leading-tight drop-shadow-lg">
             {job_template.title}
           </h2>
           {job_template.customer && (
-            <p className="text-gray-300 text-sm font-medium">
+            <p className="text-gray-300 text-xs font-medium">
               {job_template.customer.full_name}
             </p>
           )}
         </div>
 
         {/* Key Info - Uniform Style */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-2">
           {/* Duration */}
-          <motion.div
-            className="bg-white/10 backdrop-blur-md rounded-xl p-3 text-center border border-white/20"
-            whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Duration</p>
-            <p className="text-white font-bold text-base">
+          <div className="bg-gray-800/60 rounded-lg p-2 text-center border border-white/20">
+            <p className="text-gray-400 text-[9px] uppercase font-bold mb-0.5">Duration</p>
+            <p className="text-white font-bold text-sm">
               {formatDuration(job_template.duration_minutes)}
             </p>
-          </motion.div>
+          </div>
 
           {/* Pay Rate - HIGHLIGHTED */}
-          <motion.div
-            className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-md rounded-xl p-3 text-center border border-yellow-500/40"
-            whileHover={{ scale: 1.05, borderColor: "rgba(245, 158, 11, 0.7)" }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">Pay Rate</p>
-            <p className="text-white font-bold text-base">
+          <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 rounded-lg p-2 text-center border border-yellow-500/40">
+            <p className="text-yellow-300 text-[9px] uppercase font-bold mb-0.5">Pay Rate</p>
+            <p className="text-white font-bold text-sm">
               {formatPrice(job_template.price_per_hour)}
             </p>
-          </motion.div>
+          </div>
         </div>
 
         {/* Start & End Date/Time - Combined */}
-        <motion.div
-          className="bg-white/10 backdrop-blur-md rounded-xl p-3 mb-4 border border-white/20"
-          whileHover={{ scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
-          transition={{ type: "spring", stiffness: 300 }}
-        >
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bg-gray-800/60 rounded-lg p-2 mb-3 border border-white/20">
+          <div className="grid grid-cols-2 gap-2">
             <div className="text-center">
-              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Start</p>
-              <p className="text-white font-bold text-sm">
+              <p className="text-gray-400 text-[9px] uppercase font-bold mb-0.5">Start</p>
+              <p className="text-white font-bold text-xs">
                 {scheduledDateFormatted || '—'}
               </p>
-              <p className="text-white font-bold text-base">
+              <p className="text-white font-bold text-sm">
                 {job_template.time_window_start ? job_template.time_window_start.slice(0, 5) : '—'}
               </p>
             </div>
-            <div className="text-center border-l border-white/20 pl-4">
-              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">End</p>
-              <p className="text-white font-bold text-sm">
+            <div className="text-center border-l border-white/20 pl-2">
+              <p className="text-gray-400 text-[9px] uppercase font-bold mb-0.5">End</p>
+              <p className="text-white font-bold text-xs">
                 {endDate || '—'}
               </p>
-              <p className="text-white font-bold text-base">
+              <p className="text-white font-bold text-sm">
                 {endTime || '—'}
               </p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Expandable Description Button */}
         {job_template.description && (
-          <motion.button
+          <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="bg-white/10 backdrop-blur-md rounded-xl p-3 w-full text-left border border-white/20 flex items-center justify-between group"
-            whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.15)" }}
-            whileTap={{ scale: 0.98 }}
+            className="bg-gray-800/60 rounded-lg p-2 w-full text-left border border-white/20 flex items-center justify-between group"
           >
-            <span className="text-white text-sm font-medium">Job Details</span>
-            <motion.span
-              className="text-white text-xl"
-              animate={{ rotate: isExpanded ? 180 : 0 }}
-              transition={{ duration: 0.3 }}
-            >
+            <span className="text-white text-xs font-medium">Job Details</span>
+            <span className={`text-white text-base transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
               ▼
-            </motion.span>
-          </motion.button>
+            </span>
+          </button>
         )}
 
         {/* Expandable Description */}
-        <AnimatePresence>
-          {isExpanded && job_template.description && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden mt-3"
-            >
-              <div className="bg-black/40 backdrop-blur-md rounded-xl p-4 border border-white/10 max-h-32 overflow-y-auto">
-                <p className="text-gray-300 text-sm leading-relaxed">
+        {isExpanded && job_template.description && (
+          <div className="overflow-hidden mt-2">
+            <div className="bg-gray-900/80 rounded-lg p-3 border border-white/10 max-h-24 overflow-y-auto">
+                <p className="text-gray-300 text-xs leading-relaxed">
                   {job_template.description}
                 </p>
                 {job_template.address && (
-                  <p className="text-gray-400 text-xs mt-3">
+                  <p className="text-gray-400 text-[10px] mt-2">
                     <span className="font-semibold text-gray-300">Address: </span>
                     {job_template.address}
                   </p>
                 )}
                 {daysFormatted && (
-                  <p className="text-gray-400 text-xs mt-2">
+                  <p className="text-gray-400 text-[10px] mt-1">
                     <span className="font-semibold text-gray-300">Available: </span>
                     {daysFormatted}
                   </p>
                 )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Swipe Indicators */}
-      <div className="absolute top-8 left-8 right-8 flex justify-between pointer-events-none">
-        <motion.div
-          className="bg-red-500 text-white font-bold text-lg px-4 py-2 rounded-lg rotate-[-15deg] opacity-0 like-indicator shadow-xl"
-          whileHover={{ scale: 1.1 }}
-        >
+      <div className="absolute top-6 left-6 right-6 flex justify-between pointer-events-none">
+        <div className="bg-red-500 text-white font-bold text-sm px-3 py-1.5 rounded-lg rotate-[-15deg] opacity-0 like-indicator shadow-xl">
           SKIP
-        </motion.div>
-        <motion.div
-          className="bg-green-500 text-white font-bold text-lg px-4 py-2 rounded-lg rotate-[15deg] opacity-0 nope-indicator shadow-xl"
-          whileHover={{ scale: 1.1 }}
-        >
+        </div>
+        <div className="bg-green-500 text-white font-bold text-sm px-3 py-1.5 rounded-lg rotate-[15deg] opacity-0 nope-indicator shadow-xl">
           INTERESTED
-        </motion.div>
+        </div>
       </div>
     </motion.div>
   )

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion'
+import { motion, useMotionValue, useTransform, PanInfo, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
@@ -300,8 +300,8 @@ export default function EmployeeMarketplacePage() {
               onClick={() => setActiveTab('marketplace')}
               className={`w-full py-4 px-6 rounded-2xl font-bold text-lg transition-all ${
                 activeTab === 'marketplace'
-                  ? 'bg-white/20 backdrop-blur-md text-white shadow-lg scale-105 border-2 border-white/40'
-                  : 'bg-white/5 backdrop-blur-sm text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  ? 'bg-white/20  text-white shadow-lg scale-105 border-2 border-white/40'
+                  : 'bg-white/5  text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -324,8 +324,8 @@ export default function EmployeeMarketplacePage() {
                 onClick={() => setActiveTab('interested')}
                 className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
                   activeTab === 'interested'
-                    ? 'bg-white/20 backdrop-blur-md text-white shadow-md scale-105 border-2 border-white/40'
-                    : 'bg-white/5 backdrop-blur-sm text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                    ? 'bg-white/20  text-white shadow-md scale-105 border-2 border-white/40'
+                    : 'bg-white/5  text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -346,8 +346,8 @@ export default function EmployeeMarketplacePage() {
                 onClick={() => setActiveTab('garbage')}
                 className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
                   activeTab === 'garbage'
-                    ? 'bg-white/20 backdrop-blur-md text-white shadow-md scale-105 border-2 border-white/40'
-                    : 'bg-white/5 backdrop-blur-sm text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                    ? 'bg-white/20  text-white shadow-md scale-105 border-2 border-white/40'
+                    : 'bg-white/5  text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -371,7 +371,7 @@ export default function EmployeeMarketplacePage() {
             {loading ? (
               <LoadingSpinner size="md" />
             ) : employeeStatus === 'PENDING' ? (
-              <div className="bg-yellow-500/10 border border-yellow-500/30 backdrop-blur-md rounded-2xl p-8 text-center">
+              <div className="bg-yellow-500/10 border border-yellow-500/30  rounded-2xl p-8 text-center">
                 <div className="text-4xl mb-4">⏳</div>
                 <h3 className="text-lg font-semibold text-yellow-300 mb-2">
                   Account Pending Activation
@@ -384,7 +384,7 @@ export default function EmployeeMarketplacePage() {
                 </p>
               </div>
             ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
-              <div className="bg-red-500/10 border border-red-500/30 backdrop-blur-md rounded-2xl p-8 text-center">
+              <div className="bg-red-500/10 border border-red-500/30  rounded-2xl p-8 text-center">
                 <div className="text-4xl mb-4">🚫</div>
                 <h3 className="text-lg font-semibold text-red-300 mb-2">
                   Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
@@ -411,23 +411,23 @@ export default function EmployeeMarketplacePage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-full w-16 h-16 border-2 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-500 bg-black/20 backdrop-blur-md transition-all"
+                    className="rounded-full w-16 h-16 border-2 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-500 bg-black/20  transition-all"
                     onClick={() => handleSwipe('left')}
                   >
-                    <span className="text-2xl">✕</span>
+                    <span className="text-2xl">👎</span>
                   </Button>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-full w-16 h-16 border-2 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:border-green-500 bg-black/20 backdrop-blur-md transition-all"
+                    className="rounded-full w-16 h-16 border-2 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:border-green-500 bg-black/20  transition-all"
                     onClick={() => handleSwipe('right')}
                   >
-                    <span className="text-2xl">♥</span>
+                    <span className="text-2xl">👍</span>
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-12 text-center border border-white/20">
+              <div className="bg-white/10  rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <div className="text-4xl mb-4">🎉</div>
                 <h3 className="text-lg font-semibold text-white mb-2">
                   All caught up!
@@ -450,7 +450,7 @@ export default function EmployeeMarketplacePage() {
           {/* INTERESTED TAB */}
           <TabsContent value="interested" className="mt-0">
             {interestedJobs.length === 0 ? (
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-12 text-center border border-white/20">
+              <div className="bg-white/10  rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <div className="text-4xl mb-4">👀</div>
                 <h3 className="text-lg font-semibold text-white mb-2">
                   No interested jobs yet
@@ -471,7 +471,7 @@ export default function EmployeeMarketplacePage() {
           {/* GARBAGE/SKIPPED TAB */}
           <TabsContent value="garbage" className="mt-0">
             {skippedJobs.length === 0 ? (
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-12 text-center border border-white/20">
+              <div className="bg-white/10  rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <div className="text-4xl mb-4">🗑️</div>
                 <h3 className="text-lg font-semibold text-white mb-2">
                   No skipped jobs
@@ -507,28 +507,82 @@ function SwipeableCard({
   job: JobSessionWithDetails
   onSwipe: (direction: 'left' | 'right') => void
 }) {
+  const [borderColor, setBorderColor] = useState<'green' | 'red' | null>(null)
   const x = useMotionValue(0)
-  const rotate = useTransform(x, [-200, 200], [-30, 30])
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0, 1, 1, 1, 0])
+
+  // Get screen width for threshold calculation (2/3 of screen)
+  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 400
+  const threshold = screenWidth * (2 / 3)
+
+  // Thumbs up/down opacity based on drag direction
+  const thumbsUpOpacity = useTransform(x, [0, threshold / 2, threshold], [0, 0.8, 1])
+  const thumbsDownOpacity = useTransform(x, [-threshold, -threshold / 2, 0], [1, 0.8, 0])
+  const thumbsUpScale = useTransform(x, [0, threshold / 2, threshold], [0.5, 1, 1.2])
+  const thumbsDownScale = useTransform(x, [-threshold, -threshold / 2, 0], [1.2, 1, 0.5])
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const threshold = 100
-
     if (Math.abs(info.offset.x) > threshold) {
-      onSwipe(info.offset.x > 0 ? 'right' : 'left')
+      const direction = info.offset.x > 0 ? 'right' : 'left'
+      setBorderColor(direction === 'right' ? 'green' : 'red')
+
+      // Wait for border pulse animation then trigger swipe
+      setTimeout(() => {
+        onSwipe(direction)
+      }, 800)
     }
   }
 
   return (
-    <motion.div
-      style={{ x, rotate, opacity }}
-      drag="x"
-      dragConstraints={{ left: 0, right: 0 }}
-      onDragEnd={handleDragEnd}
-      className="cursor-grab active:cursor-grabbing"
-    >
-      <MarketplaceJobCard jobSession={job} />
-    </motion.div>
+    <div className="relative">
+      {/* Thumbs Down - Left Side */}
+      <motion.div
+        style={{ opacity: thumbsDownOpacity, scale: thumbsDownScale }}
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none"
+      >
+        <div className="bg-red-500 rounded-full p-4 shadow-2xl">
+          <span className="text-4xl">👎</span>
+        </div>
+      </motion.div>
+
+      {/* Thumbs Up - Right Side */}
+      <motion.div
+        style={{ opacity: thumbsUpOpacity, scale: thumbsUpScale }}
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none"
+      >
+        <div className="bg-green-500 rounded-full p-4 shadow-2xl">
+          <span className="text-4xl">👍</span>
+        </div>
+      </motion.div>
+
+      {/* Card with animated border */}
+      <motion.div
+        style={{ x }}
+        drag={!borderColor ? "x" : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        onDragEnd={handleDragEnd}
+        className="cursor-grab active:cursor-grabbing relative"
+      >
+        {/* Animated border outline */}
+        {borderColor && (
+          <motion.div
+            initial={{ scale: 1 }}
+            animate={{
+              scale: [1, 1.02, 1, 1.02, 1]
+            }}
+            transition={{
+              duration: 0.8,
+              times: [0, 0.2, 0.4, 0.6, 1],
+              ease: "easeInOut"
+            }}
+            className={`absolute inset-0 rounded-3xl pointer-events-none border-4 ${
+              borderColor === 'green' ? 'border-green-500' : 'border-red-500'
+            }`}
+            style={{ zIndex: 30 }}
+          />
+        )}
+        <MarketplaceJobCard jobSession={job} />
+      </motion.div>
+    </div>
   )
 }
 
@@ -545,7 +599,7 @@ function JobListCard({
   const { job_template } = job
 
   return (
-    <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-xl p-4 border border-white/20">
+    <div className="bg-white/10  rounded-2xl shadow-xl p-4 border border-white/20">
       <div className="flex justify-between items-start mb-2">
         <div>
           <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-1 rounded-full">

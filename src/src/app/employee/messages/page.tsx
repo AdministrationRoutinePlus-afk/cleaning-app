@@ -411,7 +411,7 @@ export default function EmployeeMessagesPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
-          <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <Card className="bg-white/10  border-white/20">
             <CardContent className="p-6 text-center">
               <p className="text-gray-300">Employee profile not found</p>
             </CardContent>
@@ -515,7 +515,7 @@ export default function EmployeeMessagesPage() {
           {/* Employer Tab */}
           <TabsContent value="employer">
             {loadingConversation ? (
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+              <Card className="bg-white/10  border-white/20">
                 <CardContent className="p-6">
                   <div className="animate-pulse space-y-4">
                     <div className="h-4 bg-white/20 rounded w-3/4"></div>
@@ -530,7 +530,7 @@ export default function EmployeeMessagesPage() {
                 title="Chat with Boss"
               />
             ) : (
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+              <Card className="bg-white/10  border-white/20">
                 <CardContent className="p-6 text-center">
                   <p className="text-yellow-300 text-lg font-semibold mb-3">⚠️ Chat Not Available</p>
                   <p className="text-gray-300 mb-2">
@@ -548,7 +548,7 @@ export default function EmployeeMessagesPage() {
           <TabsContent value="jobs">
             <div className="space-y-3">
               {jobMessages.length === 0 ? (
-                <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <Card className="bg-white/10  border-white/20">
                   <CardContent className="p-6 text-center">
                     <p className="text-gray-300">No job notifications yet</p>
                     <p className="text-sm text-gray-400 mt-1">
@@ -560,7 +560,7 @@ export default function EmployeeMessagesPage() {
                 jobMessages.map((msg) => (
                   <Card
                     key={msg.id}
-                    className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] backdrop-blur-md border-2 ${
+                    className={`cursor-pointer transition-all duration-300 hover:scale-[1.02]  border-2 ${
                       !msg.read_at
                         ? 'bg-yellow-500/10 border-yellow-500/50 shadow-lg shadow-yellow-500/20 hover:border-yellow-500/70'
                         : 'bg-white/10 border-white/20 hover:border-yellow-500/40'
@@ -616,7 +616,7 @@ export default function EmployeeMessagesPage() {
           <TabsContent value="announcements">
             <div className="space-y-3">
               {announcements.length === 0 ? (
-                <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                <Card className="bg-white/10  border-white/20">
                   <CardContent className="p-6 text-center">
                     <p className="text-gray-300">No announcements yet</p>
                     <p className="text-sm text-gray-400 mt-1">
@@ -630,7 +630,7 @@ export default function EmployeeMessagesPage() {
                   return (
                     <Card
                       key={announcement.id}
-                      className="cursor-pointer transition-all duration-300 hover:scale-102 bg-white/10 backdrop-blur-md border-2 border-purple-500/30 hover:border-purple-500/50 shadow-lg hover:shadow-purple-500/20"
+                      className="cursor-pointer transition-all duration-300 hover:scale-102 bg-white/10  border-2 border-purple-500/30 hover:border-purple-500/50 shadow-lg hover:shadow-purple-500/20"
                       onClick={() => setSelectedConversation(announcement.id)}
                     >
                       <CardContent className="p-4">
@@ -676,7 +676,7 @@ export default function EmployeeMessagesPage() {
                 title="Team Chat"
               />
             ) : (
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+              <Card className="bg-white/10  border-white/20">
                 <CardContent className="p-6 text-center">
                   <p className="text-gray-300">No team chat available yet</p>
                   <p className="text-sm text-gray-400 mt-1">

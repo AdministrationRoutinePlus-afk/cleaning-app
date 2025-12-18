@@ -204,7 +204,7 @@ export default function EmployeeProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
-          <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <Card className="bg-white/10  border-white/20">
             <CardContent className="p-6 text-center">
               <p className="text-gray-300">Employee profile not found</p>
             </CardContent>
@@ -235,7 +235,7 @@ export default function EmployeeProfilePage() {
           {/* Personal Info Tab */}
           <TabsContent value="personal" className="space-y-4">
             {/* Personal Information */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-white/10  border-white/20">
               <CardHeader>
                 <CardTitle className="text-white">Personal Information</CardTitle>
               </CardHeader>
@@ -301,7 +301,7 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Notes */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-white/10  border-white/20">
               <CardHeader>
                 <CardTitle className="text-white">Notes for Employer</CardTitle>
                 <p className="text-sm text-gray-300">
@@ -330,7 +330,7 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Settings */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-white/10  border-white/20">
               <CardHeader>
                 <CardTitle className="text-white">Settings</CardTitle>
               </CardHeader>
@@ -390,7 +390,7 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Change Password */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-white/10  border-white/20">
               <CardHeader>
                 <CardTitle className="text-white">Change Password</CardTitle>
               </CardHeader>

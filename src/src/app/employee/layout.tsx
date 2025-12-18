@@ -43,7 +43,7 @@ export default function EmployeeLayout({
   if (status === 'PENDING') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
+        <div className="bg-white/10  rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">⏳</div>
           <h1 className="text-xl font-bold text-white mb-2">
             Account Being Validated
@@ -63,7 +63,7 @@ export default function EmployeeLayout({
   if (status === 'INACTIVE' || status === 'BLOCKED') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
+        <div className="bg-white/10  rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">🚫</div>
           <h1 className="text-xl font-bold text-white mb-2">
             Account {status === 'BLOCKED' ? 'Blocked' : 'Inactive'}

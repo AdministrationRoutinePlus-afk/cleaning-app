@@ -335,7 +335,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       <CardHeader className="pb-3 relative z-10">
         {/* Top Badge */}
         <div className="mb-3 flex items-center gap-2 flex-wrap">
-          <span className="inline-block bg-white/20 backdrop-blur-md text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30">
+          <span className="inline-block bg-gray-800/80 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30">
             {job_code}
           </span>
           <Badge className={getStatusColor(status)}>
@@ -359,7 +359,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         <div className="grid grid-cols-2 gap-3">
           {/* Duration */}
           {job_template.duration_minutes && (
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 text-center border border-white/20">
+            <div className="bg-gray-800/60 rounded-xl p-3 text-center border border-white/20">
               <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Duration</p>
               <p className="text-white font-bold text-base">
                 {Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m
@@ -369,7 +369,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
           {/* Pay Rate */}
           {job_template.price_per_hour && (
-            <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 backdrop-blur-md rounded-xl p-3 text-center border border-yellow-500/40">
+            <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 rounded-xl p-3 text-center border border-yellow-500/40">
               <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">Pay Rate</p>
               <p className="text-white font-bold text-base">
                 ${job_template.price_per_hour.toFixed(2)}/hr
@@ -380,7 +380,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
         {/* Start & End Date/Time - Combined */}
         {scheduled_date && (job_template.time_window_start || job_template.time_window_end) && (
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+          <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Start</p>
@@ -406,7 +406,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
         {/* Address */}
         {address && (
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+          <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20">
             <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Location</p>
             <p className="text-white text-sm">{address}</p>
           </div>

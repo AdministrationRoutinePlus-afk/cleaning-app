@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 export default function EmployeePendingPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black px-4 py-12 pb-20">
-      <Card className="w-full max-w-md text-center bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="w-full max-w-md text-center bg-white/10  border-white/20">
         <CardHeader className="space-y-4">
           <div className="mx-auto w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center">
             <Clock className="w-8 h-8 text-yellow-400" />

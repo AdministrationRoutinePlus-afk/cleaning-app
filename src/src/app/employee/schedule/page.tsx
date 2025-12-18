@@ -266,7 +266,7 @@ export default function EmployeeSchedulePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 pb-20">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <Card className="mb-6 p-6 bg-white/5 backdrop-blur-md border-white/20">
+        <Card className="mb-6 p-6 bg-white/5  border-white/20">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
             <h1 className="text-3xl font-bold text-white">My Schedule</h1>
 
@@ -321,7 +321,7 @@ export default function EmployeeSchedulePage() {
 
         {/* List View */}
         {viewMode === 'list' && (
-          <Card className="p-4 mb-6 bg-white/10 backdrop-blur-md border-white/20">
+          <Card className="p-4 mb-6 bg-white/10  border-white/20">
             <h2 className="text-lg font-semibold text-white mb-4">Your Schedule</h2>
 
           {sessions.length === 0 ? (
@@ -331,10 +331,12 @@ export default function EmployeeSchedulePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {sessions.map((session, index) => {
-                const date = moment(session.scheduled_date)
-                const isToday = date.isSame(moment(), 'day')
-                const isTomorrow = date.isSame(moment().add(1, 'day'), 'day')
+              {sessions.map((session) => {
+                const sessionDate = moment(session.scheduled_date)
+                const today = moment().startOf('day')
+                const tomorrow = moment().add(1, 'day').startOf('day')
+                const isToday = sessionDate.isSame(today, 'day')
+                const isTomorrow = sessionDate.isSame(tomorrow, 'day')
 
                 return (
                   <div
@@ -399,7 +401,7 @@ export default function EmployeeSchedulePage() {
                         <div className="space-y-1">
                           <div className="text-xs text-gray-500 uppercase">Start</div>
                           <div className="text-sm text-white font-medium">
-                            {date.format('ddd, MMM D, YYYY')}
+                            {sessionDate.format('ddd, MMM D, YYYY')}
                           </div>
                           {session.job_template.time_window_start && (
                             <div className="text-lg text-white font-bold">
@@ -416,7 +418,7 @@ export default function EmployeeSchedulePage() {
                           <div className="text-sm text-white font-medium">
                             {session.scheduled_end_date
                               ? moment(session.scheduled_end_date).format('ddd, MMM D, YYYY')
-                              : date.format('ddd, MMM D, YYYY')}
+                              : sessionDate.format('ddd, MMM D, YYYY')}
                           </div>
                           {session.job_template.time_window_end && (
                             <div className="text-lg text-white font-bold">
@@ -489,7 +491,7 @@ export default function EmployeeSchedulePage() {
 
             {/* Month view uses the calendar */}
             {view === 'month' && (
-              <Card className="p-4 mb-6 bg-white/10 backdrop-blur-md border-white/20">
+              <Card className="p-4 mb-6 bg-white/10  border-white/20">
                 <div className="calendar-dark-theme calendar-simplified">
                   <Calendar
                     localizer={localizer}
@@ -515,7 +517,7 @@ export default function EmployeeSchedulePage() {
 
             {/* Custom Week View */}
             {view === 'week' && (
-              <Card className="p-4 mb-6 bg-white/10 backdrop-blur-md border-white/20">
+              <Card className="p-4 mb-6 bg-white/10  border-white/20">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">
                     Next 7 Days: {moment(date).format('MMM D')} - {moment(date).add(6, 'days').format('MMM D, YYYY')}
@@ -598,47 +600,8 @@ export default function EmployeeSchedulePage() {
           </>
         )}
 
-        {/* Upcoming Jobs - Show in both views */}
-        {sessions.length > 0 && viewMode === 'list' && (
-          <Card className="p-4 bg-white/10 backdrop-blur-md border-white/20">
-            <h2 className="text-lg font-semibold text-white mb-4">Upcoming Jobs</h2>
-            <div className="space-y-3">
-              {sessions.slice(0, 5).map(session => (
-                <div
-                  key={session.id}
-                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-white/10"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-white">{session.job_template.title}</h3>
-                      {getStatusBadge(session.status)}
-                    </div>
-                    <p className="text-sm text-gray-300">
-                      {session.job_template.customer?.full_name || session.job_template.client_code || 'Unknown Customer'}
-                    </p>
-                    {session.scheduled_date && (
-                      <p className="text-sm text-gray-400 mt-1">
-                        {moment(session.scheduled_date).format('MMMM D, YYYY')}
-                        {session.scheduled_time && ` at ${moment(session.scheduled_time, 'HH:mm:ss').format('h:mm A')}`}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.location.href = `/employee/jobs/${session.id}`}
-                    className="text-white hover:bg-white/10"
-                  >
-                    View
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
         {sessions.length === 0 && (
-          <Card className="p-8 text-center bg-white/10 backdrop-blur-md border-white/20">
+          <Card className="p-8 text-center bg-white/10  border-white/20">
             <CalendarIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-white mb-2">No scheduled jobs</h3>
             <p className="text-gray-300">Check the marketplace for available jobs.</p>

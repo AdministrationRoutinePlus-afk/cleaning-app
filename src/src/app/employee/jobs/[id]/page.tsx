@@ -282,7 +282,7 @@ export default function JobExecutionPage() {
   if (!jobData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
-        <Card className="p-8 text-center bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="p-8 text-center bg-white/10  border-white/20">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">Job not found</h2>
           <p className="text-gray-300 mb-4">This job does not exist or you don't have access to it.</p>
@@ -302,7 +302,7 @@ export default function JobExecutionPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
       {/* Header */}
-      <div className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-10">
+      <div className="bg-white/5  border-b border-white/10 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center justify-between mb-3">
             <Button
@@ -362,7 +362,7 @@ export default function JobExecutionPage() {
       {/* Refusal Reason Banner - shown when job is REFUSED */}
       {jobData.session.status === 'REFUSED' && (
         <div className="max-w-6xl mx-auto p-4">
-          <Card className="p-6 bg-red-500/10 border-red-500/30 backdrop-blur-md">
+          <Card className="p-6 bg-red-500/10 border-red-500/30 ">
             <div className="flex items-start gap-3">
               <XCircle className="w-8 h-8 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -480,7 +480,7 @@ export default function JobExecutionPage() {
 
         {/* Complete Job Button */}
         {allStepsComplete && (
-          <Card className="p-6 mt-6 bg-green-500/10 border-green-500/30 backdrop-blur-md">
+          <Card className="p-6 mt-6 bg-green-500/10 border-green-500/30 ">
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
@@ -499,7 +499,7 @@ export default function JobExecutionPage() {
         )}
 
         {!allStepsComplete && totalSteps > 0 && (
-          <Card className="p-4 mt-6 bg-blue-500/10 border-blue-500/30 backdrop-blur-md">
+          <Card className="p-4 mt-6 bg-blue-500/10 border-blue-500/30 ">
             <p className="text-sm text-blue-300 text-center">
               Complete all steps to finish this job ({completedStepsCount}/{totalSteps} done)
             </p>
