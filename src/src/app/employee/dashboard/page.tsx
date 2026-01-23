@@ -9,7 +9,6 @@ import { QuickMessageContent } from '@/components/employee/QuickMessageCard'
 import { NextDepositContent } from '@/components/employee/NextDepositCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Clock, Calendar, MessageSquare, DollarSign } from 'lucide-react'
-import { getDay } from 'date-fns'
 
 type DashboardSection = 'jobs' | 'availability' | 'message' | 'deposit'
 
@@ -27,10 +26,6 @@ export default function EmployeeDashboardPage() {
       contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 100)
   }
-
-  // Check if Next Deposit should be visible (Mon-Thu only)
-  const dayOfWeek = getDay(new Date())
-  const showNextDeposit = ![0, 5, 6].includes(dayOfWeek) // Hide on Fri, Sat, Sun
 
   useEffect(() => {
     loadEmployee()
@@ -97,7 +92,7 @@ export default function EmployeeDashboardPage() {
       label: 'Next Deposit',
       icon: DollarSign,
       color: 'amber',
-      show: showNextDeposit
+      show: true
     }
   ].filter(s => s.show)
 

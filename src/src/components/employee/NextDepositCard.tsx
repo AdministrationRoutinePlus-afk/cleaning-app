@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { JobSession, JobTemplate } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Clock, Briefcase, CalendarDays } from 'lucide-react'
-import { format, startOfWeek, endOfWeek } from 'date-fns'
+import { format, startOfWeek, endOfWeek, addDays } from 'date-fns'
 
 interface NextDepositCardProps {
   employeeId: string
@@ -20,6 +20,7 @@ interface WeeklyEarnings {
   jobCount: number
   weekStart: Date
   weekEnd: Date
+  depositDate: Date
 }
 
 export function NextDepositCard({ employeeId }: NextDepositCardProps) {
@@ -66,12 +67,17 @@ export function NextDepositCard({ employeeId }: NextDepositCardProps) {
         totalEarnings += (hourlyRate * durationMinutes) / 60
       })
 
+      // Calculate deposit date (Thursday of current week)
+      // weekStart is Monday (day 0 of week), Thursday is day 3
+      const depositDate = addDays(weekStart, 3)
+
       setEarnings({
         totalEarnings,
         totalHours: totalMinutes / 60,
         jobCount: jobs.length,
         weekStart,
-        weekEnd
+        weekEnd,
+        depositDate
       })
     } catch (error) {
       console.error('Error loading weekly earnings:', error)
@@ -127,11 +133,18 @@ export function NextDepositCard({ employeeId }: NextDepositCardProps) {
         </div>
       </div>
 
+      {/* Deposit Date */}
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-center">
+        <p className="text-amber-400 font-semibold">
+          Deposit on {format(earnings.depositDate, 'EEEE, MMM d')}
+        </p>
+      </div>
+
       {/* Week Range */}
       <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
         <CalendarDays className="w-4 h-4" />
         <span>
-          {format(earnings.weekStart, 'MMM d')} - {format(earnings.weekEnd, 'MMM d, yyyy')}
+          Week: {format(earnings.weekStart, 'MMM d')} - {format(earnings.weekEnd, 'MMM d')}
         </span>
       </div>
 

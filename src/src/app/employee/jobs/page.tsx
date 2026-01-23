@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import type { JobSessionFull, JobSessionStatus } from '@/types/database'
+import { useEffect, useState, useRef } from 'react'
+import type { JobSessionFull } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MyJobCard } from '@/components/employee/MyJobCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+
+type MainTab = 'current' | 'history'
+type SubTab = 'active' | 'upcoming' | 'pending' | 'completed' | 'refused' | 'issues'
 
 export default function EmployeeJobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobSessionFull[]>([])
-  const [activeTab, setActiveTab] = useState<string>('pending')
+  const [mainTab, setMainTab] = useState<MainTab>('current')
+  const [subTab, setSubTab] = useState<SubTab>('active')
+  const contentRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   // Fetch jobs for the current employee
@@ -69,6 +74,14 @@ export default function EmployeeJobsPage() {
     fetchJobs()
   }, [])
 
+  // Scroll to top when tabs change
+  useEffect(() => {
+    const scrollContainer = document.getElementById('main-scroll-container')
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [mainTab, subTab])
+
   // Helper to check if job is missed or overdue (for backwards compatibility)
   const isJobMissedOrOverdue = (session: JobSessionFull) => {
     if (session.status === 'MISSED' || session.status === 'OVERDUE') return true
@@ -119,243 +132,160 @@ export default function EmployeeJobsPage() {
 
   const counts = getCounts()
 
-  // Render job list
-  const renderJobList = (jobList: JobSessionFull[], emptyMessage: string) => {
-    if (loading) {
-      return <LoadingSpinner size="md" />
-    }
+  // Count totals for main tabs
+  const currentCount = counts.inProgress + counts.approved + counts.pending
+  const historyCount = counts.completed + counts.refused + counts.issues
 
-    if (jobList.length === 0) {
-      return (
-        <div className="text-center py-12">
-          <p className="text-gray-300">{emptyMessage}</p>
-        </div>
-      )
+  const handleMainTabChange = (tab: MainTab) => {
+    setMainTab(tab)
+    // Set default sub-tab for each main tab
+    if (tab === 'current') {
+      setSubTab('active')
+    } else {
+      setSubTab('completed')
     }
-
-    return (
-      <div className="space-y-4">
-        {jobList.map(job => (
-          <MyJobCard
-            key={job.id}
-            jobSession={job}
-            onStatusChange={fetchJobs}
-          />
-        ))}
-      </div>
-    )
   }
 
+  const handleSubTabChange = (tab: SubTab) => {
+    setSubTab(tab)
+  }
+
+  // Get jobs for current sub-tab
+  const getJobsForSubTab = () => {
+    switch (subTab) {
+      case 'active': return inProgressJobs
+      case 'upcoming': return approvedJobs
+      case 'pending': return pendingJobs
+      case 'completed': return completedJobs
+      case 'refused': return refusedJobs
+      case 'issues': return issueJobs
+      default: return []
+    }
+  }
+
+  const getEmptyMessage = () => {
+    switch (subTab) {
+      case 'active': return 'No jobs in progress'
+      case 'upcoming': return 'No upcoming jobs'
+      case 'pending': return 'No pending approvals'
+      case 'completed': return 'No completed jobs yet'
+      case 'refused': return 'No refused jobs'
+      case 'issues': return 'No issues'
+      default: return 'No jobs'
+    }
+  }
+
+  const currentSubTabs = [
+    { id: 'active' as SubTab, label: 'Active', count: counts.inProgress, color: 'blue', icon: Play },
+    { id: 'upcoming' as SubTab, label: 'Upcoming', count: counts.approved, color: 'green', icon: ThumbsUp },
+    { id: 'pending' as SubTab, label: 'Pending', count: counts.pending, color: 'amber', icon: Clock }
+  ]
+
+  const historySubTabs = [
+    { id: 'completed' as SubTab, label: 'Completed', count: counts.completed, color: 'purple', icon: CheckCircle },
+    { id: 'refused' as SubTab, label: 'Refused', count: counts.refused, color: 'red', icon: XCircle },
+    { id: 'issues' as SubTab, label: 'Issues', count: counts.issues, color: 'orange', icon: AlertTriangle }
+  ]
+
+  const getSubTabStyle = (color: string, isActive: boolean) => {
+    if (!isActive) return 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+    switch (color) {
+      case 'blue': return 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+      case 'green': return 'bg-gradient-to-br from-green-600 to-green-800 text-white shadow-lg shadow-green-500/30 border-2 border-green-400'
+      case 'amber': return 'bg-gradient-to-br from-amber-600 to-amber-800 text-white shadow-lg shadow-amber-500/30 border-2 border-amber-400'
+      case 'purple': return 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+      case 'red': return 'bg-gradient-to-br from-red-600 to-red-800 text-white shadow-lg shadow-red-500/30 border-2 border-red-400'
+      case 'orange': return 'bg-gradient-to-br from-orange-600 to-orange-800 text-white shadow-lg shadow-orange-500/30 border-2 border-orange-400'
+      default: return 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+    }
+  }
+
+  const activeSubTabs = mainTab === 'current' ? currentSubTabs : historySubTabs
+  const currentJobs = getJobsForSubTab()
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
-      <div className="max-w-2xl mx-auto p-4 space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white">My Jobs</h1>
-          <p className="text-sm text-gray-300 mt-1">
-            Manage your job assignments and track progress
-          </p>
+    <div className="min-h-screen pb-20">
+      <div className="max-w-lg mx-auto p-4">
+        {/* Main Tab Selector - 2 Square Buttons */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            onClick={() => handleMainTabChange('current')}
+            className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
+              mainTab === 'current'
+                ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+            }`}
+          >
+            <Briefcase className={`w-10 h-10 mb-2 ${mainTab === 'current' ? 'text-white' : 'text-gray-400'}`} />
+            <span>My Jobs</span>
+          </button>
+
+          <button
+            onClick={() => handleMainTabChange('history')}
+            className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
+              mainTab === 'history'
+                ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+            }`}
+          >
+            <History className={`w-10 h-10 mb-2 ${mainTab === 'history' ? 'text-white' : 'text-gray-400'}`} />
+            <span>History</span>
+          </button>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex flex-col gap-6 mb-6">
-            {/* Top Priority Section - Active & Done */}
-            <div className="space-y-3">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">
-                Current Jobs
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setActiveTab('in-progress')}
-                  className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'in-progress'
-                      ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/50 scale-105 shadow-lg'
-                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Active</span>
-                    {counts.inProgress > 0 && (
-                      <span className={`text-xs px-3 py-1 rounded-full ${
-                        activeTab === 'in-progress'
-                          ? 'bg-blue-400 text-black'
-                          : 'bg-blue-500/20 text-blue-400'
+        {/* Sub-tabs - Same style as Fixed Weekly / Custom Dates (inside container) */}
+        <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+          <div className="flex justify-center">
+            <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
+              {activeSubTabs.map((tab) => {
+                const isActive = subTab === tab.id
+                const Icon = tab.icon
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleSubTabChange(tab.id)}
+                    className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold transition-all ${
+                      isActive
+                        ? getSubTabStyle(tab.color, true)
+                        : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20 hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                    <span className="text-center px-2 text-sm">{tab.label}</span>
+                    {tab.count > 0 && (
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${
+                        isActive ? 'bg-white/20' : 'bg-white/10'
                       }`}>
-                        {counts.inProgress}
+                        {tab.count}
                       </span>
                     )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('completed')}
-                  className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'completed'
-                      ? 'bg-purple-500/20 text-purple-300 border-2 border-purple-500/50 scale-105 shadow-lg'
-                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Done</span>
-                    {counts.completed > 0 && (
-                      <span className={`text-xs px-3 py-1 rounded-full ${
-                        activeTab === 'completed'
-                          ? 'bg-purple-400 text-black'
-                          : 'bg-purple-500/20 text-purple-400'
-                      }`}>
-                        {counts.completed}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-white/10"></div>
-
-            {/* Secondary Section - Pending, Approved, Refused */}
-            <div className="space-y-3">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-1">
-                Job Status
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => setActiveTab('pending')}
-                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
-                    activeTab === 'pending'
-                      ? 'bg-yellow-500/20 text-yellow-300 border-2 border-yellow-500/50 scale-105 shadow-lg'
-                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <span>Pending</span>
-                    {counts.pending > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        activeTab === 'pending'
-                          ? 'bg-yellow-400 text-black'
-                          : 'bg-yellow-500/20 text-yellow-400'
-                      }`}>
-                        {counts.pending}
-                      </span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('approved')}
-                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
-                    activeTab === 'approved'
-                      ? 'bg-green-500/20 text-green-300 border-2 border-green-500/50 scale-105 shadow-lg'
-                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <span>Approved</span>
-                    {counts.approved > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        activeTab === 'approved'
-                          ? 'bg-green-400 text-black'
-                          : 'bg-green-500/20 text-green-400'
-                      }`}>
-                        {counts.approved}
-                      </span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('refused')}
-                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
-                    activeTab === 'refused'
-                      ? 'bg-red-500/20 text-red-300 border-2 border-red-500/50 scale-105 shadow-lg'
-                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <span>Refused</span>
-                    {counts.refused > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        activeTab === 'refused'
-                          ? 'bg-red-400 text-black'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {counts.refused}
-                      </span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('issues')}
-                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
-                    activeTab === 'issues'
-                      ? 'bg-red-600/20 text-red-300 border-2 border-red-600/50 scale-105 shadow-lg'
-                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <span>Issues</span>
-                    {counts.issues > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                        activeTab === 'issues'
-                          ? 'bg-red-500 text-white'
-                          : 'bg-red-600/20 text-red-400'
-                      }`}>
-                        {counts.issues}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
+        </div>
 
-          <TabsContent value="pending" className="mt-6">
-            {renderJobList(
-              pendingJobs,
-              'No pending jobs. Jobs you claim will appear here while waiting for employer approval.'
-            )}
-          </TabsContent>
-
-          <TabsContent value="approved" className="mt-6">
-            {renderJobList(
-              approvedJobs,
-              'No approved jobs yet. Once the employer approves your claims, they appear here.'
-            )}
-          </TabsContent>
-
-          <TabsContent value="in-progress" className="mt-6">
-            {renderJobList(
-              inProgressJobs,
-              'No jobs in progress. Start an approved job to see it here.'
-            )}
-          </TabsContent>
-
-          <TabsContent value="completed" className="mt-6">
-            {renderJobList(
-              completedJobs,
-              'No completed jobs yet. Finished jobs will appear here.'
-            )}
-          </TabsContent>
-
-          <TabsContent value="refused" className="mt-6">
-            {renderJobList(
-              refusedJobs,
-              'No refused jobs. Jobs declined by the employer will appear here.'
-            )}
-          </TabsContent>
-
-          <TabsContent value="issues" className="mt-6">
-            {renderJobList(
-              issueJobs,
-              'No issues. Missed or overdue jobs will appear here.'
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Content Section */}
+        <div ref={contentRef} className="bg-white/10 rounded-2xl border border-white/20 p-4 scroll-mt-4">
+          {loading ? (
+            <LoadingSpinner size="md" />
+          ) : currentJobs.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400">{getEmptyMessage()}</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {currentJobs.map(job => (
+                <MyJobCard
+                  key={job.id}
+                  jobSession={job}
+                  onStatusChange={fetchJobs}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

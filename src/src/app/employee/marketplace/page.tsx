@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
 import type { JobSession, JobTemplate, Customer, Employee, JobExchange } from '@/types/database'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { ShoppingBag, Users, ArrowRightLeft } from 'lucide-react'
+import { ShoppingBag, Users, ArrowRightLeft, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
 import Image from 'next/image'
 
 type JobSessionWithDetails = JobSession & {
@@ -41,12 +41,21 @@ export default function EmployeeMarketplacePage() {
   const [activeTab, setActiveTab] = useState('marketplace')
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   // Load user and data
   useEffect(() => {
     loadUser()
   }, [])
+
+  // Scroll to top when tabs change
+  useEffect(() => {
+    const scrollContainer = document.getElementById('main-scroll-container')
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [mainTab, activeTab])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -416,7 +425,10 @@ export default function EmployeeMarketplacePage() {
         {/* Top Level Selector - Two Square Buttons */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
-            onClick={() => setMainTab('marketplace')}
+            onClick={() => {
+              setMainTab('marketplace')
+              setActiveTab('marketplace')
+            }}
             className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
               mainTab === 'marketplace'
                 ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
@@ -425,15 +437,6 @@ export default function EmployeeMarketplacePage() {
           >
             <ShoppingBag className={`w-10 h-10 mb-2 ${mainTab === 'marketplace' ? 'text-white' : 'text-gray-400'}`} />
             <span>Job Marketplace</span>
-            <span className={`text-xs rounded-full px-3 py-1 mt-2 min-h-[24px] ${
-              marketplaceJobs.length > 0
-                ? mainTab === 'marketplace'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-white/10 text-gray-400'
-                : 'opacity-0'
-            }`}>
-              {marketplaceJobs.length > 0 ? `${marketplaceJobs.length} available` : '-'}
-            </span>
           </button>
 
           <button
@@ -453,7 +456,7 @@ export default function EmployeeMarketplacePage() {
                   : 'bg-white/10 text-gray-400'
                 : 'opacity-0'
             }`}>
-              {swapJobs.length > 0 ? `${swapJobs.length} available` : '-'}
+              {swapJobs.length > 0 ? `${swapJobs.length}` : '-'}
             </span>
           </button>
         </div>
@@ -461,51 +464,49 @@ export default function EmployeeMarketplacePage() {
         {mainTab === 'marketplace' ? (
           /* JOB MARKETPLACE SECTION */
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Sub-tabs for Interested & Skipped */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <button
-                onClick={() => setActiveTab('marketplace')}
-                className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'marketplace'
-                    ? 'bg-white/20 text-white shadow-md border-2 border-white/40'
-                    : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <span>Available</span>
-                  {marketplaceJobs.length > 0 && (
-                    <span className={`text-xs rounded-full px-2 py-0.5 ${
+            {/* Sub-tabs - Same style as Fixed Weekly / Custom Dates (inside container) */}
+            <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+              <div className="flex justify-center">
+                <div className="grid grid-cols-2 gap-3 max-w-xs w-full">
+                  <button
+                    onClick={() => setActiveTab('marketplace')}
+                    className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
                       activeTab === 'marketplace'
-                        ? 'bg-white/30 text-white'
-                        : 'bg-white/10 text-gray-400'
-                    }`}>
-                      {marketplaceJobs.length}
-                    </span>
-                  )}
-                </div>
-              </button>
+                        ? 'bg-gradient-to-br from-green-600 to-green-800 text-white shadow-lg shadow-green-500/30 border-2 border-green-400'
+                        : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20 hover:bg-white/10'
+                    }`}
+                  >
+                    <ShoppingBag className={`w-8 h-8 ${activeTab === 'marketplace' ? 'text-white' : 'text-gray-500'}`} />
+                    <span className="text-center px-2 text-sm">Available</span>
+                    {marketplaceJobs.length > 0 && (
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${
+                        activeTab === 'marketplace' ? 'bg-white/20' : 'bg-white/10'
+                      }`}>
+                        {marketplaceJobs.length}
+                      </span>
+                    )}
+                  </button>
 
-              <button
-                onClick={() => setActiveTab('interested')}
-                className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'interested'
-                    ? 'bg-white/20 text-white shadow-md border-2 border-white/40'
-                    : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <span>Interested</span>
-                  {interestedJobs.length > 0 && (
-                    <span className={`text-xs rounded-full px-2 py-0.5 ${
+                  <button
+                    onClick={() => setActiveTab('interested')}
+                    className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
                       activeTab === 'interested'
-                        ? 'bg-white/30 text-white'
-                        : 'bg-white/10 text-gray-400'
-                    }`}>
-                      {interestedJobs.length}
-                    </span>
-                  )}
+                        ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white shadow-lg shadow-amber-500/30 border-2 border-amber-400'
+                        : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20 hover:bg-white/10'
+                    }`}
+                  >
+                    <Users className={`w-8 h-8 ${activeTab === 'interested' ? 'text-white' : 'text-gray-500'}`} />
+                    <span className="text-center px-2 text-sm">Interested</span>
+                    {interestedJobs.length > 0 && (
+                      <span className={`text-xs rounded-full px-2 py-0.5 ${
+                        activeTab === 'interested' ? 'bg-white/20' : 'bg-white/10'
+                      }`}>
+                        {interestedJobs.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
-              </button>
+              </div>
             </div>
 
             {/* MARKETPLACE TAB */}
@@ -661,99 +662,98 @@ function JobListCard({
   onRestore?: () => void
 }) {
   const { job_template } = job
+  const customerName = job_template.customer?.full_name || job_template.customer?.customer_code || ''
+
+  const formatDuration = (minutes: number | null) => {
+    if (!minutes) return '—'
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    if (hours === 0) return `${mins}m`
+    if (mins === 0) return `${hours}h`
+    return `${hours}h${mins}m`
+  }
+
+  const formatPrice = (price: number | null) => {
+    if (!price) return '—'
+    return `$${price.toFixed(0)}`
+  }
+
+  const formatTimeWindow = () => {
+    const start = job_template.time_window_start
+    const end = job_template.time_window_end
+    if (!start && !end) return 'Flexible'
+    return `${start?.slice(0, 5) || '—'} - ${end?.slice(0, 5) || '—'}`
+  }
 
   return (
-    <div className="bg-white/10 rounded-2xl shadow-xl p-4 border border-white/20">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-1 rounded-full">
-            {job_template.job_code}
-          </span>
+    <div className="bg-white/10 rounded-2xl border border-white/10 overflow-hidden p-4">
+      <div className="space-y-2">
+        {/* Header - Customer name with status */}
+        <div className="bg-gradient-to-r from-amber-600/20 to-orange-600/20 rounded-lg px-3 py-2 flex items-center justify-between border border-white/10">
+          <p className="text-white font-bold text-base">{customerName}</p>
           {status === 'pending' && job.status === 'CLAIMED' && (
-            <span className="ml-2 inline-block bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-2 py-1 rounded-full">
-              Pending Approval
+            <span className="bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-2 py-1 rounded-full">
+              Pending
             </span>
           )}
           {job.status === 'APPROVED' && (
-            <span className="ml-2 inline-block bg-green-500/20 text-green-300 text-xs font-semibold px-2 py-1 rounded-full">
-              Approved!
+            <span className="bg-green-500/20 text-green-300 text-xs font-semibold px-2 py-1 rounded-full">
+              Approved
             </span>
           )}
           {job.status === 'REFUSED' && (
-            <span className="ml-2 inline-block bg-red-500/20 text-red-300 text-xs font-semibold px-2 py-1 rounded-full">
+            <span className="bg-red-500/20 text-red-300 text-xs font-semibold px-2 py-1 rounded-full">
               Refused
             </span>
           )}
         </div>
+
+        {/* Row 1: Job & Duration */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Job</p>
+              <p className="text-white font-semibold text-sm">{job_template.title}</p>
+            </div>
+          </div>
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Duration</p>
+              <p className="text-white font-semibold text-sm">{formatDuration(job_template.duration_minutes)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Time Window & Hourly Rate */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Time Window</p>
+              <p className="text-white font-semibold text-sm">{formatTimeWindow()}</p>
+            </div>
+          </div>
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Hourly Rate</p>
+              <p className="text-white font-semibold text-sm">{formatPrice(job_template.price_per_hour)}</p>
+            </div>
+          </div>
+        </div>
+
         {onRestore && (
-          <Button size="sm" variant="outline" onClick={onRestore} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+          <Button
+            variant="outline"
+            onClick={onRestore}
+            className="w-full bg-white/5 border-white/20 text-gray-300 hover:bg-white/10"
+          >
             Restore
           </Button>
         )}
       </div>
-
-      <h3 className="font-semibold text-white mb-1">{job_template.title}</h3>
-
-      {job_template.customer && (
-        <p className="text-sm text-gray-300 mb-2">
-          Client: {job_template.customer.full_name}
-        </p>
-      )}
-
-      {/* Scheduled Date */}
-      {job.scheduled_date && (
-        <p className="text-sm text-blue-400 font-medium mb-2">
-          {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })}
-        </p>
-      )}
-
-      {/* Time Window */}
-      {job.scheduled_date && (job_template.time_window_start || job_template.time_window_end) && (
-        <div className="bg-white/5 p-2 rounded-lg mb-2 space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">Window Start:</span>
-            <span className="text-white font-medium">
-              {new Date(job.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric'
-              })}
-              {job_template.time_window_start && ` at ${job_template.time_window_start.substring(0, 5)}`}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">Window End:</span>
-            <span className="text-white font-medium">
-              {new Date((job.scheduled_end_date || job.scheduled_date) + 'T00:00:00').toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric'
-              })}
-              {job_template.time_window_end && ` at ${job_template.time_window_end.substring(0, 5)}`}
-            </span>
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-4 text-sm text-gray-300">
-        {job_template.duration_minutes && (
-          <span>{Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m</span>
-        )}
-        {job_template.price_per_hour && (
-          <span>${job_template.price_per_hour}/hr</span>
-        )}
-      </div>
-
-      {job_template.description && (
-        <p className="mt-2 text-sm text-gray-400 line-clamp-2">
-          {job_template.description}
-        </p>
-      )}
     </div>
   )
 }
@@ -768,95 +768,93 @@ function SwapCard({
 }) {
   const { job_session, from_employee } = exchange
   const { job_template } = job_session
+  const customerName = job_template.customer?.full_name || job_template.customer?.customer_code || ''
+
+  const formatDuration = (minutes: number | null) => {
+    if (!minutes) return '—'
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    if (hours === 0) return `${mins}m`
+    if (mins === 0) return `${hours}h`
+    return `${hours}h${mins}m`
+  }
+
+  const formatPrice = (price: number | null) => {
+    if (!price) return '—'
+    return `$${price.toFixed(0)}`
+  }
+
+  const formatTimeWindow = () => {
+    const start = job_template.time_window_start
+    const end = job_template.time_window_end
+    if (!start && !end) return 'Flexible'
+    return `${start?.slice(0, 5) || '—'} - ${end?.slice(0, 5) || '—'}`
+  }
 
   return (
-    <div className="bg-white/10 rounded-2xl shadow-xl p-4 border border-blue-500/30">
-      {/* Swap Header */}
-      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/10">
-        <ArrowRightLeft className="w-4 h-4 text-blue-400" />
-        <span className="text-sm text-blue-400 font-medium">
-          {from_employee.full_name} wants to swap
-        </span>
-      </div>
-
-      <div className="flex justify-between items-start mb-2">
-        <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-1 rounded-full">
-          {job_template.job_code}
-        </span>
-      </div>
-
-      <h3 className="font-semibold text-white mb-1">{job_template.title}</h3>
-
-      {job_template.customer && (
-        <p className="text-sm text-gray-300 mb-2">
-          Client: {job_template.customer.full_name}
-        </p>
-      )}
-
-      {/* Scheduled Date */}
-      {job_session.scheduled_date && (
-        <p className="text-sm text-blue-400 font-medium mb-2">
-          {new Date(job_session.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })}
-        </p>
-      )}
-
-      {/* Time Window */}
-      {job_session.scheduled_date && (job_template.time_window_start || job_template.time_window_end) && (
-        <div className="bg-white/5 p-2 rounded-lg mb-2 space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">Window Start:</span>
-            <span className="text-white font-medium">
-              {new Date(job_session.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric'
-              })}
-              {job_template.time_window_start && ` at ${job_template.time_window_start.substring(0, 5)}`}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">Window End:</span>
-            <span className="text-white font-medium">
-              {new Date((job_session.scheduled_end_date || job_session.scheduled_date) + 'T00:00:00').toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric'
-              })}
-              {job_template.time_window_end && ` at ${job_template.time_window_end.substring(0, 5)}`}
-            </span>
+    <div className="bg-white/10 rounded-2xl border border-blue-500/30 overflow-hidden p-4">
+      <div className="space-y-2">
+        {/* Header - Customer name with swap info */}
+        <div className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 rounded-lg px-3 py-2 flex items-center justify-between border border-white/10">
+          <p className="text-white font-bold text-base">{customerName}</p>
+          <div className="flex items-center gap-1 text-blue-400 text-xs">
+            <ArrowRightLeft className="w-3 h-3" />
+            <span>{from_employee.full_name}</span>
           </div>
         </div>
-      )}
 
-      <div className="flex gap-4 text-sm text-gray-300 mb-3">
-        {job_template.duration_minutes && (
-          <span>{Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m</span>
-        )}
-        {job_template.price_per_hour && (
-          <span>${job_template.price_per_hour}/hr</span>
-        )}
-      </div>
-
-      {/* Reason */}
-      {exchange.reason && (
-        <div className="bg-white/5 p-2 rounded-lg mb-3">
-          <p className="text-xs text-gray-400">Reason:</p>
-          <p className="text-sm text-gray-300">{exchange.reason}</p>
+        {/* Row 1: Job & Duration */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Job</p>
+              <p className="text-white font-semibold text-sm">{job_template.title}</p>
+            </div>
+          </div>
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Duration</p>
+              <p className="text-white font-semibold text-sm">{formatDuration(job_template.duration_minutes)}</p>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Claim Button */}
-      <Button
-        onClick={onClaim}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-      >
-        Take This Job
-      </Button>
+        {/* Row 2: Time Window & Hourly Rate */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-green-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Time Window</p>
+              <p className="text-white font-semibold text-sm">{formatTimeWindow()}</p>
+            </div>
+          </div>
+          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+            <div>
+              <p className="text-gray-300 text-xs">Hourly Rate</p>
+              <p className="text-white font-semibold text-sm">{formatPrice(job_template.price_per_hour)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Reason */}
+        {exchange.reason && (
+          <div className="bg-white/5 rounded-lg p-2">
+            <p className="text-xs text-gray-400">Reason:</p>
+            <p className="text-sm text-gray-300">{exchange.reason}</p>
+          </div>
+        )}
+
+        {/* Take Job Button */}
+        <Button
+          onClick={onClaim}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+        >
+          Take This Job
+        </Button>
+      </div>
     </div>
   )
 }

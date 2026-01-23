@@ -83,7 +83,7 @@ export default function EmployeeLayout({
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden">
       <DashboardHeader employeeName={employeeName} />
-      <div className="h-full overflow-y-auto pt-14">
+      <div id="main-scroll-container" className="h-full overflow-y-auto pt-14">
         {children}
       </div>
       <BottomNav profile="EMPLOYEE" />
