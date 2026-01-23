@@ -118,8 +118,8 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
   if (!jobSession) return null
 
-  // Check if job can be modified (not cancelled or completed)
-  const canModify = jobSession.status !== 'CANCELLED' && jobSession.status !== 'COMPLETED' && jobSession.status !== 'EVALUATED'
+  // Check if job can be modified (not cancelled, completed, missed, or overdue)
+  const canModify = jobSession.status !== 'CANCELLED' && jobSession.status !== 'COMPLETED' && jobSession.status !== 'EVALUATED' && jobSession.status !== 'MISSED' && jobSession.status !== 'OVERDUE'
 
   const getStatusColor = (status: JobSessionStatus): string => {
     switch (status) {
@@ -137,6 +137,10 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
         return 'bg-red-500'
       case 'EVALUATED':
         return 'bg-teal-500'
+      case 'MISSED':
+        return 'bg-red-600'
+      case 'OVERDUE':
+        return 'bg-red-600'
       default:
         return 'bg-gray-500'
     }

@@ -43,10 +43,10 @@ const DAYS_OF_WEEK = [
 ]
 
 export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityEditorProps) {
-  const [mode, setMode] = useState<AvailabilityMode>('custom')
+  const [mode, setMode] = useState<AvailabilityMode | null>(null)
   const [days, setDays] = useState<DayAvailability[]>([])
   const [weeklyDays, setWeeklyDays] = useState<WeeklyDayAvailability[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showReminder, setShowReminder] = useState(false)
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
@@ -61,6 +61,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
     return false
   })
   const daysScrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   const scrollDays = (direction: 'left' | 'right') => {
@@ -74,34 +75,14 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
   }
 
   useEffect(() => {
-    loadMode()
-  }, [employeeId])
-
-  useEffect(() => {
     if (mode === 'custom') {
       initializeDays()
-    } else {
+    } else if (mode === 'fixed') {
       initializeWeeklyDays()
     }
   }, [employeeId, mode])
 
-  const loadMode = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('availability_mode')
-        .eq('id', employeeId)
-        .single()
-
-      if (!error && data?.availability_mode) {
-        setMode(data.availability_mode as AvailabilityMode)
-      }
-    } catch (error) {
-      console.error('Error loading mode:', error)
-    }
-  }
-
-  const saveMode = async (newMode: AvailabilityMode) => {
+  const selectMode = async (newMode: AvailabilityMode) => {
     setMode(newMode)
     try {
       await supabase
@@ -112,6 +93,15 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       console.error('Error saving mode:', error)
     }
   }
+
+  // Scroll to content after loading completes
+  useEffect(() => {
+    if (!loading && mode !== null) {
+      setTimeout(() => {
+        contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [loading, mode])
 
   const getStartMonday = () => {
     const today = startOfDay(new Date())
@@ -511,35 +501,37 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
   return (
     <>
       <div className="space-y-4">
-        {/* Mode Selector */}
-        <div className="flex gap-2 mt-4">
-          <button
-            onClick={() => saveMode('fixed')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
-              mode === 'fixed'
-                ? 'bg-purple-500/30 border-2 border-purple-500 text-white'
-                : 'bg-white/5 border-2 border-white/10 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <Repeat className="w-4 h-4" />
-            Fixed Weekly
-          </button>
-          <button
-            onClick={() => saveMode('custom')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
-              mode === 'custom'
-                ? 'bg-purple-500/30 border-2 border-purple-500 text-white'
-                : 'bg-white/5 border-2 border-white/10 text-gray-400 hover:bg-white/10'
-            }`}
-          >
-            <CalendarDays className="w-4 h-4" />
-            Custom Dates
-          </button>
+        {/* Mode Selector - Square Buttons */}
+        <div className={`flex justify-center ${mode === null ? 'min-h-[200px] items-center' : ''}`}>
+          <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+            <button
+              onClick={() => selectMode('fixed')}
+              className={`aspect-square flex flex-col items-center justify-center gap-3 rounded-2xl font-bold text-base transition-all ${
+                mode === 'fixed'
+                  ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+                  : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+              }`}
+            >
+              <Repeat className={`w-10 h-10 ${mode === 'fixed' ? 'text-white' : 'text-gray-400'}`} />
+              <span className="text-center px-2">Fixed Weekly</span>
+            </button>
+            <button
+              onClick={() => selectMode('custom')}
+              className={`aspect-square flex flex-col items-center justify-center gap-3 rounded-2xl font-bold text-base transition-all ${
+                mode === 'custom'
+                  ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+                  : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+              }`}
+            >
+              <CalendarDays className={`w-10 h-10 ${mode === 'custom' ? 'text-white' : 'text-gray-400'}`} />
+              <span className="text-center px-2">Custom Dates</span>
+            </button>
+          </div>
         </div>
 
-        {mode === 'custom' ? (
+        {mode === 'custom' && (
           /* Custom Schedule (2-week view) */
-          <div className="space-y-3">
+          <div ref={contentRef} className="space-y-3 scroll-mt-4">
             {/* Lock/Unlock Button */}
             <div className="flex justify-end">
               <Button
@@ -716,9 +708,11 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
               </label>
             </div>
           </div>
-        ) : (
+        )}
+
+        {mode === 'fixed' && (
           /* Fixed Weekly Schedule (Mon-Sun) */
-          <div className="space-y-3">
+          <div ref={contentRef} className="space-y-3 scroll-mt-4">
             <p className="text-sm text-gray-400 text-center">
               Set your recurring weekly availability
             </p>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
 import { BottomNav } from '@/components/BottomNav'
 import { DashboardHeader } from '@/components/employee/DashboardHeader'
 import { Button } from '@/components/ui/button'
@@ -14,12 +13,9 @@ export default function EmployeeLayout({
   children: React.ReactNode
 }) {
   const [status, setStatus] = useState<string | null>(null)
+  const [employeeName, setEmployeeName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const pathname = usePathname()
   const supabase = createClient()
-
-  // Show header only on dashboard page
-  const showHeader = pathname === '/employee/dashboard' || pathname.startsWith('/employee/dashboard/')
 
   const checkStatus = async () => {
     setLoading(true)
@@ -27,11 +23,12 @@ export default function EmployeeLayout({
     if (user) {
       const { data: employee } = await supabase
         .from('employees')
-        .select('status')
+        .select('status, full_name')
         .eq('user_id', user.id)
         .single()
 
       setStatus(employee?.status || null)
+      setEmployeeName(employee?.full_name || null)
     }
     setLoading(false)
   }
@@ -85,8 +82,8 @@ export default function EmployeeLayout({
   // ACTIVE - show normal layout
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden">
-      {showHeader && <DashboardHeader />}
-      <div className={`h-full overflow-y-auto ${showHeader ? 'pt-14' : ''}`}>
+      <DashboardHeader employeeName={employeeName} />
+      <div className="h-full overflow-y-auto pt-14">
         {children}
       </div>
       <BottomNav profile="EMPLOYEE" />

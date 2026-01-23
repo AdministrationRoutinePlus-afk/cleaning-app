@@ -332,7 +332,7 @@
 
 .calendar-dark-theme .rbc-event {
   padding: 8px 10px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9));
+  /* Background color is set by eventStyleGetter inline styles */
   border-radius: 8px;
   color: white;
   border: none;
@@ -340,17 +340,15 @@
   font-size: 13px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .calendar-dark-theme .rbc-event:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.95));
 }
 
 .calendar-dark-theme .rbc-event.rbc-selected {
-  background: linear-gradient(135deg, rgba(29, 78, 216, 1), rgba(30, 64, 175, 1));
   box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.5);
 }
 

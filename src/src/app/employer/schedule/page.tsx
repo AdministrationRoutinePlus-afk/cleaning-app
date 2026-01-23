@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Employer Schedule Page - Redesigned with 3 Tabs
+ * Employer Schedule Page - Redesigned with 4 Tabs
  *
  * TAB 1: OPEN JOBS (OFFERED status)
  * - Gray: >4 days away
@@ -13,9 +13,14 @@
  * - Blue: APPROVED
  *
  * TAB 3: WORK IN PROGRESS
- * - Purple: IN_PROGRESS
+ * - Purple: IN_PROGRESS (pulsing green when active)
+ * - Amber: Running low (<8h left)
  * - Green: COMPLETED
  * - Teal: EVALUATED
+ *
+ * TAB 4: ISSUES (NEW)
+ * - Red: MISSED (never started, time window passed)
+ * - Red: OVERDUE (started but not completed, time window passed)
  *
  * Each tab has:
  * - Calendar view (visual)
@@ -54,7 +59,7 @@ const locales = { 'en-US': require('date-fns/locale/en-US') }
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales })
 
 type ViewMode = 'calendar' | 'list'
-type ScheduleTab = 'open' | 'assigned' | 'progress'
+type ScheduleTab = 'open' | 'assigned' | 'progress' | 'issues'
 
 export default function EmployerSchedulePage() {
   const [jobSessions, setJobSessions] = useState<JobSessionWithDetails[]>([])
@@ -100,15 +105,51 @@ export default function EmployerSchedulePage() {
     fetchJobSessions()
   }, [fetchJobSessions])
 
+  // Helper to check if job is missed or overdue (for backwards compatibility)
+  const isJobMissedOrOverdue = (session: JobSessionWithDetails) => {
+    // Check DB status first
+    if (session.status === 'MISSED' || session.status === 'OVERDUE') return true
+
+    // Calculate for backwards compatibility
+    if (!session.scheduled_date) return false
+    const now = new Date()
+
+    if (session.job_template?.time_window_end) {
+      const [endH, endM] = session.job_template.time_window_end.split(':').map(Number)
+      const endDate = new Date(session.scheduled_end_date || session.scheduled_date)
+      endDate.setHours(endH, endM, 0, 0)
+
+      if (now > endDate) {
+        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
+      }
+    } else {
+      // No time window - check if scheduled date has passed
+      const endOfDay = new Date(session.scheduled_end_date || session.scheduled_date)
+      endOfDay.setHours(23, 59, 59, 999)
+      if (now > endOfDay) {
+        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
+      }
+    }
+    return false
+  }
+
   // Filter jobs by tab
   const filteredSessions = useMemo(() => {
     switch (activeTab) {
       case 'open':
         return jobSessions.filter(s => s.status === 'OFFERED')
       case 'assigned':
-        return jobSessions.filter(s => ['CLAIMED', 'APPROVED'].includes(s.status))
+        return jobSessions.filter(s =>
+          ['CLAIMED', 'APPROVED'].includes(s.status) && !isJobMissedOrOverdue(s)
+        )
       case 'progress':
-        return jobSessions.filter(s => ['IN_PROGRESS', 'COMPLETED', 'EVALUATED'].includes(s.status))
+        return jobSessions.filter(s =>
+          ['IN_PROGRESS', 'COMPLETED', 'EVALUATED'].includes(s.status) && !isJobMissedOrOverdue(s)
+        )
+      case 'issues':
+        return jobSessions.filter(s =>
+          s.status === 'MISSED' || s.status === 'OVERDUE' || isJobMissedOrOverdue(s)
+        )
       default:
         return []
     }
@@ -199,6 +240,10 @@ export default function EmployerSchedulePage() {
         return <Badge className="bg-green-500">Completed</Badge>
       case 'EVALUATED':
         return <Badge className="bg-teal-500">Evaluated</Badge>
+      case 'MISSED':
+        return <Badge className="bg-red-500">Missed</Badge>
+      case 'OVERDUE':
+        return <Badge className="bg-red-500">Overdue</Badge>
       default:
         return <Badge className="bg-gray-500">{status}</Badge>
     }
@@ -229,6 +274,15 @@ export default function EmployerSchedulePage() {
       case 'EVALUATED':
         backgroundColor = '#14b8a6'
         break
+      case 'MISSED':
+      case 'OVERDUE':
+        backgroundColor = '#ef4444'
+        break
+    }
+
+    // Check for calculated missed/overdue status (backwards compatibility)
+    if (isJobMissedOrOverdue(event.resource)) {
+      backgroundColor = '#ef4444'
     }
 
     return {
@@ -295,6 +349,19 @@ export default function EmployerSchedulePage() {
             </div>
           </div>
         )
+      case 'issues':
+        return (
+          <div className="flex flex-wrap gap-3 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-500 rounded"></div>
+              <span>Missed (never started)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-600 rounded"></div>
+              <span>Overdue (not completed)</span>
+            </div>
+          </div>
+        )
     }
   }
 
@@ -319,8 +386,15 @@ export default function EmployerSchedulePage() {
 
   // Tab counts
   const openCount = jobSessions.filter(s => s.status === 'OFFERED').length
-  const assignedCount = jobSessions.filter(s => ['CLAIMED', 'APPROVED'].includes(s.status)).length
-  const progressCount = jobSessions.filter(s => ['IN_PROGRESS', 'COMPLETED', 'EVALUATED'].includes(s.status)).length
+  const assignedCount = jobSessions.filter(s =>
+    ['CLAIMED', 'APPROVED'].includes(s.status) && !isJobMissedOrOverdue(s)
+  ).length
+  const progressCount = jobSessions.filter(s =>
+    ['IN_PROGRESS', 'COMPLETED', 'EVALUATED'].includes(s.status) && !isJobMissedOrOverdue(s)
+  ).length
+  const issuesCount = jobSessions.filter(s =>
+    s.status === 'MISSED' || s.status === 'OVERDUE' || isJobMissedOrOverdue(s)
+  ).length
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -333,15 +407,18 @@ export default function EmployerSchedulePage() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ScheduleTab)} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
             <TabsTrigger value="open" className="text-xs sm:text-sm">
-              Open Jobs ({openCount})
+              Open ({openCount})
             </TabsTrigger>
             <TabsTrigger value="assigned" className="text-xs sm:text-sm">
               Assigned ({assignedCount})
             </TabsTrigger>
             <TabsTrigger value="progress" className="text-xs sm:text-sm">
               In Progress ({progressCount})
+            </TabsTrigger>
+            <TabsTrigger value="issues" className={`text-xs sm:text-sm ${issuesCount > 0 ? 'text-red-600' : ''}`}>
+              Issues ({issuesCount})
             </TabsTrigger>
           </TabsList>
 
@@ -372,7 +449,7 @@ export default function EmployerSchedulePage() {
           </div>
 
           {/* Tab Content */}
-          {['open', 'assigned', 'progress'].map((tab) => (
+          {['open', 'assigned', 'progress', 'issues'].map((tab) => (
             <TabsContent key={tab} value={tab}>
               {loading ? (
                 <div className="bg-white rounded-lg shadow p-4">
@@ -428,7 +505,14 @@ export default function EmployerSchedulePage() {
                                   <span className="font-mono text-sm font-semibold text-gray-600">
                                     {session.full_job_code || session.job_template?.job_code}
                                   </span>
-                                  {getStatusBadge(session.status, session.status === 'OFFERED' ? daysUntil : undefined)}
+                                  {/* Show calculated missed/overdue badge for backwards compatibility */}
+                                  {isJobMissedOrOverdue(session) && session.status !== 'MISSED' && session.status !== 'OVERDUE' ? (
+                                    <Badge className="bg-red-500">
+                                      {session.status === 'IN_PROGRESS' ? 'Overdue' : 'Missed'}
+                                    </Badge>
+                                  ) : (
+                                    getStatusBadge(session.status, session.status === 'OFFERED' ? daysUntil : undefined)
+                                  )}
                                 </div>
                                 <p className="font-medium text-gray-900 truncate">
                                   {session.job_template?.title || 'Untitled Job'}

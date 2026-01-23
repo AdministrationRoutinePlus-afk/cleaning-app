@@ -105,6 +105,10 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         return 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
       case 'EVALUATED':
         return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+      case 'MISSED':
+        return 'bg-red-600/30 text-red-300 border border-red-500/50'
+      case 'OVERDUE':
+        return 'bg-red-600/30 text-red-300 border border-red-500/50'
       default:
         return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
     }
@@ -302,6 +306,36 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           >
             View Details
           </Button>
+        )
+      case 'MISSED':
+        return (
+          <div className="space-y-2">
+            <div className="text-xs text-red-400 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/30">
+              This job was not started within its time window
+            </div>
+            <Button
+              onClick={handleViewDetails}
+              variant="outline"
+              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+            >
+              View Details
+            </Button>
+          </div>
+        )
+      case 'OVERDUE':
+        return (
+          <div className="space-y-2">
+            <div className="text-xs text-red-400 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/30">
+              This job was started but not completed within its time window
+            </div>
+            <Button
+              onClick={handleViewDetails}
+              variant="outline"
+              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+            >
+              View Details
+            </Button>
+          </div>
         )
       default:
         return null

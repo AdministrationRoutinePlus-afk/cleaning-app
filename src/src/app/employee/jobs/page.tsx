@@ -69,14 +69,43 @@ export default function EmployeeJobsPage() {
     fetchJobs()
   }, [])
 
+  // Helper to check if job is missed or overdue (for backwards compatibility)
+  const isJobMissedOrOverdue = (session: JobSessionFull) => {
+    if (session.status === 'MISSED' || session.status === 'OVERDUE') return true
+    if (!session.scheduled_date) return false
+
+    const now = new Date()
+    const jobTemplate = session.job_template
+
+    if (jobTemplate?.time_window_end) {
+      const [endH, endM] = jobTemplate.time_window_end.split(':').map(Number)
+      const endDate = new Date(session.scheduled_end_date || session.scheduled_date)
+      endDate.setHours(endH, endM, 0, 0)
+
+      if (now > endDate) {
+        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
+      }
+    } else {
+      const endOfDay = new Date(session.scheduled_end_date || session.scheduled_date)
+      endOfDay.setHours(23, 59, 59, 999)
+      if (now > endOfDay) {
+        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
+      }
+    }
+    return false
+  }
+
   // Filter jobs by status for each tab
   const pendingJobs = jobs.filter(job => job.status === 'CLAIMED') // Waiting for employer approval
-  const approvedJobs = jobs.filter(job => job.status === 'APPROVED')
-  const inProgressJobs = jobs.filter(job => job.status === 'IN_PROGRESS')
+  const approvedJobs = jobs.filter(job => job.status === 'APPROVED' && !isJobMissedOrOverdue(job))
+  const inProgressJobs = jobs.filter(job => job.status === 'IN_PROGRESS' && !isJobMissedOrOverdue(job))
   const completedJobs = jobs.filter(job =>
     job.status === 'COMPLETED' || job.status === 'EVALUATED'
   )
   const refusedJobs = jobs.filter(job => job.status === 'REFUSED')
+  const issueJobs = jobs.filter(job =>
+    job.status === 'MISSED' || job.status === 'OVERDUE' || isJobMissedOrOverdue(job)
+  )
 
   // Get job count for each tab
   const getCounts = () => ({
@@ -84,7 +113,8 @@ export default function EmployeeJobsPage() {
     approved: approvedJobs.length,
     inProgress: inProgressJobs.length,
     completed: completedJobs.length,
-    refused: refusedJobs.length
+    refused: refusedJobs.length,
+    issues: issueJobs.length
   })
 
   const counts = getCounts()
@@ -192,10 +222,10 @@ export default function EmployeeJobsPage() {
                 Job Status
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => setActiveTab('pending')}
-                  className={`relative py-3 px-3 rounded-xl font-semibold text-sm transition-all ${
+                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
                     activeTab === 'pending'
                       ? 'bg-yellow-500/20 text-yellow-300 border-2 border-yellow-500/50 scale-105 shadow-lg'
                       : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
@@ -204,7 +234,7 @@ export default function EmployeeJobsPage() {
                   <div className="flex flex-col items-center gap-1">
                     <span>Pending</span>
                     {counts.pending > 0 && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                         activeTab === 'pending'
                           ? 'bg-yellow-400 text-black'
                           : 'bg-yellow-500/20 text-yellow-400'
@@ -217,7 +247,7 @@ export default function EmployeeJobsPage() {
 
                 <button
                   onClick={() => setActiveTab('approved')}
-                  className={`relative py-3 px-3 rounded-xl font-semibold text-sm transition-all ${
+                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
                     activeTab === 'approved'
                       ? 'bg-green-500/20 text-green-300 border-2 border-green-500/50 scale-105 shadow-lg'
                       : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
@@ -226,7 +256,7 @@ export default function EmployeeJobsPage() {
                   <div className="flex flex-col items-center gap-1">
                     <span>Approved</span>
                     {counts.approved > 0 && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                         activeTab === 'approved'
                           ? 'bg-green-400 text-black'
                           : 'bg-green-500/20 text-green-400'
@@ -239,7 +269,7 @@ export default function EmployeeJobsPage() {
 
                 <button
                   onClick={() => setActiveTab('refused')}
-                  className={`relative py-3 px-3 rounded-xl font-semibold text-sm transition-all ${
+                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
                     activeTab === 'refused'
                       ? 'bg-red-500/20 text-red-300 border-2 border-red-500/50 scale-105 shadow-lg'
                       : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
@@ -248,12 +278,34 @@ export default function EmployeeJobsPage() {
                   <div className="flex flex-col items-center gap-1">
                     <span>Refused</span>
                     {counts.refused > 0 && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                         activeTab === 'refused'
                           ? 'bg-red-400 text-black'
                           : 'bg-red-500/20 text-red-400'
                       }`}>
                         {counts.refused}
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('issues')}
+                  className={`relative py-3 px-2 rounded-xl font-semibold text-xs transition-all ${
+                    activeTab === 'issues'
+                      ? 'bg-red-600/20 text-red-300 border-2 border-red-600/50 scale-105 shadow-lg'
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span>Issues</span>
+                    {counts.issues > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                        activeTab === 'issues'
+                          ? 'bg-red-500 text-white'
+                          : 'bg-red-600/20 text-red-400'
+                      }`}>
+                        {counts.issues}
                       </span>
                     )}
                   </div>
@@ -294,6 +346,13 @@ export default function EmployeeJobsPage() {
             {renderJobList(
               refusedJobs,
               'No refused jobs. Jobs declined by the employer will appear here.'
+            )}
+          </TabsContent>
+
+          <TabsContent value="issues" className="mt-6">
+            {renderJobList(
+              issueJobs,
+              'No issues. Missed or overdue jobs will appear here.'
             )}
           </TabsContent>
         </Tabs>

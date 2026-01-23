@@ -182,8 +182,46 @@ export default function EmployerJobsPage() {
       case 'CLAIMED': return 'bg-yellow-500'
       case 'APPROVED': return 'bg-blue-500'
       case 'IN_PROGRESS': return 'bg-purple-500'
+      case 'MISSED': return 'bg-red-500'
+      case 'OVERDUE': return 'bg-red-500'
       default: return 'bg-gray-400'
     }
+  }
+
+  // Check if job is missed or overdue (for backwards compatibility)
+  const isJobMissedOrOverdue = (session: JobSessionFull) => {
+    if (session.status === 'MISSED' || session.status === 'OVERDUE') return true
+    if (!session.scheduled_date) return false
+
+    const now = new Date()
+    const jobTemplate = session.job_template as JobTemplate & { customer: Customer | null }
+
+    if (jobTemplate?.time_window_end) {
+      const [endH, endM] = jobTemplate.time_window_end.split(':').map(Number)
+      const endDate = new Date(session.scheduled_end_date || session.scheduled_date)
+      endDate.setHours(endH, endM, 0, 0)
+
+      if (now > endDate) {
+        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
+      }
+    } else {
+      const endOfDay = new Date(session.scheduled_end_date || session.scheduled_date)
+      endOfDay.setHours(23, 59, 59, 999)
+      if (now > endOfDay) {
+        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
+      }
+    }
+    return false
+  }
+
+  // Get display status (accounts for calculated missed/overdue)
+  const getDisplayStatus = (session: JobSessionFull) => {
+    if (session.status === 'MISSED') return 'MISSED'
+    if (session.status === 'OVERDUE') return 'OVERDUE'
+    if (isJobMissedOrOverdue(session)) {
+      return session.status === 'IN_PROGRESS' ? 'OVERDUE' : 'MISSED'
+    }
+    return session.status
   }
 
   if (loading) {
@@ -385,8 +423,8 @@ export default function EmployerJobsPage() {
                                             {session.employee.full_name}
                                           </span>
                                         )}
-                                        <Badge className={`${getStatusColor(session.status)} text-white text-xs`}>
-                                          {session.status}
+                                        <Badge className={`${getStatusColor(getDisplayStatus(session))} text-white text-xs`}>
+                                          {getDisplayStatus(session)}
                                         </Badge>
                                       </div>
                                     </div>

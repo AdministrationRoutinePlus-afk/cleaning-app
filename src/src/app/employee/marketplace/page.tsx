@@ -1,18 +1,24 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { motion, useMotionValue, useTransform, PanInfo, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
-import type { JobSession, JobTemplate, Customer } from '@/types/database'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { JobSession, JobTemplate, Customer, Employee, JobExchange } from '@/types/database'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { ShoppingBag, Users, ArrowRightLeft } from 'lucide-react'
+import Image from 'next/image'
 
 type JobSessionWithDetails = JobSession & {
   job_template: JobTemplate & {
     customer: Customer | null
   }
+}
+
+type ExchangeWithDetails = JobExchange & {
+  job_session: JobSessionWithDetails
+  from_employee: Employee
 }
 
 type SwipeAction = {
@@ -22,14 +28,18 @@ type SwipeAction = {
 }
 
 export default function EmployeeMarketplacePage() {
+  const [mainTab, setMainTab] = useState<'marketplace' | 'swap'>('marketplace')
   const [marketplaceJobs, setMarketplaceJobs] = useState<JobSessionWithDetails[]>([])
   const [interestedJobs, setInterestedJobs] = useState<JobSessionWithDetails[]>([])
   const [skippedJobs, setSkippedJobs] = useState<JobSessionWithDetails[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [swapJobs, setSwapJobs] = useState<ExchangeWithDetails[]>([])
   const [loading, setLoading] = useState(true)
+  const [swapLoading, setSwapLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [employeeId, setEmployeeId] = useState<string | null>(null)
   const [employeeStatus, setEmployeeStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('marketplace')
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -48,9 +58,10 @@ export default function EmployeeMarketplacePage() {
         .eq('user_id', userId)
         .single()
 
-      const employeeId = employee?.id
+      const empId = employee?.id
+      if (empId) setEmployeeId(empId)
 
-      // Load marketplace jobs (OFFERED status)
+      // Load marketplace jobs (OFFERED status) - order by scheduled_date
       const { data: offeredJobs, error: offeredError } = await supabase
         .from('job_sessions')
         .select(`
@@ -61,13 +72,14 @@ export default function EmployeeMarketplacePage() {
           )
         `)
         .eq('status', 'OFFERED')
-        .order('created_at', { ascending: false })
+        .not('scheduled_date', 'is', null) // Only jobs with scheduled dates
+        .order('scheduled_date', { ascending: true })
 
       if (offeredError) throw offeredError
 
       // Load interested jobs (CLAIMED, APPROVED, REFUSED by current user)
       let claimedJobs: typeof offeredJobs = []
-      if (employeeId) {
+      if (empId) {
         const { data, error: claimedError } = await supabase
           .from('job_sessions')
           .select(`
@@ -78,8 +90,8 @@ export default function EmployeeMarketplacePage() {
             )
           `)
           .in('status', ['CLAIMED', 'APPROVED', 'REFUSED'])
-          .eq('assigned_to', employeeId)
-          .order('created_at', { ascending: false })
+          .eq('assigned_to', empId)
+          .order('scheduled_date', { ascending: true })
 
         if (claimedError) throw claimedError
         claimedJobs = data
@@ -136,11 +148,55 @@ export default function EmployeeMarketplacePage() {
     }
   }, [userId, supabase])
 
+  const loadSwapJobs = useCallback(async () => {
+    if (!employeeId) return
+
+    setSwapLoading(true)
+    try {
+      // Load pending exchanges from other employees
+      const { data, error } = await supabase
+        .from('job_exchanges')
+        .select(`
+          *,
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          ),
+          from_employee:employees!job_exchanges_from_employee_id_fkey(*)
+        `)
+        .eq('status', 'PENDING')
+        .neq('from_employee_id', employeeId)
+        .is('to_employee_id', null) // Open swaps (not targeted to specific employee)
+
+      if (error) throw error
+
+      // Filter out exchanges where job_session or job_template is null
+      const validExchanges = (data || []).filter(
+        ex => ex.job_session && ex.job_session.job_template
+      ) as ExchangeWithDetails[]
+
+      setSwapJobs(validExchanges)
+    } catch (error) {
+      console.error('Error loading swap jobs:', error)
+    } finally {
+      setSwapLoading(false)
+    }
+  }, [employeeId, supabase])
+
   useEffect(() => {
     if (userId) {
       loadData()
     }
   }, [userId, loadData])
+
+  useEffect(() => {
+    if (mainTab === 'swap' && employeeId) {
+      loadSwapJobs()
+    }
+  }, [mainTab, employeeId, loadSwapJobs])
 
   const loadUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -150,12 +206,13 @@ export default function EmployeeMarketplacePage() {
       // Also fetch employee status to check if account is activated
       const { data: employee } = await supabase
         .from('employees')
-        .select('status')
+        .select('id, status')
         .eq('user_id', user.id)
         .single()
 
       if (employee) {
         setEmployeeStatus(employee.status)
+        setEmployeeId(employee.id)
       }
     }
   }
@@ -183,25 +240,48 @@ export default function EmployeeMarketplacePage() {
     localStorage.setItem('swipeHistory', JSON.stringify(updated))
   }
 
-  // Handle swipe
-  const handleSwipe = async (direction: 'left' | 'right') => {
-    if (currentIndex >= marketplaceJobs.length) return
+  // Group jobs by scheduled_date
+  const groupedJobs = useMemo(() => {
+    const grouped: Record<string, JobSessionWithDetails[]> = {}
 
-    const job = marketplaceJobs[currentIndex]
+    marketplaceJobs.forEach(job => {
+      if (!job.scheduled_date) return // Skip jobs without dates
+      const dateKey = job.scheduled_date
+      if (!grouped[dateKey]) grouped[dateKey] = []
+      grouped[dateKey].push(job)
+    })
 
-    if (direction === 'right') {
-      // Interested - claim the job
-      await handleClaimJob(job)
-    } else {
-      // Skip - save to localStorage
-      saveSwipeAction(job.id, 'skipped')
-      setSkippedJobs(prev => [...prev, job])
+    // Sort dates chronologically and return as array
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
+  }, [marketplaceJobs])
+
+  // Format date for header display
+  const formatDateHeader = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    if (date.getTime() === today.getTime()) {
+      return 'Today'
+    } else if (date.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow'
     }
 
-    // Move to next card
-    setCurrentIndex(prev => prev + 1)
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    })
   }
 
+  // Toggle expand state
+  const toggleExpand = (jobId: string) => {
+    setExpandedJobId(prev => prev === jobId ? null : jobId)
+  }
+
+  // Handle claim job
   const handleClaimJob = async (job: JobSessionWithDetails) => {
     try {
       // Get employee record
@@ -231,12 +311,22 @@ export default function EmployeeMarketplacePage() {
       // Save to swipe history
       saveSwipeAction(job.id, 'interested')
 
-      // Move to interested list
-      setInterestedJobs(prev => [...prev, job])
+      // Remove from marketplace and add to interested
+      setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+      setInterestedJobs(prev => [...prev, { ...job, status: 'CLAIMED' as const }])
+      setExpandedJobId(null)
 
     } catch (error) {
       console.error('Error claiming job:', error)
     }
+  }
+
+  // Handle skip job
+  const handleSkipJob = (job: JobSessionWithDetails) => {
+    saveSwipeAction(job.id, 'skipped')
+    setSkippedJobs(prev => [...prev, job])
+    setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+    setExpandedJobId(null)
   }
 
   // Reset all - unclaim jobs and clear history
@@ -266,9 +356,9 @@ export default function EmployeeMarketplacePage() {
       localStorage.removeItem('swipeHistory')
 
       // Reset state
-      setCurrentIndex(0)
       setSkippedJobs([])
       setInterestedJobs([])
+      setExpandedJobId(null)
 
       // Reload data
       await loadData()
@@ -277,55 +367,130 @@ export default function EmployeeMarketplacePage() {
     }
   }
 
+  // Handle restore job from skipped
   const handleRestoreJob = async (job: JobSessionWithDetails) => {
     // Remove from swipe history
     removeFromSwipeHistory(job.id)
 
-    // Add back to marketplace
-    setMarketplaceJobs(prev => [job, ...prev])
+    // Add back to marketplace and remove from skipped
+    setMarketplaceJobs(prev => {
+      const updated = [...prev, job]
+      // Re-sort by date
+      return updated.sort((a, b) => {
+        if (!a.scheduled_date) return 1
+        if (!b.scheduled_date) return -1
+        return a.scheduled_date.localeCompare(b.scheduled_date)
+      })
+    })
     setSkippedJobs(prev => prev.filter(j => j.id !== job.id))
   }
 
-  const currentJob = marketplaceJobs[currentIndex]
+  // Handle claim swap
+  const handleClaimSwap = async (exchange: ExchangeWithDetails) => {
+    if (!employeeId) return
+
+    try {
+      // Update the exchange to assign to current employee
+      const { error: exchangeError } = await supabase
+        .from('job_exchanges')
+        .update({
+          to_employee_id: employeeId
+        })
+        .eq('id', exchange.id)
+
+      if (exchangeError) throw exchangeError
+
+      // Remove from swap list
+      setSwapJobs(prev => prev.filter(s => s.id !== exchange.id))
+
+      alert('Swap request sent! Waiting for employer approval.')
+    } catch (error) {
+      console.error('Error claiming swap:', error)
+      alert('Failed to claim swap')
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
-      <div className="max-w-2xl mx-auto p-4">
-        <h1 className="text-2xl font-bold text-white mb-6">Job Marketplace</h1>
+    <div className="min-h-screen pb-20">
+      <div className="max-w-lg mx-auto p-4">
+        {/* Top Level Selector - Two Square Buttons */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            onClick={() => setMainTab('marketplace')}
+            className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
+              mainTab === 'marketplace'
+                ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+            }`}
+          >
+            <ShoppingBag className={`w-10 h-10 mb-2 ${mainTab === 'marketplace' ? 'text-white' : 'text-gray-400'}`} />
+            <span>Job Marketplace</span>
+            <span className={`text-xs rounded-full px-3 py-1 mt-2 min-h-[24px] ${
+              marketplaceJobs.length > 0
+                ? mainTab === 'marketplace'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white/10 text-gray-400'
+                : 'opacity-0'
+            }`}>
+              {marketplaceJobs.length > 0 ? `${marketplaceJobs.length} available` : '-'}
+            </span>
+          </button>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="mb-6 space-y-3">
-            {/* Marketplace - Big Tab on Top */}
-            <button
-              onClick={() => setActiveTab('marketplace')}
-              className={`w-full py-4 px-6 rounded-2xl font-bold text-lg transition-all ${
-                activeTab === 'marketplace'
-                  ? 'bg-white/20  text-white shadow-lg scale-105 border-2 border-white/40'
-                  : 'bg-white/5  text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>Marketplace</span>
-                {marketplaceJobs.length > currentIndex && (
-                  <span className={`text-sm rounded-full px-3 py-1 ${
-                    activeTab === 'marketplace'
-                      ? 'bg-white/30 text-white'
-                      : 'bg-white/10 text-gray-400'
-                  }`}>
-                    {marketplaceJobs.length - currentIndex} available
-                  </span>
-                )}
-              </div>
-            </button>
+          <button
+            onClick={() => setMainTab('swap')}
+            className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
+              mainTab === 'swap'
+                ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+            }`}
+          >
+            <ArrowRightLeft className={`w-10 h-10 mb-2 ${mainTab === 'swap' ? 'text-white' : 'text-gray-400'}`} />
+            <span>Swap with Team</span>
+            <span className={`text-xs rounded-full px-3 py-1 mt-2 min-h-[24px] ${
+              swapJobs.length > 0
+                ? mainTab === 'swap'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white/10 text-gray-400'
+                : 'opacity-0'
+            }`}>
+              {swapJobs.length > 0 ? `${swapJobs.length} available` : '-'}
+            </span>
+          </button>
+        </div>
 
-            {/* Interested & Skipped - Smaller Tabs Below */}
-            <div className="grid grid-cols-2 gap-3">
+        {mainTab === 'marketplace' ? (
+          /* JOB MARKETPLACE SECTION */
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {/* Sub-tabs for Interested & Skipped */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button
+                onClick={() => setActiveTab('marketplace')}
+                className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                  activeTab === 'marketplace'
+                    ? 'bg-white/20 text-white shadow-md border-2 border-white/40'
+                    : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <span>Available</span>
+                  {marketplaceJobs.length > 0 && (
+                    <span className={`text-xs rounded-full px-2 py-0.5 ${
+                      activeTab === 'marketplace'
+                        ? 'bg-white/30 text-white'
+                        : 'bg-white/10 text-gray-400'
+                    }`}>
+                      {marketplaceJobs.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+
               <button
                 onClick={() => setActiveTab('interested')}
                 className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
                   activeTab === 'interested'
-                    ? 'bg-white/20  text-white shadow-md scale-105 border-2 border-white/40'
-                    : 'bg-white/5  text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                    ? 'bg-white/20 text-white shadow-md border-2 border-white/40'
+                    : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -341,252 +506,151 @@ export default function EmployeeMarketplacePage() {
                   )}
                 </div>
               </button>
+            </div>
 
-              <button
-                onClick={() => setActiveTab('garbage')}
-                className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                  activeTab === 'garbage'
-                    ? 'bg-white/20  text-white shadow-md scale-105 border-2 border-white/40'
-                    : 'bg-white/5  text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-                }`}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <span>Skipped</span>
-                  {skippedJobs.length > 0 && (
-                    <span className={`text-xs rounded-full px-2 py-0.5 ${
-                      activeTab === 'garbage'
-                        ? 'bg-white/30 text-white'
-                        : 'bg-white/10 text-gray-400'
-                    }`}>
-                      {skippedJobs.length}
-                    </span>
+            {/* MARKETPLACE TAB */}
+            <TabsContent value="marketplace" className="mt-0">
+              {loading ? (
+                <LoadingSpinner size="md" />
+              ) : employeeStatus === 'PENDING' ? (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-8 text-center">
+                  <div className="text-4xl mb-4">⏳</div>
+                  <h3 className="text-lg font-semibold text-yellow-300 mb-2">
+                    Account Pending Activation
+                  </h3>
+                  <p className="text-yellow-200/80 mb-2">
+                    Your account is waiting for employer approval.
+                  </p>
+                  <p className="text-sm text-yellow-200/60">
+                    Once your account is activated, you&apos;ll be able to see and claim jobs here.
+                  </p>
+                </div>
+              ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 text-center">
+                  <div className="text-4xl mb-4">🚫</div>
+                  <h3 className="text-lg font-semibold text-red-300 mb-2">
+                    Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
+                  </h3>
+                  <p className="text-red-200/80">
+                    Please contact your employer to restore access.
+                  </p>
+                </div>
+              ) : groupedJobs.length > 0 ? (
+                <div className="space-y-6">
+                  {/* Instructions */}
+                  <p className="text-center text-gray-400 text-sm">
+                    Tap a job to view details and claim
+                  </p>
+
+                  {/* Date-grouped jobs list */}
+                  {groupedJobs.map(([dateKey, jobs]) => (
+                    <div key={dateKey}>
+                      {/* Date Header */}
+                      <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10">
+                        {formatDateHeader(dateKey)}
+                        <span className="text-gray-500 font-normal ml-2">
+                          ({jobs.length} job{jobs.length !== 1 ? 's' : ''})
+                        </span>
+                      </h3>
+
+                      {/* Jobs for this date */}
+                      <div className="space-y-3">
+                        {jobs.map(job => (
+                          <MarketplaceJobCard
+                            key={job.id}
+                            jobSession={job}
+                            onClaim={() => handleClaimJob(job)}
+                            onSkip={() => handleSkipJob(job)}
+                            isExpanded={expandedJobId === job.id}
+                            onToggleExpand={() => toggleExpand(job.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
+                  <div className="text-4xl mb-4">🎉</div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    All caught up!
+                  </h3>
+                  <p className="text-gray-300 mb-4">
+                    No jobs available right now. Check back later!
+                  </p>
+                  {(skippedJobs.length > 0 || interestedJobs.length > 0) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetAll}
+                      className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    >
+                      Reset & Show All Jobs
+                    </Button>
                   )}
                 </div>
-              </button>
-            </div>
-          </div>
+              )}
+            </TabsContent>
 
-          {/* MARKETPLACE TAB */}
-          <TabsContent value="marketplace" className="mt-0">
-            {loading ? (
-              <LoadingSpinner size="md" />
-            ) : employeeStatus === 'PENDING' ? (
-              <div className="bg-yellow-500/10 border border-yellow-500/30  rounded-2xl p-8 text-center">
-                <div className="text-4xl mb-4">⏳</div>
-                <h3 className="text-lg font-semibold text-yellow-300 mb-2">
-                  Account Pending Activation
-                </h3>
-                <p className="text-yellow-200/80 mb-2">
-                  Your account is waiting for employer approval.
-                </p>
-                <p className="text-sm text-yellow-200/60">
-                  Once your account is activated, you&apos;ll be able to see and claim jobs here.
-                </p>
-              </div>
-            ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
-              <div className="bg-red-500/10 border border-red-500/30  rounded-2xl p-8 text-center">
-                <div className="text-4xl mb-4">🚫</div>
-                <h3 className="text-lg font-semibold text-red-300 mb-2">
-                  Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
-                </h3>
-                <p className="text-red-200/80">
-                  Please contact your employer to restore access.
-                </p>
-              </div>
-            ) : currentJob ? (
-              <div className="space-y-6">
-                {/* Instructions */}
-                <p className="text-center text-gray-300 text-sm">
-                  Swipe right to show interest, swipe left to skip
-                </p>
-
-                {/* Swipe Card */}
-                <SwipeableCard
-                  job={currentJob}
-                  onSwipe={handleSwipe}
-                />
-
-                {/* Action Buttons */}
-                <div className="flex justify-center gap-6">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-full w-16 h-16 border-2 border-red-500/50 text-red-400 hover:bg-red-500/20 hover:border-red-500 bg-black/20  transition-all"
-                    onClick={() => handleSwipe('left')}
-                  >
-                    <span className="text-2xl">👎</span>
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="rounded-full w-16 h-16 border-2 border-green-500/50 text-green-400 hover:bg-green-500/20 hover:border-green-500 bg-black/20  transition-all"
-                    onClick={() => handleSwipe('right')}
-                  >
-                    <span className="text-2xl">👍</span>
-                  </Button>
+            {/* INTERESTED TAB */}
+            <TabsContent value="interested" className="mt-0">
+              {interestedJobs.length === 0 ? (
+                <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
+                  <div className="text-4xl mb-4">👀</div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    No interested jobs yet
+                  </h3>
+                  <p className="text-gray-300">
+                    Claim jobs from the marketplace to see them here!
+                  </p>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-white/10  rounded-2xl shadow-xl p-12 text-center border border-white/20">
-                <div className="text-4xl mb-4">🎉</div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  All caught up!
-                </h3>
-                <p className="text-gray-300 mb-4">
-                  No more jobs available right now. Check back later!
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetAll}
-                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-                >
-                  Reset & Show All Jobs
-                </Button>
-              </div>
-            )}
-          </TabsContent>
+              ) : (
+                <div className="space-y-4">
+                  {interestedJobs.map(job => (
+                    <JobListCard key={job.id} job={job} status="pending" />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        ) : (
+          /* SWAP WITH TEAM SECTION */
+          <div>
+            <p className="text-center text-gray-400 text-sm mb-6">
+              Jobs your teammates want to swap
+            </p>
 
-          {/* INTERESTED TAB */}
-          <TabsContent value="interested" className="mt-0">
-            {interestedJobs.length === 0 ? (
-              <div className="bg-white/10  rounded-2xl shadow-xl p-12 text-center border border-white/20">
-                <div className="text-4xl mb-4">👀</div>
+            {swapLoading ? (
+              <LoadingSpinner size="md" />
+            ) : swapJobs.length === 0 ? (
+              <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
+                <ArrowRightLeft className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
-                  No interested jobs yet
+                  No swaps available
                 </h3>
                 <p className="text-gray-300">
-                  Swipe right on jobs you like to see them here!
+                  When teammates put jobs up for swap, they&apos;ll appear here.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {interestedJobs.map(job => (
-                  <JobListCard key={job.id} job={job} status="pending" />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* GARBAGE/SKIPPED TAB */}
-          <TabsContent value="garbage" className="mt-0">
-            {skippedJobs.length === 0 ? (
-              <div className="bg-white/10  rounded-2xl shadow-xl p-12 text-center border border-white/20">
-                <div className="text-4xl mb-4">🗑️</div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  No skipped jobs
-                </h3>
-                <p className="text-gray-300">
-                  Jobs you skip will appear here. You can restore them anytime!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {skippedJobs.map(job => (
-                  <JobListCard
-                    key={job.id}
-                    job={job}
-                    status="skipped"
-                    onRestore={() => handleRestoreJob(job)}
+                {swapJobs.map(exchange => (
+                  <SwapCard
+                    key={exchange.id}
+                    exchange={exchange}
+                    onClaim={() => handleClaimSwap(exchange)}
                   />
                 ))}
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-// Swipeable Card Component
-function SwipeableCard({
-  job,
-  onSwipe
-}: {
-  job: JobSessionWithDetails
-  onSwipe: (direction: 'left' | 'right') => void
-}) {
-  const [borderColor, setBorderColor] = useState<'green' | 'red' | null>(null)
-  const x = useMotionValue(0)
-
-  // Get screen width for threshold calculation (2/3 of screen)
-  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 400
-  const threshold = screenWidth * (2 / 3)
-
-  // Thumbs up/down opacity based on drag direction
-  const thumbsUpOpacity = useTransform(x, [0, threshold / 2, threshold], [0, 0.8, 1])
-  const thumbsDownOpacity = useTransform(x, [-threshold, -threshold / 2, 0], [1, 0.8, 0])
-  const thumbsUpScale = useTransform(x, [0, threshold / 2, threshold], [0.5, 1, 1.2])
-  const thumbsDownScale = useTransform(x, [-threshold, -threshold / 2, 0], [1.2, 1, 0.5])
-
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (Math.abs(info.offset.x) > threshold) {
-      const direction = info.offset.x > 0 ? 'right' : 'left'
-      setBorderColor(direction === 'right' ? 'green' : 'red')
-
-      // Wait for border pulse animation then trigger swipe
-      setTimeout(() => {
-        onSwipe(direction)
-      }, 800)
-    }
-  }
-
-  return (
-    <div className="relative">
-      {/* Thumbs Down - Left Side */}
-      <motion.div
-        style={{ opacity: thumbsDownOpacity, scale: thumbsDownScale }}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none"
-      >
-        <div className="bg-red-500 rounded-full p-4 shadow-2xl">
-          <span className="text-4xl">👎</span>
-        </div>
-      </motion.div>
-
-      {/* Thumbs Up - Right Side */}
-      <motion.div
-        style={{ opacity: thumbsUpOpacity, scale: thumbsUpScale }}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none"
-      >
-        <div className="bg-green-500 rounded-full p-4 shadow-2xl">
-          <span className="text-4xl">👍</span>
-        </div>
-      </motion.div>
-
-      {/* Card with animated border */}
-      <motion.div
-        style={{ x }}
-        drag={!borderColor ? "x" : false}
-        dragConstraints={{ left: 0, right: 0 }}
-        onDragEnd={handleDragEnd}
-        className="cursor-grab active:cursor-grabbing relative"
-      >
-        {/* Animated border outline */}
-        {borderColor && (
-          <motion.div
-            initial={{ scale: 1 }}
-            animate={{
-              scale: [1, 1.02, 1, 1.02, 1]
-            }}
-            transition={{
-              duration: 0.8,
-              times: [0, 0.2, 0.4, 0.6, 1],
-              ease: "easeInOut"
-            }}
-            className={`absolute inset-0 rounded-3xl pointer-events-none border-4 ${
-              borderColor === 'green' ? 'border-green-500' : 'border-red-500'
-            }`}
-            style={{ zIndex: 30 }}
-          />
-        )}
-        <MarketplaceJobCard jobSession={job} />
-      </motion.div>
-    </div>
-  )
-}
-
-// Job List Card for Interested and Skipped tabs
+// Job List Card for Interested tab
 function JobListCard({
   job,
   status,
@@ -599,7 +663,7 @@ function JobListCard({
   const { job_template } = job
 
   return (
-    <div className="bg-white/10  rounded-2xl shadow-xl p-4 border border-white/20">
+    <div className="bg-white/10 rounded-2xl shadow-xl p-4 border border-white/20">
       <div className="flex justify-between items-start mb-2">
         <div>
           <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-1 rounded-full">
@@ -690,6 +754,109 @@ function JobListCard({
           {job_template.description}
         </p>
       )}
+    </div>
+  )
+}
+
+// Swap Card Component
+function SwapCard({
+  exchange,
+  onClaim
+}: {
+  exchange: ExchangeWithDetails
+  onClaim: () => void
+}) {
+  const { job_session, from_employee } = exchange
+  const { job_template } = job_session
+
+  return (
+    <div className="bg-white/10 rounded-2xl shadow-xl p-4 border border-blue-500/30">
+      {/* Swap Header */}
+      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/10">
+        <ArrowRightLeft className="w-4 h-4 text-blue-400" />
+        <span className="text-sm text-blue-400 font-medium">
+          {from_employee.full_name} wants to swap
+        </span>
+      </div>
+
+      <div className="flex justify-between items-start mb-2">
+        <span className="inline-block bg-white/20 text-white text-xs font-semibold px-2 py-1 rounded-full">
+          {job_template.job_code}
+        </span>
+      </div>
+
+      <h3 className="font-semibold text-white mb-1">{job_template.title}</h3>
+
+      {job_template.customer && (
+        <p className="text-sm text-gray-300 mb-2">
+          Client: {job_template.customer.full_name}
+        </p>
+      )}
+
+      {/* Scheduled Date */}
+      {job_session.scheduled_date && (
+        <p className="text-sm text-blue-400 font-medium mb-2">
+          {new Date(job_session.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+        </p>
+      )}
+
+      {/* Time Window */}
+      {job_session.scheduled_date && (job_template.time_window_start || job_template.time_window_end) && (
+        <div className="bg-white/5 p-2 rounded-lg mb-2 space-y-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Window Start:</span>
+            <span className="text-white font-medium">
+              {new Date(job_session.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              })}
+              {job_template.time_window_start && ` at ${job_template.time_window_start.substring(0, 5)}`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Window End:</span>
+            <span className="text-white font-medium">
+              {new Date((job_session.scheduled_end_date || job_session.scheduled_date) + 'T00:00:00').toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              })}
+              {job_template.time_window_end && ` at ${job_template.time_window_end.substring(0, 5)}`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-4 text-sm text-gray-300 mb-3">
+        {job_template.duration_minutes && (
+          <span>{Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m</span>
+        )}
+        {job_template.price_per_hour && (
+          <span>${job_template.price_per_hour}/hr</span>
+        )}
+      </div>
+
+      {/* Reason */}
+      {exchange.reason && (
+        <div className="bg-white/5 p-2 rounded-lg mb-3">
+          <p className="text-xs text-gray-400">Reason:</p>
+          <p className="text-sm text-gray-300">{exchange.reason}</p>
+        </div>
+      )}
+
+      {/* Claim Button */}
+      <Button
+        onClick={onClaim}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        Take This Job
+      </Button>
     </div>
   )
 }

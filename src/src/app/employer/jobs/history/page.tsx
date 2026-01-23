@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Search, Star, Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 interface CompletedJob {
@@ -386,6 +387,11 @@ export default function JobsHistoryPage() {
                         {job.full_job_code || job.job_template.job_code}
                       </span>
                       <span className="text-sm font-medium truncate">{job.job_template.title}</span>
+                      {(job.status === 'MISSED' || job.status === 'OVERDUE') && (
+                        <Badge className="bg-red-500 text-white text-[10px] px-1.5 py-0">
+                          {job.status}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-xs text-gray-500 truncate">
                       {job.job_template.customer?.full_name || 'No customer'}
