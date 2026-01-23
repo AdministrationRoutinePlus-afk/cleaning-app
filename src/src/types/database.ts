@@ -21,6 +21,8 @@ export type JobSessionStatus =
   | 'COMPLETED'    // Job finished
   | 'EVALUATED'    // Customer submitted rating
   | 'CANCELLED'    // Session cancelled
+  | 'MISSED'       // Time window passed, job was never started
+  | 'OVERDUE'      // Job started but time window passed without completion
 
 export type EmployeeStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'BLOCKED'
 
@@ -324,8 +326,40 @@ export interface EmployeeAvailabilityDate {
   employee_id: string // FK to employees
   date: string // DATE
   is_available: boolean
+  start_time: string | null // TIME - optional time window start
+  end_time: string | null // TIME - optional time window end
   note: string | null
 }
+
+// Employee specific availability for dashboard quick editor
+export interface EmployeeSpecificAvailability {
+  id: string
+  employee_id: string // FK to employees
+  date: string // DATE
+  is_available: boolean
+  start_time: string | null // TIME
+  end_time: string | null // TIME
+  is_locked: boolean
+  locked_at: string | null // TIMESTAMPTZ
+  note: string | null
+  created_at: string // TIMESTAMPTZ
+  updated_at: string // TIMESTAMPTZ
+}
+
+// Employee weekly availability for fixed recurring schedule (Mon-Sun)
+export interface EmployeeWeeklyAvailability {
+  id: string
+  employee_id: string // FK to employees
+  day_of_week: number // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  is_available: boolean
+  start_time: string | null // TIME
+  end_time: string | null // TIME
+  created_at: string // TIMESTAMPTZ
+  updated_at: string // TIMESTAMPTZ
+}
+
+// Availability mode preference
+export type AvailabilityMode = 'custom' | 'fixed'
 
 // =============================================
 // NOTIFICATION TYPES

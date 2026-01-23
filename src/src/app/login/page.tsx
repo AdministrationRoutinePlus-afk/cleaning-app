@@ -74,7 +74,7 @@ export default function LoginPage() {
         .single()
 
       if (employeeData) {
-        router.push('/employee/marketplace')
+        router.push('/employee/dashboard')
         return
       }
 

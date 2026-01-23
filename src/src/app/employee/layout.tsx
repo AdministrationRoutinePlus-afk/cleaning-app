@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { BottomNav } from '@/components/BottomNav'
+import { DashboardHeader } from '@/components/employee/DashboardHeader'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -13,7 +15,11 @@ export default function EmployeeLayout({
 }) {
   const [status, setStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const pathname = usePathname()
   const supabase = createClient()
+
+  // Show header only on dashboard page
+  const showHeader = pathname === '/employee/dashboard' || pathname.startsWith('/employee/dashboard/')
 
   const checkStatus = async () => {
     setLoading(true)
@@ -79,7 +85,8 @@ export default function EmployeeLayout({
   // ACTIVE - show normal layout
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden">
-      <div className="h-full overflow-y-auto">
+      {showHeader && <DashboardHeader />}
+      <div className={`h-full overflow-y-auto ${showHeader ? 'pt-14' : ''}`}>
         {children}
       </div>
       <BottomNav profile="EMPLOYEE" />

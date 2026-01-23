@@ -12,7 +12,8 @@ import {
   Settings,
   ShoppingBag,
   User,
-  Star
+  Star,
+  LayoutDashboard
 } from 'lucide-react'
 
 // User profile types
@@ -38,11 +39,11 @@ const navigationConfig: Record<UserProfile, NavItem[]> = {
     { label: 'Settings', href: '/employer/settings', icon: Settings },
   ],
   EMPLOYEE: [
+    { label: 'Dashboard', href: '/employee/dashboard', icon: LayoutDashboard },
     { label: 'Marketplace', href: '/employee/marketplace', icon: ShoppingBag },
     { label: 'My Jobs', href: '/employee/jobs', icon: Briefcase },
     { label: 'Schedule', href: '/employee/schedule', icon: Calendar },
     { label: 'Messages', href: '/employee/messages', icon: MessageSquare },
-    { label: 'Profile', href: '/employee/profile', icon: User },
   ],
   CUSTOMER: [
     { label: 'Reviews', href: '/customer/reviews', icon: Star },
