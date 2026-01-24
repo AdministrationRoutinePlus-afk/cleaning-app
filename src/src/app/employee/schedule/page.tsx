@@ -429,14 +429,16 @@ export default function EmployeeSchedulePage() {
           </div>
         </div>
 
-        {/* Export PDF Button */}
-        <button
-          onClick={openExportDialog}
-          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 border border-blue-500/50 shadow-lg shadow-blue-600/20"
-        >
-          <Download className="w-5 h-5" />
-          Export PDF Schedule
-        </button>
+        {/* Export PDF Button - Square like other tabs */}
+        <div className="flex justify-center">
+          <button
+            onClick={openExportDialog}
+            className="aspect-square w-32 flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-sm transition-all bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400 hover:from-blue-500 hover:to-blue-700"
+          >
+            <Download className="w-8 h-8" />
+            <span>Export PDF</span>
+          </button>
+        </div>
 
         {/* Empty state */}
         {sessions.length === 0 && (
@@ -526,7 +528,7 @@ export default function EmployeeSchedulePage() {
                 </DialogTitle>
               </DialogHeader>
 
-              {/* PDF Content */}
+              {/* PDF Content - Gantt Chart Style */}
               <div
                 ref={calendarRef}
                 data-pdf-export
@@ -534,107 +536,148 @@ export default function EmployeeSchedulePage() {
                   width: '210mm',
                   minHeight: '297mm',
                   backgroundColor: printTheme === 'dark' ? '#1a1a1a' : '#ffffff',
-                  padding: '12mm 15mm',
+                  padding: '10mm 8mm',
                 }}
               >
                 <h2 style={{
-                  fontSize: '24px',
+                  fontSize: '22px',
                   fontWeight: 'bold',
                   color: printTheme === 'dark' ? '#ffffff' : '#111827',
-                  marginBottom: '6px',
+                  marginBottom: '4px',
                   textAlign: 'center'
                 }}>
-                  My Schedule - Next 7 Days
+                  Weekly Schedule
                 </h2>
                 <p style={{
                   color: printTheme === 'dark' ? '#9ca3af' : '#6b7280',
                   textAlign: 'center',
-                  marginBottom: '16px',
-                  fontSize: '14px'
+                  marginBottom: '12px',
+                  fontSize: '12px'
                 }}>
-                  {format(new Date(), 'MMMM d, yyyy')} - {format(addDays(new Date(), 6), 'MMMM d, yyyy')}
+                  {format(startDate, 'MMMM d')} - {format(weekEndDate, 'MMMM d, yyyy')}
                 </p>
 
-                {/* 7 Day Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: '8px',
-                  marginBottom: '16px'
-                }}>
-                  {Array.from({ length: 7 }).map((_, i) => {
-                    const dayDate = addDays(new Date(), i)
-                    const dayJobs = getJobsForDay(dayDate)
-                    const isToday = i === 0
+                {/* Gantt Chart */}
+                {(() => {
+                  const jobsWithDates = getNext7DaysJobs()
+                  const colors = [
+                    { bg: 'rgba(147, 51, 234, 0.3)', border: 'rgb(147, 51, 234)', text: printTheme === 'dark' ? '#c4b5fd' : '#7c3aed' },
+                    { bg: 'rgba(59, 130, 246, 0.3)', border: 'rgb(59, 130, 246)', text: printTheme === 'dark' ? '#93c5fd' : '#2563eb' },
+                    { bg: 'rgba(16, 185, 129, 0.3)', border: 'rgb(16, 185, 129)', text: printTheme === 'dark' ? '#6ee7b7' : '#059669' },
+                    { bg: 'rgba(245, 158, 11, 0.3)', border: 'rgb(245, 158, 11)', text: printTheme === 'dark' ? '#fcd34d' : '#d97706' },
+                    { bg: 'rgba(239, 68, 68, 0.3)', border: 'rgb(239, 68, 68)', text: printTheme === 'dark' ? '#fca5a5' : '#dc2626' },
+                    { bg: 'rgba(236, 72, 153, 0.3)', border: 'rgb(236, 72, 153)', text: printTheme === 'dark' ? '#f9a8d4' : '#db2777' },
+                  ]
 
-                    return (
-                      <div
-                        key={i}
-                        style={{
-                          padding: '10px',
-                          backgroundColor: printTheme === 'dark'
-                            ? (isToday ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.05)')
-                            : (isToday ? 'rgba(59, 130, 246, 0.1)' : '#f9fafb'),
-                          borderRadius: '8px',
-                          border: printTheme === 'dark'
-                            ? (isToday ? '2px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)')
-                            : (isToday ? '2px solid rgba(59, 130, 246, 0.4)' : '1px solid #e5e7eb'),
-                          minHeight: '120px'
-                        }}
-                      >
-                        <div style={{ marginBottom: '8px', textAlign: 'center' }}>
-                          <div style={{
-                            fontSize: '10px',
-                            fontWeight: '600',
-                            color: printTheme === 'dark'
-                              ? (isToday ? '#60a5fa' : '#9ca3af')
-                              : (isToday ? '#2563eb' : '#6b7280'),
-                            textTransform: 'uppercase'
-                          }}>
-                            {format(dayDate, 'EEE')}
-                          </div>
-                          <div style={{
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            color: printTheme === 'dark'
-                              ? (isToday ? '#93c5fd' : '#ffffff')
-                              : (isToday ? '#1d4ed8' : '#111827')
-                          }}>
-                            {format(dayDate, 'd')}
-                          </div>
+                  return (
+                    <div style={{
+                      border: printTheme === 'dark' ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      overflow: 'hidden'
+                    }}>
+                      {/* Header Row - Days of week */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '100px repeat(7, 1fr)',
+                        backgroundColor: printTheme === 'dark' ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
+                        borderBottom: printTheme === 'dark' ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e5e7eb'
+                      }}>
+                        <div style={{
+                          padding: '8px',
+                          fontWeight: 'bold',
+                          fontSize: '10px',
+                          color: printTheme === 'dark' ? '#9ca3af' : '#6b7280',
+                          borderRight: printTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb'
+                        }}>
+                          JOB
                         </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {dayJobs.length === 0 ? (
-                            <div style={{
-                              textAlign: 'center',
-                              padding: '8px 0',
-                              color: printTheme === 'dark' ? '#6b7280' : '#9ca3af',
-                              fontSize: '9px',
-                              fontStyle: 'italic'
-                            }}>
-                              No jobs
+                        {days.map((day, i) => {
+                          const isWeekend = [0, 6].includes(day.getDay())
+                          const isToday = isSameDay(day, new Date())
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                padding: '6px 4px',
+                                textAlign: 'center',
+                                borderRight: i < 6 ? (printTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb') : 'none',
+                                backgroundColor: isToday
+                                  ? (printTheme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)')
+                                  : isWeekend
+                                    ? (printTheme === 'dark' ? 'rgba(255,255,255,0.05)' : '#f9fafb')
+                                    : 'transparent'
+                              }}
+                            >
+                              <div style={{
+                                fontSize: '9px',
+                                fontWeight: '600',
+                                color: isToday
+                                  ? (printTheme === 'dark' ? '#60a5fa' : '#2563eb')
+                                  : isWeekend
+                                    ? (printTheme === 'dark' ? '#f87171' : '#dc2626')
+                                    : (printTheme === 'dark' ? '#9ca3af' : '#6b7280'),
+                                textTransform: 'uppercase'
+                              }}>
+                                {format(day, 'EEE')}
+                              </div>
+                              <div style={{
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                color: isToday
+                                  ? (printTheme === 'dark' ? '#93c5fd' : '#1d4ed8')
+                                  : (printTheme === 'dark' ? '#ffffff' : '#111827')
+                              }}>
+                                {format(day, 'd')}
+                              </div>
                             </div>
-                          ) : (
-                            dayJobs.map(session => (
-                              <div
-                                key={session.id}
-                                style={{
-                                  padding: '4px 6px',
-                                  backgroundColor: printTheme === 'dark'
-                                    ? (session.status === 'IN_PROGRESS' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(59, 130, 246, 0.2)')
-                                    : (session.status === 'IN_PROGRESS' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(59, 130, 246, 0.15)'),
-                                  borderRadius: '4px',
-                                  border: printTheme === 'dark'
-                                    ? '1px solid rgba(255, 255, 255, 0.1)'
-                                    : '1px solid rgba(0, 0, 0, 0.1)'
-                                }}
-                              >
+                          )
+                        })}
+                      </div>
+
+                      {/* Job Rows - Gantt bars */}
+                      {jobsWithDates.length === 0 ? (
+                        <div style={{
+                          padding: '30px',
+                          textAlign: 'center',
+                          color: printTheme === 'dark' ? '#6b7280' : '#9ca3af',
+                          fontSize: '12px'
+                        }}>
+                          No jobs scheduled for this week
+                        </div>
+                      ) : (
+                        jobsWithDates.map((session, jobIndex) => {
+                          const jobStart = parseISO(session.scheduled_date!)
+                          const jobEnd = session.scheduled_end_date
+                            ? parseISO(session.scheduled_end_date)
+                            : jobStart
+                          const color = colors[jobIndex % colors.length]
+
+                          return (
+                            <div
+                              key={session.id}
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '100px repeat(7, 1fr)',
+                                borderBottom: jobIndex < jobsWithDates.length - 1
+                                  ? (printTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb')
+                                  : 'none',
+                                minHeight: '50px'
+                              }}
+                            >
+                              {/* Job Info Column */}
+                              <div style={{
+                                padding: '6px 8px',
+                                borderRight: printTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center'
+                              }}>
                                 <div style={{
                                   fontSize: '9px',
-                                  fontWeight: '600',
+                                  fontWeight: 'bold',
                                   color: printTheme === 'dark' ? '#ffffff' : '#111827',
-                                  lineHeight: '1.2'
+                                  lineHeight: '1.2',
+                                  marginBottom: '2px'
                                 }}>
                                   {session.job_template.title}
                                 </div>
@@ -644,168 +687,136 @@ export default function EmployeeSchedulePage() {
                                 }}>
                                   {session.job_template.customer?.full_name || ''}
                                 </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Job Details List */}
-                {(() => {
-                  const next7DaysJobs = getNext7DaysJobs()
-                  if (next7DaysJobs.length === 0) return null
-
-                  return (
-                    <div style={{
-                      paddingTop: '12px',
-                      borderTop: printTheme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'
-                    }}>
-                      <h3 style={{
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        color: printTheme === 'dark' ? '#ffffff' : '#111827',
-                        marginBottom: '10px',
-                        textAlign: 'center'
-                      }}>
-                        Job Details
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {next7DaysJobs.map(session => {
-                          const jobDate = parseISO(session.scheduled_date!)
-                          const endDate = session.scheduled_end_date
-                            ? parseISO(session.scheduled_end_date)
-                            : jobDate
-
-                          return (
-                            <div
-                              key={session.id}
-                              style={{
-                                padding: '8px',
-                                backgroundColor: printTheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#f9fafb',
-                                borderRadius: '6px',
-                                border: printTheme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e5e7eb',
-                                display: 'grid',
-                                gridTemplateColumns: '1.5fr 2fr 1fr',
-                                gap: '8px',
-                                alignItems: 'center'
-                              }}
-                            >
-                              <div>
-                                <div style={{
-                                  fontSize: '11px',
-                                  fontWeight: 'bold',
-                                  color: printTheme === 'dark' ? '#ffffff' : '#111827'
-                                }}>
-                                  {session.job_template.title}
-                                </div>
-                                <div style={{
-                                  fontSize: '9px',
-                                  color: printTheme === 'dark' ? '#9ca3af' : '#6b7280'
-                                }}>
-                                  {session.job_template.customer?.full_name || 'No customer'}
-                                </div>
-                                {session.job_template.address && (
+                                {session.job_template.time_window_start && (
                                   <div style={{
                                     fontSize: '8px',
-                                    color: printTheme === 'dark' ? '#6b7280' : '#9ca3af',
+                                    color: color.text,
+                                    fontWeight: '600',
                                     marginTop: '2px'
                                   }}>
-                                    📍 {session.job_template.address}
+                                    {session.job_template.time_window_start.substring(0, 5)}
+                                    {session.job_template.time_window_end && ` - ${session.job_template.time_window_end.substring(0, 5)}`}
                                   </div>
                                 )}
                               </div>
 
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                <div>
-                                  <div style={{
-                                    fontSize: '8px',
-                                    color: printTheme === 'dark' ? '#6b7280' : '#9ca3af',
-                                    textTransform: 'uppercase',
-                                    fontWeight: '600'
-                                  }}>
-                                    Start
-                                  </div>
-                                  <div style={{
-                                    fontSize: '9px',
-                                    color: printTheme === 'dark' ? '#d1d5db' : '#4b5563',
-                                    fontWeight: '600'
-                                  }}>
-                                    {format(jobDate, 'EEE, MMM d')}
-                                  </div>
-                                  {session.job_template.time_window_start && (
-                                    <div style={{
-                                      fontSize: '10px',
-                                      color: printTheme === 'dark' ? '#ffffff' : '#111827',
-                                      fontWeight: 'bold'
-                                    }}>
-                                      {session.job_template.time_window_start.substring(0, 5)}
-                                    </div>
-                                  )}
-                                </div>
-                                <div>
-                                  <div style={{
-                                    fontSize: '8px',
-                                    color: printTheme === 'dark' ? '#6b7280' : '#9ca3af',
-                                    textTransform: 'uppercase',
-                                    fontWeight: '600'
-                                  }}>
-                                    End
-                                  </div>
-                                  <div style={{
-                                    fontSize: '9px',
-                                    color: printTheme === 'dark' ? '#d1d5db' : '#4b5563',
-                                    fontWeight: '600'
-                                  }}>
-                                    {format(endDate, 'EEE, MMM d')}
-                                  </div>
-                                  {session.job_template.time_window_end && (
-                                    <div style={{
-                                      fontSize: '10px',
-                                      color: printTheme === 'dark' ? '#ffffff' : '#111827',
-                                      fontWeight: 'bold'
-                                    }}>
-                                      {session.job_template.time_window_end.substring(0, 5)}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
+                              {/* Day Cells with Gantt Bar */}
+                              {days.map((day, dayIndex) => {
+                                const dayStart = startOfDay(day)
+                                const isInRange = isWithinInterval(dayStart, {
+                                  start: startOfDay(jobStart),
+                                  end: startOfDay(jobEnd)
+                                })
+                                const isFirstDay = isSameDay(day, jobStart)
+                                const isLastDay = isSameDay(day, jobEnd)
+                                const isWeekend = [0, 6].includes(day.getDay())
 
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={{
-                                  display: 'inline-block',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: '8px',
-                                  fontWeight: '600',
-                                  backgroundColor: session.status === 'IN_PROGRESS'
-                                    ? 'rgba(34, 197, 94, 0.2)'
-                                    : 'rgba(59, 130, 246, 0.2)',
-                                  color: session.status === 'IN_PROGRESS'
-                                    ? (printTheme === 'dark' ? '#4ade80' : '#16a34a')
-                                    : (printTheme === 'dark' ? '#60a5fa' : '#2563eb')
-                                }}>
-                                  {session.status === 'IN_PROGRESS' ? 'In Progress' : 'Scheduled'}
-                                </div>
-                                {session.job_template.duration_minutes && (
-                                  <div style={{
-                                    fontSize: '8px',
-                                    color: printTheme === 'dark' ? '#9ca3af' : '#6b7280',
-                                    marginTop: '2px'
-                                  }}>
-                                    {Math.floor(session.job_template.duration_minutes / 60)}h {session.job_template.duration_minutes % 60}m
+                                return (
+                                  <div
+                                    key={dayIndex}
+                                    style={{
+                                      padding: '4px 2px',
+                                      borderRight: dayIndex < 6 ? (printTheme === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid #f3f4f6') : 'none',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      backgroundColor: isWeekend
+                                        ? (printTheme === 'dark' ? 'rgba(255,255,255,0.02)' : '#fafafa')
+                                        : 'transparent'
+                                    }}
+                                  >
+                                    {isInRange && (
+                                      <div style={{
+                                        width: '100%',
+                                        height: '32px',
+                                        backgroundColor: color.bg,
+                                        borderTop: `2px solid ${color.border}`,
+                                        borderBottom: `2px solid ${color.border}`,
+                                        borderLeft: isFirstDay ? `2px solid ${color.border}` : 'none',
+                                        borderRight: isLastDay ? `2px solid ${color.border}` : 'none',
+                                        borderRadius: isFirstDay && isLastDay ? '4px' : isFirstDay ? '4px 0 0 4px' : isLastDay ? '0 4px 4px 0' : '0',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginLeft: isFirstDay ? '0' : '-2px',
+                                        marginRight: isLastDay ? '0' : '-2px',
+                                        paddingLeft: isFirstDay ? '0' : '2px',
+                                        paddingRight: isLastDay ? '0' : '2px'
+                                      }}>
+                                        {isFirstDay && (
+                                          <span style={{
+                                            fontSize: '7px',
+                                            fontWeight: 'bold',
+                                            color: color.text,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            padding: '0 2px'
+                                          }}>
+                                            {session.job_template.duration_minutes
+                                              ? `${Math.floor(session.job_template.duration_minutes / 60)}h${session.job_template.duration_minutes % 60 > 0 ? session.job_template.duration_minutes % 60 + 'm' : ''}`
+                                              : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
+                                )
+                              })}
                             </div>
                           )
-                        })}
-                      </div>
+                        })
+                      )}
                     </div>
                   )
                 })()}
+
+                {/* Legend */}
+                <div style={{
+                  marginTop: '12px',
+                  padding: '8px',
+                  backgroundColor: printTheme === 'dark' ? 'rgba(255,255,255,0.05)' : '#f9fafb',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '16px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      backgroundColor: printTheme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)',
+                      border: '2px solid rgb(59, 130, 246)',
+                      borderRadius: '2px'
+                    }}></div>
+                    <span style={{ fontSize: '9px', color: printTheme === 'dark' ? '#9ca3af' : '#6b7280' }}>
+                      Job spans these days
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      backgroundColor: printTheme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+                      borderRadius: '2px'
+                    }}></div>
+                    <span style={{ fontSize: '9px', color: printTheme === 'dark' ? '#f87171' : '#dc2626' }}>
+                      Weekend
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      backgroundColor: printTheme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                      border: '2px solid rgb(59, 130, 246)',
+                      borderRadius: '2px'
+                    }}></div>
+                    <span style={{ fontSize: '9px', color: printTheme === 'dark' ? '#60a5fa' : '#2563eb' }}>
+                      Today
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-center gap-3 mt-4">
