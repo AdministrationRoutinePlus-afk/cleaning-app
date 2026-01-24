@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { DashboardDrawer } from '@/components/employee/DashboardDrawer'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react'
-import { format, addDays, startOfDay, isWithinInterval, parseISO, isSameDay } from 'date-fns'
+import { format, addDays, startOfDay, startOfWeek, isWithinInterval, parseISO, isSameDay } from 'date-fns'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -21,7 +21,7 @@ interface JobSessionWithDetails extends JobSession {
 export default function EmployeeSchedulePage() {
   const [sessions, setSessions] = useState<JobSessionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
-  const [startDate, setStartDate] = useState(() => startOfDay(new Date()))
+  const [startDate, setStartDate] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [printTheme, setPrintTheme] = useState<'dark' | 'light'>('dark')
@@ -129,9 +129,16 @@ export default function EmployeeSchedulePage() {
   }
 
   // Navigation handlers
-  const goToToday = () => setStartDate(startOfDay(new Date()))
+  const goToThisWeek = () => setStartDate(startOfWeek(new Date(), { weekStartsOn: 1 }))
   const goToPreviousWeek = () => setStartDate(addDays(startDate, -7))
   const goToNextWeek = () => setStartDate(addDays(startDate, 7))
+
+  // Check if viewing current week
+  const isCurrentWeek = isSameDay(startDate, startOfWeek(new Date(), { weekStartsOn: 1 }))
+
+  // Format week range for display
+  const weekEndDate = addDays(startDate, 6)
+  const weekRangeText = `${format(startDate, 'MMM d')} - ${format(weekEndDate, 'MMM d')}`
 
   // Generate 7 days starting from startDate
   const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i))
@@ -234,10 +241,15 @@ export default function EmployeeSchedulePage() {
             </button>
 
             <button
-              onClick={goToToday}
-              className="px-4 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors"
+              onClick={goToThisWeek}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex flex-col items-center ${
+                isCurrentWeek
+                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                  : 'text-white hover:bg-white/10'
+              }`}
             >
-              Today
+              <span className="font-semibold">{isCurrentWeek ? 'This Week' : weekRangeText}</span>
+              {!isCurrentWeek && <span className="text-xs text-gray-400">Tap for this week</span>}
             </button>
 
             <button
