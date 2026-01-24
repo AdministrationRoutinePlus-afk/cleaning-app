@@ -954,97 +954,74 @@ export default function EmployeeMessagesPage() {
                   </div>
                 </div>
               ) : (
-                /* DETAILED VIEW */
-                <div className="space-y-2">
+                /* DETAILED VIEW - Everything expanded */
+                <div className="space-y-4">
                   {procedures.map(({ customer, jobs }) => (
                     <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
                       {/* Customer Header */}
-                      <button
-                        onClick={() => toggleCustomer(customer.id)}
-                        className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors"
-                      >
-                        <span className="font-semibold text-white">{customer.full_name || customer.customer_code}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">{jobs.length} job{jobs.length !== 1 ? 's' : ''}</span>
-                          {expandedCustomers.has(customer.id) ? (
-                            <ChevronDown className="w-5 h-5 text-gray-400" />
-                          ) : (
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
-                          )}
-                        </div>
-                      </button>
+                      <div className="p-3 bg-purple-600/20 border-b border-purple-500/30">
+                        <p className="font-bold text-white text-lg">{customer.full_name || customer.customer_code}</p>
+                        <p className="text-xs text-purple-300">{jobs.length} job{jobs.length !== 1 ? 's' : ''}</p>
+                      </div>
 
-                      {/* Jobs List */}
-                      {expandedCustomers.has(customer.id) && (
-                        <div className="border-t border-white/10">
-                          {jobs.map(job => (
-                            <div key={job.id} className="border-b border-white/5 last:border-b-0">
-                              {/* Job Header */}
-                              <button
-                                onClick={() => toggleJob(job.id)}
-                                className="w-full flex items-center justify-between p-3 pl-6 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
-                              >
-                                <div className="text-left">
-                                  <span className="font-medium text-purple-300">{job.title}</span>
-                                  <span className="text-xs text-gray-500 ml-2">({job.job_code})</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-400">{job.job_steps?.length || 0} step{(job.job_steps?.length || 0) !== 1 ? 's' : ''}</span>
-                                  {expandedJobs.has(job.id) ? (
-                                    <ChevronDown className="w-4 h-4 text-purple-400" />
-                                  ) : (
-                                    <ChevronRight className="w-4 h-4 text-purple-400" />
-                                  )}
-                                </div>
-                              </button>
-
-                              {/* Steps List */}
-                              {expandedJobs.has(job.id) && job.job_steps && (
-                                <div className="bg-white/5">
-                                  {job.job_steps.map((step, stepIndex) => (
-                                    <div key={step.id} className="border-t border-white/5">
-                                      {/* Step Header */}
-                                      <button
-                                        onClick={() => toggleStep(step.id)}
-                                        className="w-full flex items-center justify-between p-2 pl-10 hover:bg-white/5 transition-colors"
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <span className="w-5 h-5 rounded-full bg-purple-500/30 text-purple-300 text-xs flex items-center justify-center font-bold">
-                                            {stepIndex + 1}
-                                          </span>
-                                          <span className="text-sm text-white">{step.title}</span>
-                                        </div>
-                                        {step.job_step_checklist && step.job_step_checklist.length > 0 && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-400">{step.job_step_checklist.length} item{step.job_step_checklist.length !== 1 ? 's' : ''}</span>
-                                            {expandedSteps.has(step.id) ? (
-                                              <ChevronDown className="w-4 h-4 text-purple-400" />
-                                            ) : (
-                                              <ChevronRight className="w-4 h-4 text-purple-400" />
-                                            )}
-                                          </div>
-                                        )}
-                                      </button>
-
-                                      {/* Checklist Items */}
-                                      {expandedSteps.has(step.id) && step.job_step_checklist && step.job_step_checklist.length > 0 && (
-                                        <div className="pl-14 pr-4 pb-2 space-y-1">
-                                          {step.job_step_checklist.map(item => (
-                                            <div key={item.id} className="flex items-start gap-2 text-sm">
-                                              <CheckSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                                              <span className="text-gray-300">{item.item_text}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
+                      {/* All Jobs Expanded */}
+                      <div className="divide-y divide-white/10">
+                        {jobs.map(job => (
+                          <div key={job.id} className="p-4">
+                            {/* Job Title */}
+                            <div className="mb-3">
+                              <h3 className="font-semibold text-purple-300 text-base">{job.title}</h3>
+                              <p className="text-xs text-gray-500">{job.job_code}</p>
+                              {job.description && (
+                                <p className="text-sm text-gray-400 mt-1">{job.description}</p>
                               )}
                             </div>
-                          ))}
-                        </div>
-                      )}
+
+                            {/* All Steps */}
+                            {job.job_steps && job.job_steps.length > 0 && (
+                              <div className="space-y-3">
+                                {job.job_steps.map((step, stepIndex) => (
+                                  <div key={step.id} className="bg-white/5 rounded-lg p-3 border border-white/10">
+                                    {/* Step Header */}
+                                    <div className="flex items-start gap-3 mb-2">
+                                      <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-sm flex items-center justify-center font-bold flex-shrink-0">
+                                        {stepIndex + 1}
+                                      </span>
+                                      <div className="flex-1">
+                                        <p className="font-semibold text-white">{step.title}</p>
+                                        {step.description && (
+                                          <p className="text-sm text-gray-400 mt-1">{step.description}</p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Products Needed */}
+                                    {step.products_needed && (
+                                      <div className="ml-9 mb-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                        <p className="text-xs font-semibold text-amber-400 mb-1">Products Needed:</p>
+                                        <p className="text-sm text-amber-200">{step.products_needed}</p>
+                                      </div>
+                                    )}
+
+                                    {/* Checklist Items */}
+                                    {step.job_step_checklist && step.job_step_checklist.length > 0 && (
+                                      <div className="ml-9 space-y-1">
+                                        <p className="text-xs font-semibold text-gray-500 mb-1">Checklist:</p>
+                                        {step.job_step_checklist.map(item => (
+                                          <div key={item.id} className="flex items-start gap-2">
+                                            <CheckSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                                            <span className="text-sm text-gray-300">{item.item_text}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
