@@ -232,35 +232,40 @@ export default function EmployeeSchedulePage() {
     <div className="min-h-screen p-4 pb-24">
       <div className="max-w-lg mx-auto">
         {/* Week Navigation & Days */}
-        <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
-          {/* Week Header with Navigation */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={goToPreviousWeek}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-400" />
-            </button>
+        <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
+          {/* Week Header with Navigation - Colorful gradient */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={goToPreviousWeek}
+                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
 
-            <button
-              onClick={goToThisWeek}
-              className="flex flex-col items-center"
-            >
-              <span className="text-lg font-bold text-white">{weekRangeText}</span>
-              {isCurrentWeek ? (
-                <span className="text-xs text-blue-400 font-medium">This Week</span>
-              ) : (
-                <span className="text-xs text-gray-400 hover:text-blue-400">Tap for this week</span>
-              )}
-            </button>
+              <button
+                onClick={goToThisWeek}
+                className="flex flex-col items-center"
+              >
+                <span className="text-xl font-bold text-white">{weekRangeText}</span>
+                {isCurrentWeek ? (
+                  <span className="text-xs text-blue-200 font-medium">This Week</span>
+                ) : (
+                  <span className="text-xs text-white/70 hover:text-white">Tap for this week</span>
+                )}
+              </button>
 
-            <button
-              onClick={goToNextWeek}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </button>
+              <button
+                onClick={goToNextWeek}
+                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+              >
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
+            </div>
           </div>
+
+          {/* Days Grid - 7 columns */}
+          <div className="p-4">
 
           {/* Days Grid - 7 columns */}
           <div className="grid grid-cols-7 gap-2">
@@ -301,23 +306,37 @@ export default function EmployeeSchedulePage() {
               )
             })}
           </div>
+          </div>
         </div>
 
         {/* Selected Day Content */}
-        <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
-          <h3 className="text-lg font-bold text-white mb-4">
-            {format(selectedDay, 'EEEE, MMMM d')}
-            {isSameDay(selectedDay, new Date()) && (
-              <span className="ml-2 text-sm text-blue-400 font-normal">(Today)</span>
+        <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
+          {/* Day Header - Colorful gradient */}
+          <div className={`p-4 ${
+            selectedDayJobs.length > 0
+              ? 'bg-gradient-to-r from-purple-600 to-pink-600'
+              : 'bg-gradient-to-r from-gray-600 to-gray-700'
+          }`}>
+            <h3 className="text-lg font-bold text-white text-center">
+              {format(selectedDay, 'EEEE, MMMM d')}
+              {isSameDay(selectedDay, new Date()) && (
+                <span className="ml-2 text-sm text-white/70 font-normal">(Today)</span>
+              )}
+            </h3>
+            {selectedDayJobs.length > 0 && (
+              <p className="text-center text-white/80 text-sm mt-1">
+                {selectedDayJobs.length} job{selectedDayJobs.length !== 1 ? 's' : ''} scheduled
+              </p>
             )}
-          </h3>
+          </div>
 
-          {selectedDayJobs.length === 0 ? (
-            <div className="py-8 text-center">
-              <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400">No jobs scheduled</p>
-            </div>
-          ) : (
+          <div className="p-4">
+            {selectedDayJobs.length === 0 ? (
+              <div className="py-8 text-center">
+                <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-400">No jobs scheduled</p>
+              </div>
+            ) : (
             <div className="space-y-3">
               {selectedDayJobs.map(session => {
                 const status = getJobStatus(session, selectedDay)
@@ -407,6 +426,7 @@ export default function EmployeeSchedulePage() {
               })}
             </div>
           )}
+          </div>
         </div>
 
         {/* Export PDF Button */}
