@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EmployeeChatView } from '@/components/employee/EmployeeChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
-import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, CheckSquare, List, LayoutList } from 'lucide-react'
+import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, ChevronLeft, CheckSquare } from 'lucide-react'
 
 // Extended type for schedule messages with job details
 interface ScheduleMessageWithDetails extends ScheduleMessage {
@@ -59,7 +59,7 @@ export default function EmployeeMessagesPage() {
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
-  const [proceduresView, setProceduresView] = useState<'summary' | 'detailed'>('summary')
+  const [selectedJob, setSelectedJob] = useState<JobTemplateWithSteps | null>(null)
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -855,36 +855,25 @@ export default function EmployeeMessagesPage() {
           <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4">
-              <h2 className="text-lg font-bold text-white text-center">Job Procedures</h2>
-              <p className="text-sm text-purple-200 text-center mt-1">Checklists by customer</p>
-            </div>
-
-            {/* View Toggle */}
-            <div className="p-3 border-b border-white/10">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setProceduresView('summary')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
-                    proceduresView === 'summary'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                  Summary
-                </button>
-                <button
-                  onClick={() => setProceduresView('detailed')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
-                    proceduresView === 'detailed'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                  }`}
-                >
-                  <LayoutList className="w-4 h-4" />
-                  Detailed
-                </button>
-              </div>
+              {selectedJob ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedJob(null)}
+                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-white" />
+                  </button>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">{selectedJob.title}</h2>
+                    <p className="text-sm text-purple-200">{selectedJob.job_code}</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-lg font-bold text-white text-center">Job Procedures</h2>
+                  <p className="text-sm text-purple-200 text-center mt-1">Tap a job to see details</p>
+                </>
+              )}
             </div>
 
             <div className="p-4">
@@ -899,8 +888,79 @@ export default function EmployeeMessagesPage() {
                   <ClipboardList className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-400">No procedures available</p>
                 </div>
-              ) : proceduresView === 'summary' ? (
-                /* SUMMARY VIEW */
+              ) : selectedJob ? (
+                /* DETAILED VIEW - Single Job */
+                <div className="space-y-4">
+                  {/* Job Description */}
+                  {selectedJob.description && (
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                      <p className="text-sm text-gray-300">{selectedJob.description}</p>
+                    </div>
+                  )}
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
+                      <p className="text-xl font-bold text-purple-400">{selectedJob.job_steps?.length || 0}</p>
+                      <p className="text-xs text-gray-400">Steps</p>
+                    </div>
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
+                      <p className="text-xl font-bold text-purple-400">
+                        {selectedJob.job_steps?.reduce((acc, step) => acc + (step.job_step_checklist?.length || 0), 0) || 0}
+                      </p>
+                      <p className="text-xs text-gray-400">Checklist Items</p>
+                    </div>
+                  </div>
+
+                  {/* All Steps */}
+                  {selectedJob.job_steps && selectedJob.job_steps.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedJob.job_steps.map((step, stepIndex) => (
+                        <div key={step.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                          {/* Step Header */}
+                          <div className="flex items-start gap-3 mb-3">
+                            <span className="w-8 h-8 rounded-full bg-purple-600 text-white text-sm flex items-center justify-center font-bold flex-shrink-0">
+                              {stepIndex + 1}
+                            </span>
+                            <div className="flex-1">
+                              <p className="font-semibold text-white text-base">{step.title}</p>
+                              {step.description && (
+                                <p className="text-sm text-gray-400 mt-1">{step.description}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Products Needed */}
+                          {step.products_needed && (
+                            <div className="ml-11 mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                              <p className="text-xs font-semibold text-amber-400 mb-1">Products Needed:</p>
+                              <p className="text-sm text-amber-200">{step.products_needed}</p>
+                            </div>
+                          )}
+
+                          {/* Checklist Items */}
+                          {step.job_step_checklist && step.job_step_checklist.length > 0 && (
+                            <div className="ml-11 space-y-2">
+                              <p className="text-xs font-semibold text-gray-500">Checklist:</p>
+                              {step.job_step_checklist.map(item => (
+                                <div key={item.id} className="flex items-start gap-2 p-2 bg-white/5 rounded-lg">
+                                  <CheckSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                                  <span className="text-sm text-gray-300">{item.item_text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-gray-400">
+                      <p>No steps defined for this job</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* SUMMARY VIEW - Jobs List */
                 <div className="space-y-4">
                   {/* Total Stats */}
                   <div className="grid grid-cols-3 gap-2">
@@ -924,7 +984,7 @@ export default function EmployeeMessagesPage() {
                     </div>
                   </div>
 
-                  {/* Jobs Summary List */}
+                  {/* Jobs List by Customer */}
                   <div className="space-y-2">
                     {procedures.map(({ customer, jobs }) => (
                       <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
@@ -936,94 +996,29 @@ export default function EmployeeMessagesPage() {
                             const totalSteps = job.job_steps?.length || 0
                             const totalItems = job.job_steps?.reduce((acc, step) => acc + (step.job_step_checklist?.length || 0), 0) || 0
                             return (
-                              <div key={job.id} className="p-3 flex items-center justify-between">
+                              <button
+                                key={job.id}
+                                onClick={() => setSelectedJob(job)}
+                                className="w-full p-3 flex items-center justify-between hover:bg-purple-500/10 transition-colors text-left"
+                              >
                                 <div>
                                   <p className="text-sm font-medium text-white">{job.title}</p>
                                   <p className="text-xs text-gray-500">{job.job_code}</p>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-sm text-purple-400">{totalSteps} steps</p>
-                                  <p className="text-xs text-gray-500">{totalItems} items</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-right">
+                                    <p className="text-sm text-purple-400">{totalSteps} steps</p>
+                                    <p className="text-xs text-gray-500">{totalItems} items</p>
+                                  </div>
+                                  <ChevronRight className="w-4 h-4 text-gray-500" />
                                 </div>
-                              </div>
+                              </button>
                             )
                           })}
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : (
-                /* DETAILED VIEW - Everything expanded */
-                <div className="space-y-4">
-                  {procedures.map(({ customer, jobs }) => (
-                    <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
-                      {/* Customer Header */}
-                      <div className="p-3 bg-purple-600/20 border-b border-purple-500/30">
-                        <p className="font-bold text-white text-lg">{customer.full_name || customer.customer_code}</p>
-                        <p className="text-xs text-purple-300">{jobs.length} job{jobs.length !== 1 ? 's' : ''}</p>
-                      </div>
-
-                      {/* All Jobs Expanded */}
-                      <div className="divide-y divide-white/10">
-                        {jobs.map(job => (
-                          <div key={job.id} className="p-4">
-                            {/* Job Title */}
-                            <div className="mb-3">
-                              <h3 className="font-semibold text-purple-300 text-base">{job.title}</h3>
-                              <p className="text-xs text-gray-500">{job.job_code}</p>
-                              {job.description && (
-                                <p className="text-sm text-gray-400 mt-1">{job.description}</p>
-                              )}
-                            </div>
-
-                            {/* All Steps */}
-                            {job.job_steps && job.job_steps.length > 0 && (
-                              <div className="space-y-3">
-                                {job.job_steps.map((step, stepIndex) => (
-                                  <div key={step.id} className="bg-white/5 rounded-lg p-3 border border-white/10">
-                                    {/* Step Header */}
-                                    <div className="flex items-start gap-3 mb-2">
-                                      <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-sm flex items-center justify-center font-bold flex-shrink-0">
-                                        {stepIndex + 1}
-                                      </span>
-                                      <div className="flex-1">
-                                        <p className="font-semibold text-white">{step.title}</p>
-                                        {step.description && (
-                                          <p className="text-sm text-gray-400 mt-1">{step.description}</p>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Products Needed */}
-                                    {step.products_needed && (
-                                      <div className="ml-9 mb-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                                        <p className="text-xs font-semibold text-amber-400 mb-1">Products Needed:</p>
-                                        <p className="text-sm text-amber-200">{step.products_needed}</p>
-                                      </div>
-                                    )}
-
-                                    {/* Checklist Items */}
-                                    {step.job_step_checklist && step.job_step_checklist.length > 0 && (
-                                      <div className="ml-9 space-y-1">
-                                        <p className="text-xs font-semibold text-gray-500 mb-1">Checklist:</p>
-                                        {step.job_step_checklist.map(item => (
-                                          <div key={item.id} className="flex items-start gap-2">
-                                            <CheckSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
-                                            <span className="text-sm text-gray-300">{item.item_text}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
