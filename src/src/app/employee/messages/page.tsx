@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import type { Employee, Conversation, Message, ScheduleMessage, JobSession, JobTemplate } from '@/types/database'
+import { useState, useEffect, useRef } from 'react'
+import type { Employee, Conversation, Message, ScheduleMessage, JobSession, JobTemplate, Customer, JobStep, JobStepChecklist } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EmployeeChatView } from '@/components/employee/EmployeeChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
+import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, CheckSquare } from 'lucide-react'
 
 // Extended type for schedule messages with job details
 interface ScheduleMessageWithDetails extends ScheduleMessage {
@@ -22,7 +23,25 @@ interface ConversationWithDetails extends Conversation {
   conversation_participants?: { user_id: string }[]
 }
 
+// Extended types for procedures
+interface JobStepWithChecklist extends JobStep {
+  job_step_checklist: JobStepChecklist[]
+}
+
+interface JobTemplateWithSteps extends JobTemplate {
+  customer: Customer | null
+  job_steps: JobStepWithChecklist[]
+}
+
+interface CustomerWithJobs {
+  customer: Customer
+  jobs: JobTemplateWithSteps[]
+}
+
+type MainTab = 'chat' | 'procedures'
+
 export default function EmployeeMessagesPage() {
+  const [mainTab, setMainTab] = useState<MainTab>('chat')
   const [activeTab, setActiveTab] = useState('employer')
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const [employerConversation, setEmployerConversation] = useState<ConversationWithDetails | null>(null)
@@ -34,7 +53,15 @@ export default function EmployeeMessagesPage() {
   const [loadingConversation, setLoadingConversation] = useState(true)
   const [creatingConversation, setCreatingConversation] = useState(false)
   const [announcementsMarkedRead, setAnnouncementsMarkedRead] = useState(false)
-  const supabase = createClient()
+  // Procedures state
+  const [procedures, setProcedures] = useState<CustomerWithJobs[]>([])
+  const [loadingProcedures, setLoadingProcedures] = useState(false)
+  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
+
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     loadCurrentEmployee()
@@ -349,6 +376,104 @@ export default function EmployeeMessagesPage() {
     }
   }
 
+  const loadProcedures = async () => {
+    setLoadingProcedures(true)
+    try {
+      // Fetch all job templates with their customers and steps/checklists
+      const { data: jobTemplates, error } = await supabase
+        .from('job_templates')
+        .select(`
+          *,
+          customer:customers(*),
+          job_steps(
+            *,
+            job_step_checklist(*)
+          )
+        `)
+        .eq('status', 'ACTIVE')
+        .order('title', { ascending: true })
+
+      if (error) throw error
+
+      // Group by customer
+      const customerMap = new Map<string, CustomerWithJobs>()
+
+      ;(jobTemplates as JobTemplateWithSteps[])?.forEach(job => {
+        if (!job.customer) return
+
+        const customerId = job.customer.id
+        if (!customerMap.has(customerId)) {
+          customerMap.set(customerId, {
+            customer: job.customer,
+            jobs: []
+          })
+        }
+
+        // Sort steps by step_order
+        job.job_steps = job.job_steps?.sort((a, b) => a.step_order - b.step_order) || []
+        // Sort checklist items by item_order
+        job.job_steps.forEach(step => {
+          step.job_step_checklist = step.job_step_checklist?.sort((a, b) => a.item_order - b.item_order) || []
+        })
+
+        customerMap.get(customerId)!.jobs.push(job)
+      })
+
+      // Convert to array and sort by customer name
+      const proceduresArray = Array.from(customerMap.values())
+        .sort((a, b) => (a.customer.full_name || '').localeCompare(b.customer.full_name || ''))
+
+      setProcedures(proceduresArray)
+    } catch (error) {
+      console.error('Error loading procedures:', error)
+    } finally {
+      setLoadingProcedures(false)
+    }
+  }
+
+  // Load procedures when switching to procedures tab
+  useEffect(() => {
+    if (mainTab === 'procedures' && procedures.length === 0) {
+      loadProcedures()
+    }
+  }, [mainTab])
+
+  const toggleCustomer = (customerId: string) => {
+    setExpandedCustomers(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(customerId)) {
+        newSet.delete(customerId)
+      } else {
+        newSet.add(customerId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleJob = (jobId: string) => {
+    setExpandedJobs(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId)
+      } else {
+        newSet.add(jobId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleStep = (stepId: string) => {
+    setExpandedSteps(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(stepId)) {
+        newSet.delete(stepId)
+      } else {
+        newSet.add(stepId)
+      }
+      return newSet
+    })
+  }
+
   const formatAnnouncementDate = (timestamp: string) => {
     const date = new Date(timestamp)
     return date.toLocaleDateString('en-US', {
@@ -422,97 +547,129 @@ export default function EmployeeMessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 pb-20">
-      <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">Messages</h1>
+    <div className="min-h-screen p-4 pb-20">
+      <div className="max-w-lg mx-auto">
+        {/* Main Tab Selector - 2 Square Buttons */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            onClick={() => setMainTab('chat')}
+            className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
+              mainTab === 'chat'
+                ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+            }`}
+          >
+            <MessageSquare className={`w-10 h-10 ${mainTab === 'chat' ? 'text-white' : 'text-gray-400'}`} />
+            <span>Chat</span>
+            {hasAnyUnreadMessages() && (
+              <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+            )}
+          </button>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Styled tabs */}
-          <div className="flex flex-col gap-3 mb-6">
-            <button
-              onClick={() => setActiveTab('employer')}
-              className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'employer'
-                  ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/50 scale-105 shadow-lg'
-                  : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>Boss</span>
-                {employerConversation && hasUnreadMessages(employerConversation) && (
-                  <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                )}
-              </div>
-            </button>
+          <button
+            onClick={() => setMainTab('procedures')}
+            className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
+              mainTab === 'procedures'
+                ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+            }`}
+          >
+            <ClipboardList className={`w-10 h-10 ${mainTab === 'procedures' ? 'text-white' : 'text-gray-400'}`} />
+            <span>Procedures</span>
+          </button>
+        </div>
 
-            <button
-              onClick={() => setActiveTab('jobs')}
-              className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'jobs'
-                  ? 'bg-yellow-500/20 text-yellow-300 border-2 border-yellow-500/50 scale-105 shadow-lg'
-                  : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>Jobs</span>
-                {jobMessages.filter(m => !m.read_at).length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                    <span className="bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                      {jobMessages.filter(m => !m.read_at).length}
-                    </span>
+        {mainTab === 'chat' ? (
+          /* CHAT SECTION */
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {/* Chat Sub-tabs */}
+            <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setActiveTab('employer')}
+                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'employer'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Boss</span>
+                    {employerConversation && hasUnreadMessages(employerConversation) && (
+                      <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                    )}
                   </div>
-                )}
-              </div>
-            </button>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('announcements')}
-              className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'announcements'
-                  ? 'bg-purple-500/20 text-purple-300 border-2 border-purple-500/50 scale-105 shadow-lg'
-                  : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>News</span>
-                {hasUnreadAnnouncements() && (
-                  <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                )}
-              </div>
-            </button>
+                <button
+                  onClick={() => setActiveTab('jobs')}
+                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'jobs'
+                      ? 'bg-gradient-to-r from-yellow-600 to-yellow-700 text-white shadow-lg'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Jobs</span>
+                    {jobMessages.filter(m => !m.read_at).length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                        <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {jobMessages.filter(m => !m.read_at).length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('coworkers')}
-              className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'coworkers'
-                  ? 'bg-green-500/20 text-green-300 border-2 border-green-500/50 scale-105 shadow-lg'
-                  : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>Team</span>
-                {coworkerConversation && hasUnreadMessages(coworkerConversation) && (
-                  <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                )}
-              </div>
-            </button>
+                <button
+                  onClick={() => setActiveTab('announcements')}
+                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'announcements'
+                      ? 'bg-gradient-to-r from-pink-600 to-pink-700 text-white shadow-lg'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>News</span>
+                    {hasUnreadAnnouncements() && (
+                      <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                    )}
+                  </div>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('exchanges')}
-              className={`relative py-4 px-4 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'exchanges'
-                  ? 'bg-orange-500/20 text-orange-300 border-2 border-orange-500/50 scale-105 shadow-lg'
-                  : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>Swap</span>
-              </div>
-            </button>
-          </div>
+                <button
+                  onClick={() => setActiveTab('coworkers')}
+                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'coworkers'
+                      ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Team</span>
+                    {coworkerConversation && hasUnreadMessages(coworkerConversation) && (
+                      <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+                    )}
+                  </div>
+                </button>
 
-          {/* Employer Tab */}
+                <button
+                  onClick={() => setActiveTab('exchanges')}
+                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
+                    activeTab === 'exchanges'
+                      ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>Swap</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Employer Tab */}
           <TabsContent value="employer">
             {loadingConversation ? (
               <Card className="bg-white/10  border-white/20">
@@ -687,11 +844,130 @@ export default function EmployeeMessagesPage() {
             )}
           </TabsContent>
 
-          {/* Exchanges Tab */}
-          <TabsContent value="exchanges">
-            <ExchangeBoard employeeId={currentEmployee.id} />
-          </TabsContent>
-        </Tabs>
+            {/* Exchanges Tab */}
+            <TabsContent value="exchanges">
+              <ExchangeBoard employeeId={currentEmployee.id} />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          /* PROCEDURES SECTION */
+          <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4">
+              <h2 className="text-lg font-bold text-white text-center">Job Procedures</h2>
+              <p className="text-sm text-white/70 text-center mt-1">Checklists by customer</p>
+            </div>
+
+            <div className="p-4">
+              {loadingProcedures ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-12 bg-white/10 rounded-lg"></div>
+                  <div className="h-12 bg-white/10 rounded-lg"></div>
+                  <div className="h-12 bg-white/10 rounded-lg"></div>
+                </div>
+              ) : procedures.length === 0 ? (
+                <div className="text-center py-8">
+                  <ClipboardList className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400">No procedures available</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {procedures.map(({ customer, jobs }) => (
+                    <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
+                      {/* Customer Header */}
+                      <button
+                        onClick={() => toggleCustomer(customer.id)}
+                        className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors"
+                      >
+                        <span className="font-semibold text-white">{customer.full_name || customer.customer_code}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">{jobs.length} job{jobs.length !== 1 ? 's' : ''}</span>
+                          {expandedCustomers.has(customer.id) ? (
+                            <ChevronDown className="w-5 h-5 text-gray-400" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Jobs List */}
+                      {expandedCustomers.has(customer.id) && (
+                        <div className="border-t border-white/10">
+                          {jobs.map(job => (
+                            <div key={job.id} className="border-b border-white/5 last:border-b-0">
+                              {/* Job Header */}
+                              <button
+                                onClick={() => toggleJob(job.id)}
+                                className="w-full flex items-center justify-between p-3 pl-6 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
+                              >
+                                <div className="text-left">
+                                  <span className="font-medium text-purple-300">{job.title}</span>
+                                  <span className="text-xs text-gray-500 ml-2">({job.job_code})</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">{job.job_steps?.length || 0} step{(job.job_steps?.length || 0) !== 1 ? 's' : ''}</span>
+                                  {expandedJobs.has(job.id) ? (
+                                    <ChevronDown className="w-4 h-4 text-purple-400" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-purple-400" />
+                                  )}
+                                </div>
+                              </button>
+
+                              {/* Steps List */}
+                              {expandedJobs.has(job.id) && job.job_steps && (
+                                <div className="bg-white/5">
+                                  {job.job_steps.map((step, stepIndex) => (
+                                    <div key={step.id} className="border-t border-white/5">
+                                      {/* Step Header */}
+                                      <button
+                                        onClick={() => toggleStep(step.id)}
+                                        className="w-full flex items-center justify-between p-2 pl-10 hover:bg-white/5 transition-colors"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-xs flex items-center justify-center font-bold">
+                                            {stepIndex + 1}
+                                          </span>
+                                          <span className="text-sm text-white">{step.title}</span>
+                                        </div>
+                                        {step.job_step_checklist && step.job_step_checklist.length > 0 && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-400">{step.job_step_checklist.length} item{step.job_step_checklist.length !== 1 ? 's' : ''}</span>
+                                            {expandedSteps.has(step.id) ? (
+                                              <ChevronDown className="w-4 h-4 text-blue-400" />
+                                            ) : (
+                                              <ChevronRight className="w-4 h-4 text-blue-400" />
+                                            )}
+                                          </div>
+                                        )}
+                                      </button>
+
+                                      {/* Checklist Items */}
+                                      {expandedSteps.has(step.id) && step.job_step_checklist && step.job_step_checklist.length > 0 && (
+                                        <div className="pl-14 pr-4 pb-2 space-y-1">
+                                          {step.job_step_checklist.map(item => (
+                                            <div key={item.id} className="flex items-start gap-2 text-sm">
+                                              <CheckSquare className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                              <span className="text-gray-300">{item.item_text}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
