@@ -231,40 +231,35 @@ export default function EmployeeSchedulePage() {
   return (
     <div className="min-h-screen p-4 pb-24">
       <div className="max-w-lg mx-auto">
-        {/* Week Navigation - Top buttons like other tabs */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            onClick={goToPreviousWeek}
-            className="aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10"
-          >
-            <ChevronLeft className="w-10 h-10 text-gray-400" />
-            <span>Previous</span>
-          </button>
-
-          <button
-            onClick={goToNextWeek}
-            className="aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10"
-          >
-            <ChevronRight className="w-10 h-10 text-gray-400" />
-            <span>Next</span>
-          </button>
-        </div>
-
-        {/* Week Label */}
+        {/* Week Navigation & Days */}
         <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+          {/* Week Header with Navigation */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white">{weekRangeText}</h2>
-            {!isCurrentWeek && (
-              <button
-                onClick={goToThisWeek}
-                className="text-sm text-blue-400 hover:text-blue-300"
-              >
-                Go to this week
-              </button>
-            )}
-            {isCurrentWeek && (
-              <span className="text-sm text-blue-400 font-medium">This Week</span>
-            )}
+            <button
+              onClick={goToPreviousWeek}
+              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <button
+              onClick={goToThisWeek}
+              className="flex flex-col items-center"
+            >
+              <span className="text-lg font-bold text-white">{weekRangeText}</span>
+              {isCurrentWeek ? (
+                <span className="text-xs text-blue-400 font-medium">This Week</span>
+              ) : (
+                <span className="text-xs text-gray-400 hover:text-blue-400">Tap for this week</span>
+              )}
+            </button>
+
+            <button
+              onClick={goToNextWeek}
+              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
           </div>
 
           {/* Days Grid - 7 columns */}
