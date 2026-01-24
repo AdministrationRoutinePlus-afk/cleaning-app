@@ -26,7 +26,8 @@ export default function EmployeeSchedulePage() {
   const [showPreview, setShowPreview] = useState(false)
   const [printTheme, setPrintTheme] = useState<'dark' | 'light'>('dark')
   const calendarRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     loadScheduledJobs()
