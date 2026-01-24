@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EmployeeChatView } from '@/components/employee/EmployeeChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
-import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, CheckSquare } from 'lucide-react'
+import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, CheckSquare, List, LayoutList } from 'lucide-react'
 
 // Extended type for schedule messages with job details
 interface ScheduleMessageWithDetails extends ScheduleMessage {
@@ -59,6 +59,7 @@ export default function EmployeeMessagesPage() {
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
+  const [proceduresView, setProceduresView] = useState<'summary' | 'detailed'>('summary')
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -853,9 +854,37 @@ export default function EmployeeMessagesPage() {
           /* PROCEDURES SECTION */
           <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4">
+            <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-4">
               <h2 className="text-lg font-bold text-white text-center">Job Procedures</h2>
-              <p className="text-sm text-white/70 text-center mt-1">Checklists by customer</p>
+              <p className="text-sm text-purple-200 text-center mt-1">Checklists by customer</p>
+            </div>
+
+            {/* View Toggle */}
+            <div className="p-3 border-b border-white/10">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setProceduresView('summary')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
+                    proceduresView === 'summary'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
+                  Summary
+                </button>
+                <button
+                  onClick={() => setProceduresView('detailed')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
+                    proceduresView === 'detailed'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                  }`}
+                >
+                  <LayoutList className="w-4 h-4" />
+                  Detailed
+                </button>
+              </div>
             </div>
 
             <div className="p-4">
@@ -870,7 +899,62 @@ export default function EmployeeMessagesPage() {
                   <ClipboardList className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-400">No procedures available</p>
                 </div>
+              ) : proceduresView === 'summary' ? (
+                /* SUMMARY VIEW */
+                <div className="space-y-4">
+                  {/* Total Stats */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-purple-400">
+                        {procedures.reduce((acc, p) => acc + p.jobs.length, 0)}
+                      </p>
+                      <p className="text-xs text-gray-400">Jobs</p>
+                    </div>
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-purple-400">
+                        {procedures.reduce((acc, p) => acc + p.jobs.reduce((a, j) => a + (j.job_steps?.length || 0), 0), 0)}
+                      </p>
+                      <p className="text-xs text-gray-400">Steps</p>
+                    </div>
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-purple-400">
+                        {procedures.reduce((acc, p) => acc + p.jobs.reduce((a, j) => a + (j.job_steps?.reduce((s, step) => s + (step.job_step_checklist?.length || 0), 0) || 0), 0), 0)}
+                      </p>
+                      <p className="text-xs text-gray-400">Checklist Items</p>
+                    </div>
+                  </div>
+
+                  {/* Jobs Summary List */}
+                  <div className="space-y-2">
+                    {procedures.map(({ customer, jobs }) => (
+                      <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
+                        <div className="p-3 bg-white/5">
+                          <p className="font-semibold text-white">{customer.full_name || customer.customer_code}</p>
+                        </div>
+                        <div className="divide-y divide-white/5">
+                          {jobs.map(job => {
+                            const totalSteps = job.job_steps?.length || 0
+                            const totalItems = job.job_steps?.reduce((acc, step) => acc + (step.job_step_checklist?.length || 0), 0) || 0
+                            return (
+                              <div key={job.id} className="p-3 flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium text-white">{job.title}</p>
+                                  <p className="text-xs text-gray-500">{job.job_code}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm text-purple-400">{totalSteps} steps</p>
+                                  <p className="text-xs text-gray-500">{totalItems} items</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : (
+                /* DETAILED VIEW */
                 <div className="space-y-2">
                   {procedures.map(({ customer, jobs }) => (
                     <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
@@ -898,7 +982,7 @@ export default function EmployeeMessagesPage() {
                               {/* Job Header */}
                               <button
                                 onClick={() => toggleJob(job.id)}
-                                className="w-full flex items-center justify-between p-3 pl-6 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
+                                className="w-full flex items-center justify-between p-3 pl-6 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
                               >
                                 <div className="text-left">
                                   <span className="font-medium text-purple-300">{job.title}</span>
@@ -925,7 +1009,7 @@ export default function EmployeeMessagesPage() {
                                         className="w-full flex items-center justify-between p-2 pl-10 hover:bg-white/5 transition-colors"
                                       >
                                         <div className="flex items-center gap-2">
-                                          <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-xs flex items-center justify-center font-bold">
+                                          <span className="w-5 h-5 rounded-full bg-purple-500/30 text-purple-300 text-xs flex items-center justify-center font-bold">
                                             {stepIndex + 1}
                                           </span>
                                           <span className="text-sm text-white">{step.title}</span>
@@ -934,9 +1018,9 @@ export default function EmployeeMessagesPage() {
                                           <div className="flex items-center gap-2">
                                             <span className="text-xs text-gray-400">{step.job_step_checklist.length} item{step.job_step_checklist.length !== 1 ? 's' : ''}</span>
                                             {expandedSteps.has(step.id) ? (
-                                              <ChevronDown className="w-4 h-4 text-blue-400" />
+                                              <ChevronDown className="w-4 h-4 text-purple-400" />
                                             ) : (
-                                              <ChevronRight className="w-4 h-4 text-blue-400" />
+                                              <ChevronRight className="w-4 h-4 text-purple-400" />
                                             )}
                                           </div>
                                         )}
@@ -947,7 +1031,7 @@ export default function EmployeeMessagesPage() {
                                         <div className="pl-14 pr-4 pb-2 space-y-1">
                                           {step.job_step_checklist.map(item => (
                                             <div key={item.id} className="flex items-start gap-2 text-sm">
-                                              <CheckSquare className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                              <CheckSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
                                               <span className="text-gray-300">{item.item_text}</span>
                                             </div>
                                           ))}
