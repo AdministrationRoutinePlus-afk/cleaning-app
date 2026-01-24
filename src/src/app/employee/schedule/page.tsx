@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { DashboardDrawer } from '@/components/employee/DashboardDrawer'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { format, addDays, startOfDay, startOfWeek, isWithinInterval, parseISO, isSameDay } from 'date-fns'
@@ -220,181 +219,209 @@ export default function EmployeeSchedulePage() {
     })
   }
 
+  // Track selected day
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0)
+  const selectedDay = days[selectedDayIndex]
+  const selectedDayJobs = getJobsForDay(selectedDay)
+
   if (loading) {
     return <LoadingSpinner fullScreen />
   }
 
   return (
-    <div className="min-h-screen p-4 pb-24 flex flex-col items-center">
-      <div className="w-full max-w-lg">
-        {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-white text-center mb-3">My Schedule</h1>
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between bg-white/10 rounded-xl p-2 border border-white/20">
-            <button
-              onClick={goToPreviousWeek}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-300" />
-            </button>
-
-            <button
-              onClick={goToThisWeek}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex flex-col items-center ${
-                isCurrentWeek
-                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                  : 'text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="font-semibold">{isCurrentWeek ? 'This Week' : weekRangeText}</span>
-              {!isCurrentWeek && <span className="text-xs text-gray-400">Tap for this week</span>}
-            </button>
-
-            <button
-              onClick={goToNextWeek}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-300" />
-            </button>
-          </div>
-
-          {/* Export PDF Button */}
+    <div className="min-h-screen p-4 pb-24">
+      <div className="max-w-lg mx-auto">
+        {/* Week Navigation - Top buttons like other tabs */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
           <button
-            onClick={openExportDialog}
-            className="w-full mt-3 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 border border-blue-500/50 shadow-lg shadow-blue-600/20"
+            onClick={goToPreviousWeek}
+            className="aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10"
           >
-            <Download className="w-5 h-5" />
-            Export PDF Schedule
+            <ChevronLeft className="w-10 h-10 text-gray-400" />
+            <span>Previous</span>
+          </button>
+
+          <button
+            onClick={goToNextWeek}
+            className="aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10"
+          >
+            <ChevronRight className="w-10 h-10 text-gray-400" />
+            <span>Next</span>
           </button>
         </div>
 
-        {/* Days with Jobs */}
-        <div className="space-y-3">
-          {days.map((day, index) => {
-            const dayJobs = getJobsForDay(day)
-            const isToday = isSameDay(day, new Date())
-            const dayName = format(day, 'EEEE')
-            const dayDate = format(day, 'MMM d')
-
-            return (
-              <DashboardDrawer
-                key={day.toISOString()}
-                title={`${dayName}, ${dayDate}`}
-                icon={
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold ${
-                    isToday
-                      ? 'bg-blue-500 text-white'
-                      : dayJobs.length > 0
-                        ? 'bg-purple-500/30 text-purple-300'
-                        : 'bg-white/10 text-gray-400'
-                  }`}>
-                    {format(day, 'd')}
-                  </div>
-                }
-                defaultOpen={index === 0}
-                badge={dayJobs.length > 0 ? dayJobs.length : undefined}
-                badgeColor={isToday ? 'blue' : 'green'}
+        {/* Week Label */}
+        <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white">{weekRangeText}</h2>
+            {!isCurrentWeek && (
+              <button
+                onClick={goToThisWeek}
+                className="text-sm text-blue-400 hover:text-blue-300"
               >
-                {dayJobs.length === 0 ? (
-                  <div className="py-4 text-center text-gray-400 text-sm">
-                    No jobs scheduled
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {dayJobs.map(session => {
-                      const status = getJobStatus(session, day)
-                      const hasImage = session.job_template.image_url
-                      const isMultiDay = session.scheduled_date && session.scheduled_end_date &&
-                        !isSameDay(parseISO(session.scheduled_date), parseISO(session.scheduled_end_date))
+                Go to this week
+              </button>
+            )}
+            {isCurrentWeek && (
+              <span className="text-sm text-blue-400 font-medium">This Week</span>
+            )}
+          </div>
 
-                      return (
-                        <div
-                          key={`${session.id}-${day.toISOString()}`}
-                          onClick={() => window.location.href = `/employee/jobs/${session.id}`}
-                          className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-all cursor-pointer"
-                        >
-                          <div className="flex gap-3">
-                            {/* Job Image */}
-                            <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-white/10">
-                              {hasImage ? (
-                                <Image
-                                  src={session.job_template.image_url!}
-                                  alt={session.job_template.title}
-                                  width={64}
-                                  height={64}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <span className="text-2xl">🧹</span>
-                                </div>
-                              )}
-                            </div>
+          {/* Days Grid - 7 columns */}
+          <div className="grid grid-cols-7 gap-2">
+            {days.map((day, index) => {
+              const dayJobs = getJobsForDay(day)
+              const isToday = isSameDay(day, new Date())
+              const hasJobs = dayJobs.length > 0
+              const isSelected = selectedDayIndex === index
 
-                            {/* Job Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2 mb-1">
-                                <h3 className="text-white font-semibold truncate">
-                                  {session.job_template.title}
-                                </h3>
-                                <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${status.color} ${status.pulse ? 'animate-pulse' : ''}`}>
-                                  {status.label}
-                                </span>
-                              </div>
-
-                              <p className="text-gray-400 text-sm truncate mb-1">
-                                {session.job_template.customer?.full_name || 'No customer'}
-                              </p>
-
-                              {/* Time Window */}
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                {session.job_template.time_window_start && (
-                                  <span>
-                                    {session.job_template.time_window_start.substring(0, 5)}
-                                    {session.job_template.time_window_end &&
-                                      ` - ${session.job_template.time_window_end.substring(0, 5)}`
-                                    }
-                                  </span>
-                                )}
-                                {isMultiDay && (
-                                  <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px]">
-                                    {format(parseISO(session.scheduled_date!), 'MMM d')} → {format(parseISO(session.scheduled_end_date!), 'MMM d')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Duration and Pay */}
-                          <div className="flex gap-2 mt-3">
-                            {session.job_template.duration_minutes && (
-                              <div className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-center">
-                                <p className="text-[10px] text-gray-500 uppercase">Duration</p>
-                                <p className="text-sm font-semibold text-white">
-                                  {Math.floor(session.job_template.duration_minutes / 60)}h {session.job_template.duration_minutes % 60}m
-                                </p>
-                              </div>
-                            )}
-                            {session.job_template.price_per_hour && (
-                              <div className="flex-1 bg-yellow-500/10 rounded-lg px-3 py-2 text-center border border-yellow-500/20">
-                                <p className="text-[10px] text-yellow-400 uppercase">Pay Rate</p>
-                                <p className="text-sm font-semibold text-white">
-                                  ${session.job_template.price_per_hour.toFixed(2)}/hr
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </DashboardDrawer>
-            )
-          })}
+              return (
+                <button
+                  key={day.toISOString()}
+                  onClick={() => setSelectedDayIndex(index)}
+                  className={`flex flex-col items-center justify-center rounded-xl py-2 transition-all ${
+                    hasJobs
+                      ? isSelected
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+                        : 'bg-gradient-to-br from-purple-600/30 to-purple-800/30 text-purple-300 border-2 border-purple-500/30 hover:border-purple-400/50'
+                      : isSelected
+                        ? 'bg-white/20 text-white border-2 border-white/40'
+                        : 'bg-white/5 text-gray-500 border-2 border-white/10 hover:border-white/20'
+                  } ${isToday ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900' : ''}`}
+                >
+                  <span className={`text-[10px] font-medium ${hasJobs ? '' : 'text-gray-500'}`}>
+                    {format(day, 'EEE')}
+                  </span>
+                  <span className={`text-lg font-bold ${hasJobs ? '' : 'text-gray-600'}`}>
+                    {format(day, 'd')}
+                  </span>
+                  {hasJobs && (
+                    <span className={`text-[10px] rounded-full px-1.5 mt-0.5 ${
+                      isSelected ? 'bg-white/20' : 'bg-purple-500/30'
+                    }`}>
+                      {dayJobs.length}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
+
+        {/* Selected Day Content */}
+        <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+          <h3 className="text-lg font-bold text-white mb-4">
+            {format(selectedDay, 'EEEE, MMMM d')}
+            {isSameDay(selectedDay, new Date()) && (
+              <span className="ml-2 text-sm text-blue-400 font-normal">(Today)</span>
+            )}
+          </h3>
+
+          {selectedDayJobs.length === 0 ? (
+            <div className="py-8 text-center">
+              <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400">No jobs scheduled</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {selectedDayJobs.map(session => {
+                const status = getJobStatus(session, selectedDay)
+                const hasImage = session.job_template.image_url
+                const isMultiDay = session.scheduled_date && session.scheduled_end_date &&
+                  !isSameDay(parseISO(session.scheduled_date), parseISO(session.scheduled_end_date))
+
+                return (
+                  <div
+                    key={`${session.id}-${selectedDay.toISOString()}`}
+                    onClick={() => window.location.href = `/employee/jobs/${session.id}`}
+                    className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-all cursor-pointer"
+                  >
+                    <div className="flex gap-3">
+                      {/* Job Image */}
+                      <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-white/10">
+                        {hasImage ? (
+                          <Image
+                            src={session.job_template.image_url!}
+                            alt={session.job_template.title}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-2xl">🧹</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Job Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="text-white font-semibold truncate">
+                            {session.job_template.title}
+                          </h3>
+                          <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${status.color} ${status.pulse ? 'animate-pulse' : ''}`}>
+                            {status.label}
+                          </span>
+                        </div>
+
+                        <p className="text-gray-400 text-sm truncate mb-1">
+                          {session.job_template.customer?.full_name || 'No customer'}
+                        </p>
+
+                        {/* Time Window */}
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          {session.job_template.time_window_start && (
+                            <span>
+                              {session.job_template.time_window_start.substring(0, 5)}
+                              {session.job_template.time_window_end &&
+                                ` - ${session.job_template.time_window_end.substring(0, 5)}`
+                              }
+                            </span>
+                          )}
+                          {isMultiDay && (
+                            <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px]">
+                              {format(parseISO(session.scheduled_date!), 'MMM d')} → {format(parseISO(session.scheduled_end_date!), 'MMM d')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Duration and Pay */}
+                    <div className="flex gap-2 mt-3">
+                      {session.job_template.duration_minutes && (
+                        <div className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-center">
+                          <p className="text-[10px] text-gray-500 uppercase">Duration</p>
+                          <p className="text-sm font-semibold text-white">
+                            {Math.floor(session.job_template.duration_minutes / 60)}h {session.job_template.duration_minutes % 60}m
+                          </p>
+                        </div>
+                      )}
+                      {session.job_template.price_per_hour && (
+                        <div className="flex-1 bg-yellow-500/10 rounded-lg px-3 py-2 text-center border border-yellow-500/20">
+                          <p className="text-[10px] text-yellow-400 uppercase">Pay Rate</p>
+                          <p className="text-sm font-semibold text-white">
+                            ${session.job_template.price_per_hour.toFixed(2)}/hr
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Export PDF Button */}
+        <button
+          onClick={openExportDialog}
+          className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 border border-blue-500/50 shadow-lg shadow-blue-600/20"
+        >
+          <Download className="w-5 h-5" />
+          Export PDF Schedule
+        </button>
 
         {/* Empty state */}
         {sessions.length === 0 && (
