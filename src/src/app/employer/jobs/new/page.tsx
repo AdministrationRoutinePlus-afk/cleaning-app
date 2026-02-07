@@ -7,7 +7,6 @@ import type { Customer, DayOfWeek, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { addDays, nextDay, format, parseISO, isValid } from 'date-fns'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -20,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
-import { X, Plus, Calendar, Upload, ImageIcon } from 'lucide-react'
+import { X, Plus, Calendar, Upload, ImageIcon, ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
 
 export default function NewJobPage() {
@@ -542,475 +541,409 @@ export default function NewJobPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
+    <div className="min-h-screen p-4 pb-20">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
+          <button
             onClick={() => router.back()}
             disabled={loading}
+            className="p-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors"
           >
-            Cancel
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Create New Job</h1>
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-white">Create New Job</h1>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Job Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Job Type Selection */}
+        {/* Job Details Section */}
+        <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-white">Job Details</h2>
+
+          {/* Job Type Selection */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Job Type</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, customer_id: '', client_code: 'RND', address: '' })}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.customer_id === '' && formData.client_code === 'RND' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                Random Job
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, client_code: '' })}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.customer_id !== '' || formData.client_code !== 'RND' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                Customer Job
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Random jobs use code RND. Customer jobs link to a customer profile.
+            </p>
+          </div>
+
+          {/* Customer Selector (shown only for Customer Jobs) */}
+          {formData.client_code !== 'RND' && (
             <div className="space-y-2">
-              <Label>Job Type</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={formData.customer_id === '' && formData.client_code === 'RND' ? 'default' : 'outline'}
-                  onClick={() => setFormData({ ...formData, customer_id: '', client_code: 'RND', address: '' })}
-                  className="flex-1"
-                >
-                  Random Job
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.customer_id !== '' || formData.client_code !== 'RND' ? 'default' : 'outline'}
-                  onClick={() => setFormData({ ...formData, client_code: '' })}
-                  className="flex-1"
-                >
-                  Customer Job
-                </Button>
-              </div>
+              <Label htmlFor="customer" className="text-gray-300 text-sm">Customer</Label>
+              <Select
+                value={formData.customer_id}
+                onValueChange={handleCustomerChange}
+              >
+                <SelectTrigger id="customer" className="bg-white/5 border-white/20 text-white">
+                  <SelectValue placeholder="Select a customer" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-white/20">
+                  {customers.map(customer => (
+                    <SelectItem key={customer.id} value={customer.id} className="text-white hover:bg-white/10">
+                      {customer.full_name} ({customer.customer_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-gray-500">
-                Random jobs use code RND. Customer jobs link to a customer profile.
+                Selecting a customer will auto-fill the client code and address
               </p>
             </div>
+          )}
 
-            {/* Customer Selector (shown only for Customer Jobs) */}
-            {formData.client_code !== 'RND' && (
-              <div className="space-y-2">
-                <Label htmlFor="customer">Customer</Label>
-                <Select
-                  value={formData.customer_id}
-                  onValueChange={handleCustomerChange}
-                >
-                  <SelectTrigger id="customer">
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.full_name} ({customer.customer_code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-gray-300 text-sm">Job Title *</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="e.g., Kitchen Deep Clean"
+              required
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
+          </div>
+
+          {/* Job Image */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Job Image</Label>
+            <div className="flex gap-4 items-start">
+              {/* Preview */}
+              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5">
+                {imagePreview ? (
+                  <Image
+                    src={imagePreview}
+                    alt="Job preview"
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-gray-500" />
+                )}
+              </div>
+              {/* Upload Button */}
+              <div className="flex-1 space-y-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 px-4 py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-colors w-fit text-gray-300">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm">{imageFile ? 'Change image' : 'Upload image'}</span>
+                  </div>
+                </label>
                 <p className="text-xs text-gray-500">
-                  Selecting a customer will auto-fill the client code and address
+                  This image will be shown to employees in the marketplace
                 </p>
-              </div>
-            )}
-
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Job Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., Kitchen Deep Clean"
-                required
-              />
-            </div>
-
-            {/* Job Image */}
-            <div className="space-y-2">
-              <Label>Job Image</Label>
-              <div className="flex gap-4 items-start">
-                {/* Preview */}
-                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50">
-                  {imagePreview ? (
-                    <Image
-                      src={imagePreview}
-                      alt="Job preview"
-                      width={96}
-                      height={96}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <ImageIcon className="h-8 w-8 text-gray-400" />
-                  )}
-                </div>
-                {/* Upload Button */}
-                <div className="flex-1 space-y-2">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                    <div className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors w-fit">
-                      <Upload className="h-4 w-4" />
-                      <span className="text-sm">{imageFile ? 'Change image' : 'Upload image'}</span>
-                    </div>
-                  </label>
-                  <p className="text-xs text-gray-500">
-                    This image will be shown to employees in the marketplace
-                  </p>
-                  {imageFile && (
-                    <button
-                      type="button"
-                      onClick={() => { setImageFile(null); setImagePreview(null) }}
-                      className="text-xs text-red-500 hover:underline"
-                    >
-                      Remove image
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Client Code (hidden for Random Jobs) */}
-            {formData.client_code !== 'RND' && (
-              <div className="space-y-2">
-                <Label htmlFor="client_code">Client Code *</Label>
-                <Input
-                  id="client_code"
-                  value={formData.client_code}
-                  onChange={(e) => setFormData({ ...formData, client_code: e.target.value.toUpperCase() })}
-                  placeholder="ABC"
-                  maxLength={3}
-                  className="uppercase"
-                  required
-                />
-                <p className="text-xs text-gray-500">
-                  3-letter code that identifies the client (e.g., ABC)
-                </p>
-              </div>
-            )}
-
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Describe the job..."
-                rows={4}
-              />
-            </div>
-
-            {/* Address */}
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="123 Main St, City, Province"
-              />
-            </div>
-
-            {/* Duration and Price */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={formData.duration_minutes}
-                  onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                  placeholder="120"
-                  min="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Price per Hour ($)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price_per_hour}
-                  onChange={(e) => setFormData({ ...formData, price_per_hour: e.target.value })}
-                  placeholder="25.00"
-                  min="0"
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Internal Notes</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Notes visible only to you (not shown to employees)..."
-                rows={2}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Scheduling Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Scheduling
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Step 1: Job Type */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Job Type</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={!formData.is_recurring ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, is_recurring: false })}
-                  className="flex-1"
-                >
-                  One-time
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.is_recurring ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, is_recurring: true })}
-                  className="flex-1"
-                >
-                  Recurring
-                </Button>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-200" />
-
-            {/* Step 2: Time Window */}
-            <div className="space-y-4">
-              <Label className="text-base font-semibold">Job Window</Label>
-              <p className="text-sm text-gray-600">
-                When can this job be done? Employee can complete it anytime within this window.
-              </p>
-
-              {/* Window Start */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">From Day</Label>
-                    <Select
-                      value={formData.window_start_day}
-                      onValueChange={(value) => setFormData({ ...formData, window_start_day: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DAYS_OF_WEEK.map(day => (
-                          <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">From Time</Label>
-                    <Select
-                      value={formData.time_window_start}
-                      onValueChange={(value) => setFormData({ ...formData, time_window_start: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Start time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_OPTIONS.map(time => (
-                          <SelectItem key={time} value={time}>{formatTime12h(time)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-center">
-                  <span className="text-gray-400 text-sm">to</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">To Day</Label>
-                    <Select
-                      value={formData.window_end_day}
-                      onValueChange={(value) => setFormData({ ...formData, window_end_day: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DAYS_OF_WEEK.map(day => (
-                          <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">To Time</Label>
-                    <Select
-                      value={formData.time_window_end}
-                      onValueChange={(value) => setFormData({ ...formData, time_window_end: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="End time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_OPTIONS.map(time => (
-                          <SelectItem key={time} value={time}>{formatTime12h(time)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Window Preview */}
-                {formData.window_start_day && formData.window_end_day && (
-                  <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-2">
-                    <p className="text-sm text-blue-800 font-medium">
-                      {DAYS_OF_WEEK.find(d => d.value === formData.window_start_day)?.label} {formData.time_window_start ? formatTime12h(formData.time_window_start) : ''}
-                      {' → '}
-                      {DAYS_OF_WEEK.find(d => d.value === formData.window_end_day)?.label} {formData.time_window_end ? formatTime12h(formData.time_window_end) : ''}
-                    </p>
-                  </div>
+                {imageFile && (
+                  <button
+                    type="button"
+                    onClick={() => { setImageFile(null); setImagePreview(null) }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    Remove image
+                  </button>
                 )}
               </div>
             </div>
+          </div>
 
-            <div className="border-t border-gray-200" />
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description" className="text-gray-300 text-sm">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Describe the job..."
+              rows={4}
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
+          </div>
 
-            {/* Step 3: Date Range or Specific Dates */}
-            {formData.is_recurring ? (
-              <div className="space-y-4">
-                <Label className="text-base font-semibold">Recurring Period</Label>
-                <p className="text-sm text-gray-600">
-                  One job session will be created for each week in this period.
-                </p>
+          {/* Address */}
+          <div className="space-y-2">
+            <Label htmlFor="address" className="text-gray-300 text-sm">Address</Label>
+            <Input
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="123 Main St, City, Province"
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
+          </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">Start Date</Label>
-                    <Input
-                      type="date"
-                      value={formData.start_date}
-                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-gray-600">End Date</Label>
-                    <Input
-                      type="date"
-                      value={formData.end_date}
-                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                      min={formData.start_date || undefined}
-                    />
-                  </div>
-                </div>
+          {/* Client Code (hidden for Random Jobs) */}
+          {formData.client_code !== 'RND' && (
+            <div className="space-y-2">
+              <Label htmlFor="client_code" className="text-gray-300 text-sm">Client Code *</Label>
+              <Input
+                id="client_code"
+                value={formData.client_code}
+                onChange={(e) => setFormData({ ...formData, client_code: e.target.value.toUpperCase() })}
+                placeholder="ABC"
+                maxLength={3}
+                className="uppercase bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                required
+              />
+              <p className="text-xs text-gray-500">
+                3-letter code that identifies the client (e.g., ABC)
+              </p>
+            </div>
+          )}
+        </div>
 
-                {/* Skip Dates */}
-                <div className="space-y-2 pt-2">
-                  <Label className="text-sm">Skip Dates (Optional)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="date"
-                      value={newExcludeDate}
-                      onChange={(e) => setNewExcludeDate(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        if (newExcludeDate && !formData.exclude_dates.includes(newExcludeDate)) {
-                          setFormData({
-                            ...formData,
-                            exclude_dates: [...formData.exclude_dates, newExcludeDate].sort()
-                          })
-                          setNewExcludeDate('')
-                        }
-                      }}
-                      disabled={!newExcludeDate}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  {formData.exclude_dates.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.exclude_dates.map(date => (
-                        <Badge key={date} variant="outline" className="flex items-center gap-1 text-red-600 border-red-300">
-                          {format(parseISO(date), 'MMM d')}
-                          <button
-                            type="button"
-                            onClick={() => setFormData({
-                              ...formData,
-                              exclude_dates: formData.exclude_dates.filter(d => d !== date)
-                            })}
-                            className="ml-1 hover:text-red-700"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </Badge>
+        {/* Pricing & Duration Section */}
+        <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-white">Pricing & Duration</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="duration" className="text-gray-300 text-sm">Duration (minutes)</Label>
+              <Input
+                id="duration"
+                type="number"
+                value={formData.duration_minutes}
+                onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
+                placeholder="120"
+                min="0"
+                className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price" className="text-gray-300 text-sm">Price per Hour ($)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                value={formData.price_per_hour}
+                onChange={(e) => setFormData({ ...formData, price_per_hour: e.target.value })}
+                placeholder="25.00"
+                min="0"
+                className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Scheduling Section */}
+        <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 p-4 space-y-6">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Scheduling
+          </h2>
+
+          {/* Job Type Toggle */}
+          <div className="space-y-3">
+            <Label className="text-gray-300 text-sm">Job Type</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, is_recurring: false })}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!formData.is_recurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                One-time
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, is_recurring: true })}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.is_recurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+              >
+                Recurring
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10" />
+
+          {/* Time Window */}
+          <div className="space-y-4">
+            <Label className="text-gray-300 text-sm font-semibold">Job Window</Label>
+            <p className="text-xs text-gray-500">
+              When can this job be done? Employee can complete it anytime within this window.
+            </p>
+
+            <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">From Day</Label>
+                  <Select
+                    value={formData.window_start_day}
+                    onValueChange={(value) => setFormData({ ...formData, window_start_day: value })}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {DAYS_OF_WEEK.map(day => (
+                        <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{day.label}</SelectItem>
                       ))}
-                    </div>
-                  )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">From Time</Label>
+                  <Select
+                    value={formData.time_window_start}
+                    onValueChange={(value) => setFormData({ ...formData, time_window_start: value })}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                      <SelectValue placeholder="Start time" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {TIME_OPTIONS.map(time => (
+                        <SelectItem key={time} value={time} className="text-white hover:bg-white/10">{formatTime12h(time)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <Label className="text-base font-semibold">Select Date(s)</Label>
-                <p className="text-sm text-gray-600">
-                  Pick the specific date(s) when this job should be done.
-                </p>
 
+              <div className="flex justify-center">
+                <span className="text-gray-500 text-sm">to</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">To Day</Label>
+                  <Select
+                    value={formData.window_end_day}
+                    onValueChange={(value) => setFormData({ ...formData, window_end_day: value })}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                      <SelectValue placeholder="Select day" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {DAYS_OF_WEEK.map(day => (
+                        <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{day.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">To Time</Label>
+                  <Select
+                    value={formData.time_window_end}
+                    onValueChange={(value) => setFormData({ ...formData, time_window_end: value })}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                      <SelectValue placeholder="End time" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {TIME_OPTIONS.map(time => (
+                        <SelectItem key={time} value={time} className="text-white hover:bg-white/10">{formatTime12h(time)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Window Preview */}
+              {formData.window_start_day && formData.window_end_day && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 mt-2">
+                  <p className="text-sm text-blue-300 font-medium">
+                    {DAYS_OF_WEEK.find(d => d.value === formData.window_start_day)?.label} {formData.time_window_start ? formatTime12h(formData.time_window_start) : ''}
+                    {' → '}
+                    {DAYS_OF_WEEK.find(d => d.value === formData.window_end_day)?.label} {formData.time_window_end ? formatTime12h(formData.time_window_end) : ''}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-white/10" />
+
+          {/* Date Range or Specific Dates */}
+          {formData.is_recurring ? (
+            <div className="space-y-4">
+              <Label className="text-gray-300 text-sm font-semibold">Recurring Period</Label>
+              <p className="text-xs text-gray-500">
+                One job session will be created for each week in this period.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="bg-white/5 border-white/20 text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">End Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    min={formData.start_date || undefined}
+                    className="bg-white/5 border-white/20 text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Skip Dates */}
+              <div className="space-y-2 pt-2">
+                <Label className="text-gray-300 text-sm">Skip Dates (Optional)</Label>
                 <div className="flex gap-2">
                   <Input
                     type="date"
-                    value={newSpecificDate}
-                    onChange={(e) => setNewSpecificDate(e.target.value)}
-                    min={format(new Date(), 'yyyy-MM-dd')}
-                    className="flex-1"
+                    value={newExcludeDate}
+                    onChange={(e) => setNewExcludeDate(e.target.value)}
+                    className="flex-1 bg-white/5 border-white/20 text-white"
                   />
                   <Button
                     type="button"
                     size="sm"
+                    variant="outline"
                     onClick={() => {
-                      if (newSpecificDate && !formData.specific_dates.includes(newSpecificDate)) {
+                      if (newExcludeDate && !formData.exclude_dates.includes(newExcludeDate)) {
                         setFormData({
                           ...formData,
-                          specific_dates: [...formData.specific_dates, newSpecificDate].sort()
+                          exclude_dates: [...formData.exclude_dates, newExcludeDate].sort()
                         })
-                        setNewSpecificDate('')
+                        setNewExcludeDate('')
                       }
                     }}
-                    disabled={!newSpecificDate}
+                    disabled={!newExcludeDate}
+                    className="bg-white/10 border-white/30 text-white hover:bg-white/20"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
+                    <Plus className="w-4 h-4" />
                   </Button>
                 </div>
-                {formData.specific_dates.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {formData.specific_dates.map(date => (
-                      <Badge key={date} variant="secondary" className="flex items-center gap-1 py-1">
-                        {format(parseISO(date), 'EEE, MMM d')}
+                {formData.exclude_dates.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.exclude_dates.map(date => (
+                      <Badge key={date} variant="outline" className="flex items-center gap-1 bg-red-500/20 text-red-300 border-red-500/30">
+                        {format(parseISO(date), 'MMM d')}
                         <button
                           type="button"
                           onClick={() => setFormData({
                             ...formData,
-                            specific_dates: formData.specific_dates.filter(d => d !== date)
+                            exclude_dates: formData.exclude_dates.filter(d => d !== date)
                           })}
-                          className="ml-1 hover:text-red-500"
+                          className="ml-1 hover:text-red-200"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1019,42 +952,105 @@ export default function NewJobPage() {
                   </div>
                 )}
               </div>
-            )}
-
-            <div className="border-t border-gray-200" />
-
-            {/* Preferred Employee */}
-            <div className="space-y-2">
-              <Label>Assign To (Optional)</Label>
-              <Select
-                value={formData.preferred_employee_id || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, preferred_employee_id: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Anyone available" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Anyone available</SelectItem>
-                  {employees.map(employee => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <div className="space-y-4">
+              <Label className="text-gray-300 text-sm font-semibold">Select Date(s)</Label>
+              <p className="text-xs text-gray-500">
+                Pick the specific date(s) when this job should be done.
+              </p>
 
-        {/* Step-by-Step Instructions Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Instructions (Optional)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StepBuilder steps={steps} onChange={setSteps} />
-          </CardContent>
-        </Card>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={newSpecificDate}
+                  onChange={(e) => setNewSpecificDate(e.target.value)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="flex-1 bg-white/5 border-white/20 text-white"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    if (newSpecificDate && !formData.specific_dates.includes(newSpecificDate)) {
+                      setFormData({
+                        ...formData,
+                        specific_dates: [...formData.specific_dates, newSpecificDate].sort()
+                      })
+                      setNewSpecificDate('')
+                    }
+                  }}
+                  disabled={!newSpecificDate}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add
+                </Button>
+              </div>
+              {formData.specific_dates.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.specific_dates.map(date => (
+                    <Badge key={date} variant="secondary" className="flex items-center gap-1 py-1 bg-white/10 text-gray-200 border border-white/20">
+                      {format(parseISO(date), 'EEE, MMM d')}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({
+                          ...formData,
+                          specific_dates: formData.specific_dates.filter(d => d !== date)
+                        })}
+                        className="ml-1 hover:text-red-400"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="border-t border-white/10" />
+
+          {/* Preferred Employee */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">Assign To (Optional)</Label>
+            <Select
+              value={formData.preferred_employee_id || 'none'}
+              onValueChange={(value) => setFormData({ ...formData, preferred_employee_id: value === 'none' ? '' : value })}
+            >
+              <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                <SelectValue placeholder="Anyone available" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-white/20">
+                <SelectItem value="none" className="text-white hover:bg-white/10">Anyone available</SelectItem>
+                {employees.map(employee => (
+                  <SelectItem key={employee.id} value={employee.id} className="text-white hover:bg-white/10">
+                    {employee.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Instructions Section */}
+        <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-white">Instructions (Optional)</h2>
+          <StepBuilder steps={steps} onChange={setSteps} />
+        </div>
+
+        {/* Internal Notes Section */}
+        <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-white">Internal Notes</h2>
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            placeholder="Notes visible only to you (not shown to employees)..."
+            rows={2}
+            className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+          />
+        </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3">
@@ -1062,14 +1058,14 @@ export default function NewJobPage() {
             variant="outline"
             onClick={() => handleSubmit('DRAFT')}
             disabled={loading}
-            className="flex-1"
+            className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             {loading ? 'Saving...' : 'Save as Draft'}
           </Button>
           <Button
             onClick={() => handleSubmit('ACTIVE')}
             disabled={loading}
-            className="flex-1"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
           >
             {loading ? 'Saving...' : 'Activate Job'}
           </Button>
