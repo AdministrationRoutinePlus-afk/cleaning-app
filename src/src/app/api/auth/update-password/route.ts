@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -7,6 +8,23 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function POST(request: NextRequest) {
   try {
+    // Auth check: verify caller is authenticated
+    const serverSupabase = await createServerSupabaseClient()
+    const { data: { user: caller }, error: authCheckError } = await serverSupabase.auth.getUser()
+    if (authCheckError || !caller) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Verify caller is an employer
+    const { data: employerRow } = await serverSupabase
+      .from('employers')
+      .select('id')
+      .eq('user_id', caller.id)
+      .single()
+    if (!employerRow) {
+      return NextResponse.json({ error: 'Forbidden: employer access required' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { user_id, new_password } = body
 

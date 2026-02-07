@@ -4,11 +4,8 @@ import { toast } from 'sonner'
 import { useEffect, useState, useRef } from 'react'
 import type { JobSession, Customer, Evaluation } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ReviewForm } from '@/components/customer/ReviewForm'
 import { ReviewCard } from '@/components/customer/ReviewCard'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 
 interface JobSessionWithDetails extends JobSession {
   job_template?: {
@@ -166,14 +163,14 @@ export default function CustomerReviewsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-4xl mx-auto">
           <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-12 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-white/10 rounded w-1/4"></div>
+            <div className="h-12 bg-white/10 rounded"></div>
             <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+                <div key={i} className="h-32 bg-white/10 rounded"></div>
               ))}
             </div>
           </div>
@@ -184,24 +181,22 @@ export default function CustomerReviewsPage() {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-4xl mx-auto">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-gray-500">
-                Customer profile not found. Please contact support.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <p className="text-center text-gray-400">
+              Customer profile not found. Please contact support.
+            </p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Reviews</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">Reviews</h1>
 
         {selectedSession ? (
           <ReviewForm
@@ -211,80 +206,93 @@ export default function CustomerReviewsPage() {
             onCancel={() => setSelectedSession(null)}
           />
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full grid grid-cols-2 mb-6">
-              <TabsTrigger value="pending">
+          <div className="w-full">
+            {/* Custom Tab Buttons */}
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'pending'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                }`}
+              >
                 Awaiting Review ({pendingSessions.length})
-              </TabsTrigger>
-              <TabsTrigger value="submitted">
+              </button>
+              <button
+                onClick={() => setActiveTab('submitted')}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === 'submitted'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                }`}
+              >
                 Submitted ({submittedReviews.length})
-              </TabsTrigger>
-            </TabsList>
+              </button>
+            </div>
 
             {/* Pending Reviews Tab */}
-            <TabsContent value="pending">
-              {pendingSessions.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <p className="text-gray-500">No completed jobs awaiting review</p>
-                    <p className="text-sm text-gray-400 mt-1">
+            {activeTab === 'pending' && (
+              <>
+                {pendingSessions.length === 0 ? (
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+                    <p className="text-gray-400">No completed jobs awaiting review</p>
+                    <p className="text-sm text-gray-500 mt-1">
                       Reviews will appear here after jobs are completed
                     </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {pendingSessions.map((session) => (
-                    <Card key={session.id}>
-                      <CardContent className="p-4">
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingSessions.map((session) => (
+                      <div key={session.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900">
+                            <h3 className="font-semibold text-white">
                               {session.job_template?.job_code} - {session.job_template?.title}
                             </h3>
                             {session.employee && (
-                              <p className="text-sm text-gray-600 mt-1">
+                              <p className="text-sm text-gray-300 mt-1">
                                 Employee: {session.employee.full_name}
                               </p>
                             )}
-                            <p className="text-sm text-gray-500 mt-1">
+                            <p className="text-sm text-gray-400 mt-1">
                               Completed: {formatDate(session.completed_at)}
                             </p>
                           </div>
-                          <Button
+                          <button
                             onClick={() => setSelectedSession(session)}
-                            size="sm"
+                            className="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                           >
                             Write Review
-                          </Button>
+                          </button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Submitted Reviews Tab */}
-            <TabsContent value="submitted">
-              {submittedReviews.length === 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <p className="text-gray-500">No reviews submitted yet</p>
-                    <p className="text-sm text-gray-400 mt-1">
+            {activeTab === 'submitted' && (
+              <>
+                {submittedReviews.length === 0 ? (
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+                    <p className="text-gray-400">No reviews submitted yet</p>
+                    <p className="text-sm text-gray-500 mt-1">
                       Your submitted reviews will appear here
                     </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-3">
-                  {submittedReviews.map((review) => (
-                    <ReviewCard key={review.id} evaluation={review} />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {submittedReviews.map((review) => (
+                      <ReviewCard key={review.id} evaluation={review} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

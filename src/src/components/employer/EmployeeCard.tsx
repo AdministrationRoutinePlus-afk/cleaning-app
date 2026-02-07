@@ -85,8 +85,8 @@ export function EmployeeCard({
   const hasJobs = jobs && jobs.length > 0
   const activeStatuses = JOB_STATUS_CONFIG.filter(s => jobsByStatus[s.key]?.length > 0)
 
-  // Auto-select first tab if none selected
-  const selectedTab = activeTab && jobsByStatus[activeTab] ? activeTab : activeStatuses[0]?.key || null
+  // Only show tab content when explicitly clicked
+  const selectedTab = activeTab && jobsByStatus[activeTab] ? activeTab : null
   const selectedConfig = selectedTab ? getStatusConfig(selectedTab) : null
   const selectedJobs = selectedTab ? jobsByStatus[selectedTab] || [] : []
 
@@ -119,7 +119,7 @@ export function EmployeeCard({
                   return (
                     <button
                       key={s.key}
-                      onClick={() => setActiveTab(s.key)}
+                      onClick={() => setActiveTab(activeTab === s.key ? null : s.key)}
                       className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                         isActive
                           ? `${s.tabActiveBg} text-white shadow-lg`
@@ -210,9 +210,8 @@ export function EmployeeCard({
           {employee.status === 'ACTIVE' && onDeactivate && (
             <Button
               size="sm"
-              variant="outline"
               onClick={() => onDeactivate(employee)}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
               Deactivate
             </Button>
@@ -230,9 +229,8 @@ export function EmployeeCard({
           {onViewProfile && (
             <Button
               size="sm"
-              variant="outline"
               onClick={() => onViewProfile(employee)}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
               <Eye className="w-3 h-3 mr-1" />
               View Profile

@@ -8,8 +8,14 @@ import { SpecificAvailabilityContent } from '@/components/employee/SpecificAvail
 import { QuickMessageContent } from '@/components/employee/QuickMessageCard'
 import { NextDepositContent } from '@/components/employee/NextDepositCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Clock, Calendar, MessageSquare, DollarSign } from 'lucide-react'
+import { Clock, Calendar, MessageSquare, DollarSign, TrendingUp, Briefcase } from 'lucide-react'
 import { toast } from 'sonner'
+
+interface EarningsSummary {
+  monthTotal: number
+  allTimeTotal: number
+  monthJobCount: number
+}
 
 type DashboardSection = 'jobs' | 'availability' | 'message' | 'deposit'
 
@@ -17,6 +23,7 @@ export default function EmployeeDashboardPage() {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<DashboardSection>('jobs')
+  const [earnings, setEarnings] = useState<EarningsSummary | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -50,6 +57,7 @@ export default function EmployeeDashboardPage() {
       if (error) throw error
       if (isMountedRef.current) {
         setEmployee(data)
+        loadEarnings(data.id)
       }
     } catch (error) {
       console.error('Error loading employee:', error)
@@ -58,6 +66,53 @@ export default function EmployeeDashboardPage() {
       if (isMountedRef.current) {
         setLoading(false)
       }
+    }
+  }
+
+  const loadEarnings = async (employeeId: string) => {
+    try {
+      // Get all completed/evaluated sessions with their job template price info
+      const { data: sessions, error } = await supabase
+        .from('job_sessions')
+        .select(`
+          id,
+          status,
+          completed_at,
+          price_override,
+          job_template:job_templates(price_per_hour, duration_minutes)
+        `)
+        .eq('assigned_to', employeeId)
+        .in('status', ['COMPLETED', 'EVALUATED'])
+
+      if (error) throw error
+      if (!isMountedRef.current) return
+
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+
+      let monthTotal = 0
+      let allTimeTotal = 0
+      let monthJobCount = 0
+
+      ;(sessions || []).forEach((s: any) => {
+        const template = s.job_template
+        const pricePerHour = s.price_override ?? template?.price_per_hour ?? 0
+        const durationHours = (template?.duration_minutes ?? 0) / 60
+        const sessionEarning = pricePerHour * durationHours
+
+        allTimeTotal += sessionEarning
+
+        if (s.completed_at && s.completed_at >= monthStart) {
+          monthTotal += sessionEarning
+          monthJobCount++
+        }
+      })
+
+      if (isMountedRef.current) {
+        setEarnings({ monthTotal, allTimeTotal, monthJobCount })
+      }
+    } catch (error) {
+      console.error('Error loading earnings:', error)
     }
   }
 
@@ -142,6 +197,34 @@ export default function EmployeeDashboardPage() {
   return (
     <div className="min-h-screen p-4 pb-24">
       <div className="max-w-lg mx-auto">
+        {/* Earnings Summary Card (#8) */}
+        {earnings && (
+          <div className="bg-white/5 rounded-xl border border-white/10 p-4 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-green-400" />
+              <h3 className="text-base font-semibold text-white">Earnings Summary</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-400 mb-1">This Month</p>
+                <p className="text-lg font-bold text-green-400">${earnings.monthTotal.toFixed(2)}</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-400 mb-1">All Time</p>
+                <p className="text-lg font-bold text-white">${earnings.allTimeTotal.toFixed(2)}</p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Briefcase className="w-3 h-3 text-gray-400" />
+                  <p className="text-xs text-gray-400">This Month</p>
+                </div>
+                <p className="text-lg font-bold text-blue-400">{earnings.monthJobCount}</p>
+                <p className="text-xs text-gray-500">jobs</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Section Selector - 2x2 Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           {sections.map((section) => {

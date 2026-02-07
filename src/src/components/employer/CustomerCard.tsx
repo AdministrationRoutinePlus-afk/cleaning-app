@@ -66,9 +66,8 @@ export function CustomerCard({
           {onEdit && (
             <Button
               size="sm"
-              variant="outline"
               onClick={() => onEdit(customer)}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               <Edit2 className="w-3 h-3 mr-1" />
               Edit
@@ -77,9 +76,8 @@ export function CustomerCard({
           {customer.status === 'ACTIVE' && onDeactivate && (
             <Button
               size="sm"
-              variant="outline"
               onClick={() => onDeactivate(customer)}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               Deactivate
             </Button>
@@ -97,9 +95,8 @@ export function CustomerCard({
           {onViewJobs && (
             <Button
               size="sm"
-              variant="outline"
               onClick={() => onViewJobs(customer)}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30"
             >
               <Eye className="w-3 h-3 mr-1" />
               View Jobs

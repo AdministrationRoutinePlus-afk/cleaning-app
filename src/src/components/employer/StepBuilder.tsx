@@ -10,18 +10,26 @@ import { toast } from 'sonner'
 
 function StepBuilderImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
   return (
     <div className="aspect-video relative rounded-lg overflow-hidden bg-white/5">
-      {!loaded && (
+      {!loaded && !error && (
         <div className="absolute inset-0 animate-pulse bg-white/10" />
       )}
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-      />
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/5">
+          <span className="text-xs text-gray-500">Image unavailable</span>
+        </div>
+      ) : (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+      )}
     </div>
   )
 }

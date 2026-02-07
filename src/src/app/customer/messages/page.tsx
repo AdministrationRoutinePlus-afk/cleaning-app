@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from 'react'
 import type { Customer, Employer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { CustomerChat } from '@/components/customer/CustomerChat'
-import { Card, CardContent } from '@/components/ui/card'
 
 export default function CustomerMessagesPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
@@ -58,11 +57,11 @@ export default function CustomerMessagesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-4xl mx-auto">
           <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-96 bg-gray-200 rounded"></div>
+            <div className="h-8 bg-white/10 rounded w-1/4"></div>
+            <div className="h-96 bg-white/10 rounded"></div>
           </div>
         </div>
       </div>
@@ -71,24 +70,22 @@ export default function CustomerMessagesPage() {
 
   if (!customer || !employer) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-4xl mx-auto">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-gray-500">
-                Unable to load messaging. Please contact support.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <p className="text-center text-gray-400">
+              Unable to load messaging. Please contact support.
+            </p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Messages</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">Messages</h1>
         <CustomerChat customer={customer} employer={employer} />
       </div>
     </div>

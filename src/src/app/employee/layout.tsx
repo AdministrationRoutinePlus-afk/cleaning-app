@@ -55,7 +55,7 @@ export default function EmployeeLayout({
           <p className="text-gray-300 mb-6">
             Your account is being reviewed by the administrator. Please come back later.
           </p>
-          <Button variant="outline" onClick={checkStatus} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+          <Button onClick={checkStatus} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">
             Check Again
           </Button>
         </div>

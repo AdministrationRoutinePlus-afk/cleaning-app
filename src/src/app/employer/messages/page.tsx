@@ -418,12 +418,11 @@ export default function EmployerMessagesPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
                     onClick={() => {
                       setShowNewConversation(false)
                       setSelectedEmployeeId('')
                     }}
-                    className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
                   >
                     Cancel
                   </Button>

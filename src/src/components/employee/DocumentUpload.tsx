@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -142,18 +141,18 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Void Cheque</CardTitle>
-        <p className="text-sm text-gray-600">
+    <div className="bg-white/5 border border-white/10 rounded-xl">
+      <div className="p-4 border-b border-white/10">
+        <h3 className="text-lg font-semibold text-white">Void Cheque</h3>
+        <p className="text-sm text-gray-400">
           Upload a void cheque for direct deposit setup
         </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      </div>
+      <div className="p-4 space-y-4">
         {previewUrl ? (
           <div className="space-y-3">
             {/* Document Preview */}
-            <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="border border-white/10 rounded-lg p-4 bg-white/5">
               {previewUrl.endsWith('.pdf') ? (
                 <div className="text-center py-8">
                   <svg
@@ -169,7 +168,7 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  <p className="mt-2 text-sm text-gray-600">PDF Document</p>
+                  <p className="mt-2 text-sm text-gray-400">PDF Document</p>
                 </div>
               ) : (
                 <img
@@ -184,15 +183,14 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
             <div className="flex gap-2">
               <Button
                 onClick={handleView}
-                variant="outline"
-                className="flex-1"
+                className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
                 disabled={uploading}
               >
                 View Document
               </Button>
               <Button
                 onClick={handleRemove}
-                variant="destructive"
+                className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
                 disabled={uploading}
               >
                 {uploading ? 'Removing...' : 'Remove'}
@@ -200,10 +198,10 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
             </div>
 
             {/* Replace Document */}
-            <div className="pt-2 border-t">
+            <div className="pt-2 border-t border-white/10">
               <Label
                 htmlFor="replace-file"
-                className="cursor-pointer inline-block text-sm text-blue-600 hover:text-blue-700"
+                className="cursor-pointer inline-block text-sm text-blue-400 hover:text-blue-300"
               >
                 Replace with new document
               </Label>
@@ -224,9 +222,9 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
               htmlFor="file-upload"
               className={`
                 flex flex-col items-center justify-center
-                border-2 border-dashed border-gray-300 rounded-lg
+                border-2 border-dashed border-white/20 rounded-lg
                 p-8 cursor-pointer
-                hover:border-gray-400 hover:bg-gray-50
+                hover:border-white/40 hover:bg-white/5
                 transition-colors
                 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
               `}
@@ -244,7 +242,7 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-gray-300">
                 {uploading ? 'Uploading...' : 'Click to upload or drag and drop'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
@@ -264,13 +262,13 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
         )}
 
         {/* Information */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-xs text-blue-800">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+          <p className="text-xs text-blue-300">
             <strong>Note:</strong> A void cheque is required for payroll setup. This document is
             securely stored and only accessible by your employer.
           </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

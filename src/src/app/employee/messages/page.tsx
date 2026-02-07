@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Employee, Conversation, Message, ScheduleMessage, JobSession, JobTemplate, Customer, JobStep, JobStepChecklist } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { EmployeeChatView } from '@/components/employee/EmployeeChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
@@ -548,11 +546,9 @@ export default function EmployeeMessagesPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
-          <Card className="bg-white/10  border-white/20">
-            <CardContent className="p-6 text-center">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
               <p className="text-gray-300">Employee profile not found</p>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </div>
     )
@@ -593,7 +589,7 @@ export default function EmployeeMessagesPage() {
 
         {mainTab === 'chat' ? (
           /* CHAT SECTION */
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="w-full">
             {/* Chat Sub-tabs */}
             <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
               <div className="flex flex-col gap-2">
@@ -682,25 +678,22 @@ export default function EmployeeMessagesPage() {
             </div>
 
             {/* Employer Tab */}
-          <TabsContent value="employer">
-            {loadingConversation ? (
-              <Card className="bg-white/10  border-white/20">
-                <CardContent className="p-6">
+          {activeTab === 'employer' && (
+            loadingConversation ? (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6">
                   <div className="animate-pulse space-y-4">
                     <div className="h-4 bg-white/20 rounded w-3/4"></div>
                     <div className="h-4 bg-white/20 rounded w-1/2"></div>
                     <div className="h-4 bg-white/20 rounded w-2/3"></div>
                   </div>
-                </CardContent>
-              </Card>
+              </div>
             ) : employerConversation ? (
               <EmployeeChatView
                 conversationId={employerConversation.id}
                 title="Chat with Boss"
               />
             ) : (
-              <Card className="bg-white/10  border-white/20">
-                <CardContent className="p-6 text-center">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
                   <p className="text-yellow-300 text-lg font-semibold mb-3">⚠️ Chat Not Available</p>
                   <p className="text-gray-300 mb-2">
                     The employer account needs to be set up first.
@@ -708,35 +701,32 @@ export default function EmployeeMessagesPage() {
                   <p className="text-sm text-gray-400">
                     Ask your admin to log in to their employer account at least once to enable messaging.
                   </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+              </div>
+            )
+          )}
 
           {/* Jobs Tab - Messages pushed from Schedule */}
-          <TabsContent value="jobs">
+          {activeTab === 'jobs' && (
             <div className="space-y-3">
               {jobMessages.length === 0 ? (
-                <Card className="bg-white/10  border-white/20">
-                  <CardContent className="p-6 text-center">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
                     <p className="text-gray-300">No job notifications yet</p>
                     <p className="text-sm text-gray-400 mt-1">
                       Your employer will send you important job updates here
                     </p>
-                  </CardContent>
-                </Card>
+                </div>
               ) : (
                 jobMessages.map((msg) => (
-                  <Card
+                  <div
                     key={msg.id}
-                    className={`cursor-pointer transition-all duration-300 hover:scale-[1.02]  border-2 ${
+                    className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] rounded-xl border-2 ${
                       !msg.read_at
                         ? 'bg-yellow-500/10 border-yellow-500/50 shadow-lg shadow-yellow-500/20 hover:border-yellow-500/70'
-                        : 'bg-white/10 border-white/20 hover:border-yellow-500/40'
+                        : 'bg-white/5 border-white/10 hover:border-yellow-500/40'
                     }`}
                     onClick={() => markJobMessageRead(msg.id)}
                   >
-                    <CardContent className="p-4">
+                    <div className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <p className="font-mono text-xs text-gray-400 mb-1">
@@ -774,35 +764,33 @@ export default function EmployeeMessagesPage() {
                           Sent {format(new Date(msg.sent_at), 'MMM d, h:mm a')}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ))
               )}
             </div>
-          </TabsContent>
+          )}
 
           {/* Announcements Tab */}
-          <TabsContent value="announcements">
-            <div className="space-y-3">
+          {activeTab === 'announcements' && (
+            <><div className="space-y-3">
               {announcements.length === 0 ? (
-                <Card className="bg-white/10  border-white/20">
-                  <CardContent className="p-6 text-center">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
                     <p className="text-gray-300">No announcements yet</p>
                     <p className="text-sm text-gray-400 mt-1">
                       Company announcements will appear here
                     </p>
-                  </CardContent>
-                </Card>
+                </div>
               ) : (
                 announcements.map((announcement) => {
                   const firstMessage = announcement.messages?.[0]
                   return (
-                    <Card
+                    <div
                       key={announcement.id}
-                      className="cursor-pointer transition-all duration-300 hover:scale-102 bg-white/10  border-2 border-purple-500/30 hover:border-purple-500/50 shadow-lg hover:shadow-purple-500/20"
+                      className="cursor-pointer transition-all duration-300 hover:scale-102 bg-white/5 rounded-xl border-2 border-purple-500/30 hover:border-purple-500/50 shadow-lg hover:shadow-purple-500/20"
                       onClick={() => setSelectedConversation(announcement.id)}
                     >
-                      <CardContent className="p-4">
+                      <div className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <p className="text-xs text-gray-400">
                             {formatAnnouncementDate(announcement.created_at)}
@@ -816,8 +804,8 @@ export default function EmployeeMessagesPage() {
                             {firstMessage.content}
                           </p>
                         )}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   )
                 })
               )}
@@ -835,32 +823,30 @@ export default function EmployeeMessagesPage() {
                 </div>
               </div>
             )}
-          </TabsContent>
+          </>)}
 
           {/* Coworkers Tab */}
-          <TabsContent value="coworkers">
-            {coworkerConversation ? (
+          {activeTab === 'coworkers' && (
+            coworkerConversation ? (
               <EmployeeChatView
                 conversationId={coworkerConversation.id}
                 title="Team Chat"
               />
             ) : (
-              <Card className="bg-white/10  border-white/20">
-                <CardContent className="p-6 text-center">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
                   <p className="text-gray-300">No team chat available yet</p>
                   <p className="text-sm text-gray-400 mt-1">
                     Your employer will create a team chat for all employees
                   </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+              </div>
+            )
+          )}
 
             {/* Exchanges Tab */}
-            <TabsContent value="exchanges">
+            {activeTab === 'exchanges' && (
               <ExchangeBoard employeeId={currentEmployee.id} />
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         ) : (
           /* PROCEDURES SECTION */
           <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden">

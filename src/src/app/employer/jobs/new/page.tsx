@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { Customer, DayOfWeek, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { addDays, nextDay, format, parseISO, isValid } from 'date-fns'
+import { createJobSessions as createJobSessionsShared } from '@/lib/jobs/sessionGenerator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -213,13 +214,7 @@ export default function NewJobPage() {
   }
 
   /**
-   * Create job sessions based on window-based scheduling
-   *
-   * Window-based model:
-   * - A job has a time window from (start_day, start_time) to (end_day, end_time)
-   * - Example: Friday 5pm to Sunday 8pm
-   * - For recurring jobs: creates one session per week
-   * - For one-time jobs: creates sessions for specific dates
+   * Create job sessions using shared utility
    */
   const createJobSessions = async (
     jobTemplateId: string,
@@ -234,135 +229,10 @@ export default function NewJobPage() {
       end_date: string
       specific_dates: string[]
       exclude_dates: string[]
-    }
+    },
+    preferredEmployeeId?: string
   ) => {
-    try {
-      // Map day abbreviations to date-fns day numbers (0 = Sunday, 1 = Monday, etc.)
-      const dayMap: Record<string, number> = {
-        'SUN': 0, 'MON': 1, 'TUE': 2, 'WED': 3, 'THU': 4, 'FRI': 5, 'SAT': 6
-      }
-
-      const sessions: Array<{
-        job_template_id: string
-        session_code: string
-        full_job_code: string
-        scheduled_date: string
-        scheduled_end_date: string | null
-        scheduled_time: string | null
-        status: string
-      }> = []
-
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      let sessionCounter = 1
-
-      const generateSessionCode = () => {
-        const code = `A${String(sessionCounter).padStart(3, '0')}`
-        sessionCounter++
-        return code
-      }
-
-      // Parse exclude dates
-      const excludeDates = new Set(sessionData.exclude_dates)
-
-      console.log('=== SESSION CREATION (Window-based) ===')
-      console.log('is_recurring:', sessionData.is_recurring)
-      console.log('window:', sessionData.window_start_day, sessionData.time_window_start, '→', sessionData.window_end_day, sessionData.time_window_end)
-
-      // Calculate how many days the window spans
-      const startDayNum = dayMap[sessionData.window_start_day] ?? 0
-      const endDayNum = dayMap[sessionData.window_end_day] ?? startDayNum
-      let windowDays = endDayNum - startDayNum
-      if (windowDays < 0) windowDays += 7 // Handle wrap around (e.g., Sat to Mon)
-      if (windowDays === 0 && sessionData.window_start_day !== sessionData.window_end_day) windowDays = 7
-
-      console.log('Window spans', windowDays, 'days')
-
-      if (sessionData.is_recurring) {
-        // Recurring: Create one session per week from start_date to end_date
-        const startDate = sessionData.start_date ? parseISO(sessionData.start_date) : today
-        const endDate = sessionData.end_date ? parseISO(sessionData.end_date) : addDays(today, 30)
-
-        console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'))
-
-        // Find the first occurrence of window_start_day on or after startDate
-        let currentDate = new Date(startDate)
-        const targetDayNum = dayMap[sessionData.window_start_day]
-
-        // Move to the first window_start_day
-        while (currentDate.getDay() !== targetDayNum) {
-          currentDate = addDays(currentDate, 1)
-        }
-
-        console.log('First window starts:', format(currentDate, 'yyyy-MM-dd (EEEE)'))
-
-        // Create sessions week by week
-        while (currentDate <= endDate) {
-          const windowStart = new Date(currentDate)
-          const windowEnd = addDays(windowStart, windowDays)
-          const dateStr = format(windowStart, 'yyyy-MM-dd')
-
-          // Check if this week should be skipped
-          if (!excludeDates.has(dateStr)) {
-            const sessionCode = generateSessionCode()
-            sessions.push({
-              job_template_id: jobTemplateId,
-              session_code: sessionCode,
-              full_job_code: `${jobCode}-${sessionCode}`,
-              scheduled_date: dateStr,
-              scheduled_end_date: windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : null,
-              scheduled_time: sessionData.time_window_start || null,
-              status: 'OFFERED'
-            })
-            console.log(`Session ${sessionCode}: ${dateStr} → ${windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : 'same day'}`)
-          } else {
-            console.log(`Skipped: ${dateStr} (excluded)`)
-          }
-
-          // Move to next week
-          currentDate = addDays(currentDate, 7)
-        }
-      } else {
-        // One-time: Create sessions for specific dates
-        const datesToCreate = sessionData.specific_dates.filter(d => !excludeDates.has(d)).sort()
-
-        console.log('Specific dates:', datesToCreate)
-
-        for (const dateStr of datesToCreate) {
-          const windowStart = parseISO(dateStr)
-          const windowEnd = addDays(windowStart, windowDays)
-
-          const sessionCode = generateSessionCode()
-          sessions.push({
-            job_template_id: jobTemplateId,
-            session_code: sessionCode,
-            full_job_code: `${jobCode}-${sessionCode}`,
-            scheduled_date: dateStr,
-            scheduled_end_date: windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : null,
-            scheduled_time: sessionData.time_window_start || null,
-            status: 'OFFERED'
-          })
-          console.log(`Session ${sessionCode}: ${dateStr}`)
-        }
-      }
-
-      // Insert all sessions
-      if (sessions.length > 0) {
-        const { error: sessionsError } = await supabase
-          .from('job_sessions')
-          .insert(sessions)
-
-        if (sessionsError) {
-          console.error('Error creating job sessions:', sessionsError)
-        } else {
-          console.log(`Created ${sessions.length} job session(s)`)
-        }
-      } else {
-        console.log('No sessions to create')
-      }
-    } catch (error) {
-      console.error('Error in createJobSessions:', error)
-    }
+    await createJobSessionsShared(supabase, jobTemplateId, jobCode, sessionData, 1, preferredEmployeeId)
   }
 
   const handleSubmit = async (status: 'DRAFT' | 'ACTIVE') => {
@@ -384,6 +254,16 @@ export default function NewJobPage() {
       if (formData.client_code.length !== 3) {
         toast.error('Client code must be exactly 3 letters')
         return
+      }
+
+      // Validate time windows
+      if (formData.window_start_day && formData.window_end_day &&
+          formData.window_start_day === formData.window_end_day &&
+          formData.time_window_start && formData.time_window_end) {
+        if (formData.time_window_end <= formData.time_window_start) {
+          toast.error('End time must be after start time when start and end days are the same')
+          return
+        }
       }
 
       // Generate job code
@@ -434,82 +314,90 @@ export default function NewJobPage() {
 
       if (error) throw error
 
-      // Upload image if provided
-      if (imageFile && data) {
-        const imageUrl = await uploadImage(data.id)
-        if (imageUrl) {
-          await supabase
-            .from('job_templates')
-            .update({ image_url: imageUrl })
-            .eq('id', data.id)
-        }
-      }
+      const templateId = data.id
 
-      // If job is being activated, create job sessions for the calendar
-      if (status === 'ACTIVE' && data) {
-        await createJobSessions(data.id, data.job_code, formData)
-      }
-
-      // Insert steps if any
-      if (steps.length > 0 && data) {
-        for (const step of steps) {
-          // Insert job step
-          const { data: stepData, error: stepError } = await supabase
-            .from('job_steps')
-            .insert({
-              job_template_id: data.id,
-              step_order: step.step_order,
-              title: step.title,
-              description: step.description || null,
-              products_needed: step.products_needed || null,
-            })
-            .select()
-            .single()
-
-          if (stepError) {
-            console.error('Error creating step:', stepError)
-            continue
+      try {
+        // Upload image if provided
+        if (imageFile) {
+          const imageUrl = await uploadImage(templateId)
+          if (imageUrl) {
+            await supabase
+              .from('job_templates')
+              .update({ image_url: imageUrl })
+              .eq('id', templateId)
           }
+        }
 
-          // Insert checklist items for this step
-          if (step.checklist_items.length > 0 && stepData) {
-            const checklistItems = step.checklist_items
-              .filter(item => item.trim() !== '')
-              .map((item, index) => ({
+        // If job is being activated, create job sessions for the calendar
+        if (status === 'ACTIVE') {
+          await createJobSessions(templateId, data.job_code, formData, formData.preferred_employee_id || undefined)
+        }
+
+        // Insert steps if any
+        if (steps.length > 0) {
+          for (const step of steps) {
+            // Insert job step
+            const { data: stepData, error: stepError } = await supabase
+              .from('job_steps')
+              .insert({
+                job_template_id: templateId,
+                step_order: step.step_order,
+                title: step.title,
+                description: step.description || null,
+                products_needed: step.products_needed || null,
+              })
+              .select()
+              .single()
+
+            if (stepError) {
+              throw new Error(`Failed to create step "${step.title}": ${stepError.message}`)
+            }
+
+            // Insert checklist items for this step
+            if (step.checklist_items.length > 0 && stepData) {
+              const checklistItems = step.checklist_items
+                .filter(item => item.trim() !== '')
+                .map((item, index) => ({
+                  job_step_id: stepData.id,
+                  item_text: item,
+                  item_order: index + 1,
+                }))
+
+              if (checklistItems.length > 0) {
+                const { error: checklistError } = await supabase
+                  .from('job_step_checklist')
+                  .insert(checklistItems)
+
+                if (checklistError) {
+                  throw new Error(`Failed to create checklist for step "${step.title}": ${checklistError.message}`)
+                }
+              }
+            }
+
+            // Insert images for this step
+            if (step.images.length > 0 && stepData) {
+              const stepImages = step.images.map((image, index) => ({
                 job_step_id: stepData.id,
-                item_text: item,
-                item_order: index + 1,
+                image_url: image.url,
+                caption: image.caption || null,
+                image_order: index + 1,
               }))
 
-            if (checklistItems.length > 0) {
-              const { error: checklistError } = await supabase
-                .from('job_step_checklist')
-                .insert(checklistItems)
+              const { error: imagesError } = await supabase
+                .from('job_step_images')
+                .insert(stepImages)
 
-              if (checklistError) {
-                console.error('Error creating checklist items:', checklistError)
+              if (imagesError) {
+                throw new Error(`Failed to save images for step "${step.title}": ${imagesError.message}`)
               }
             }
           }
-
-          // Insert images for this step
-          if (step.images.length > 0 && stepData) {
-            const stepImages = step.images.map((image, index) => ({
-              job_step_id: stepData.id,
-              image_url: image.url,
-              caption: image.caption || null,
-              image_order: index + 1,
-            }))
-
-            const { error: imagesError } = await supabase
-              .from('job_step_images')
-              .insert(stepImages)
-
-            if (imagesError) {
-              console.error('Error saving step images:', imagesError)
-            }
-          }
         }
+      } catch (innerError) {
+        // Cleanup: delete the template (cascade will remove steps, checklist, images, sessions)
+        console.error('Error during job creation, cleaning up template:', innerError)
+        await supabase.from('job_templates').delete().eq('id', templateId)
+        throw innerError
       }
 
       // Redirect back to jobs page
@@ -519,7 +407,7 @@ export default function NewJobPage() {
       const errorMessage = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message || JSON.stringify(error)
-      toast.error(`Failed to create job template: ${errorMessage}`)
+      toast.error(`Failed to create job: ${errorMessage}`)
     } finally {
       setLoading(false)
     }

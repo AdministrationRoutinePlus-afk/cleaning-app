@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import type { JobSessionFull } from '@/types/database'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
@@ -233,16 +232,14 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <div className="flex gap-2">
             <Button
               onClick={handleViewDetails}
-              variant="outline"
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               View
             </Button>
             <Button
               onClick={() => setShowCancelDialog(true)}
-              variant="destructive"
               disabled={loading}
-              className="flex-1 bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30"
+              className="flex-1 bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
             >
               <X className="w-4 h-4 mr-1" />
               Cancel
@@ -262,17 +259,16 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
               disabled={loading || !canStartJob}
               className={`w-full ${
                 canStartJob
-                  ? 'bg-green-500/20 border-green-500/30 text-green-300 hover:bg-green-500/30'
-                  : 'bg-gray-500/10 border-gray-500/30 text-gray-500 cursor-not-allowed'
+                  ? 'bg-green-500/20 border border-green-500/30 text-green-300 hover:bg-green-500/30'
+                  : 'bg-gray-500/10 border border-gray-500/30 text-gray-500 cursor-not-allowed'
               }`}
             >
               {loading ? 'Starting...' : 'Start Job'}
             </Button>
             <Button
               onClick={() => setShowExchangeDialog(true)}
-              variant="outline"
               disabled={loading}
-              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               <ArrowLeftRight className="w-4 h-4 mr-1" />
               Request Exchange
@@ -283,8 +279,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         return (
           <Button
             onClick={handleViewSteps}
-            variant="outline"
-            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
             View Steps
           </Button>
@@ -294,8 +289,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         return (
           <Button
             onClick={handleViewDetails}
-            variant="outline"
-            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
             View Details
           </Button>
@@ -304,8 +298,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         return (
           <Button
             onClick={handleViewDetails}
-            variant="outline"
-            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
             View Details
           </Button>
@@ -318,8 +311,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             </div>
             <Button
               onClick={handleViewDetails}
-              variant="outline"
-              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               View Details
             </Button>
@@ -333,8 +325,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             </div>
             <Button
               onClick={handleViewDetails}
-              variant="outline"
-              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               View Details
             </Button>
@@ -346,7 +337,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   }
 
   return (
-    <Card className="w-full !bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20 relative overflow-hidden">
+    <div className="w-full bg-gradient-to-br from-gray-900 via-gray-800 to-black border border-white/20 rounded-xl relative overflow-hidden">
       {/* Background Image with dark gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-40">
         {hasImage ? (
@@ -375,7 +366,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       {/* Content Overlay - Brightness degradation gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none"></div>
 
-      <CardHeader className="pb-3 relative z-10">
+      <div className="p-4 pb-3 relative z-10">
         {/* Top Badge */}
         <div className="mb-3 flex items-center gap-2 flex-wrap">
           <span className="inline-block bg-gray-800/80 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30">
@@ -395,9 +386,9 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             </p>
           )}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="pb-3 space-y-3 relative z-10">
+      <div className="px-4 pb-3 space-y-3 relative z-10">
         {/* Duration & Pay Rate Grid */}
         <div className="grid grid-cols-2 gap-3">
           {/* Duration */}
@@ -454,29 +445,29 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             <p className="text-white text-sm">{address}</p>
           </div>
         )}
-      </CardContent>
+      </div>
 
       {(() => {
         const actionButtons = renderActionButtons()
         return actionButtons ? (
-          <CardFooter className="pt-3 relative z-10">
+          <div className="px-4 pb-4 pt-3 relative z-10">
             {actionButtons}
-          </CardFooter>
+          </div>
         ) : null
       })()}
 
       {/* Cancel Interest Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Interest?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-white">Cancel Interest?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
               Are you sure you want to cancel your interest in this job?
               The job will go back to the marketplace for other employees.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Keep Job</AlertDialogCancel>
+            <AlertDialogCancel disabled={loading} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Keep Job</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancelInterest}
               disabled={loading}
@@ -490,25 +481,26 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
       {/* Request Exchange Dialog */}
       <AlertDialog open={showExchangeDialog} onOpenChange={setShowExchangeDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle>Request Exchange?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-white">Request Exchange?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
               This will post the job to the exchange board. Other employees can request to take over this job.
               The exchange requires employer approval.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={loading} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRequestExchange}
               disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {loading ? 'Posting...' : 'Post to Exchange'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </div>
   )
 }

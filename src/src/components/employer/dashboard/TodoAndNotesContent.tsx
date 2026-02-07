@@ -403,19 +403,17 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
                       <div className="flex gap-2 mt-3">
                         <Button
                           size="sm"
-                          variant="outline"
                           onClick={() => handleOpenEditTodo(todo)}
-                          className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                          className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
                         >
                           <Edit2 className="w-3 h-3 mr-1" />
                           Edit
                         </Button>
                         <Button
                           size="sm"
-                          variant="outline"
                           onClick={() => handleDeleteTodo(todo.id)}
                           disabled={actionLoading}
-                          className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                          className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>
@@ -494,10 +492,9 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
                   </span>
                   <Button
                     size="sm"
-                    variant="outline"
                     onClick={() => handleDeleteNote(note.id)}
                     disabled={actionLoading}
-                    className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
@@ -581,12 +578,11 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
 
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setShowTodoDialog(false)
                 resetTodoForm()
               }}
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
               Cancel
             </Button>
@@ -657,12 +653,11 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
 
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setShowNoteDialog(false)
                 resetNoteForm()
               }}
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
               Cancel
             </Button>

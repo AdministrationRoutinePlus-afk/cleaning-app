@@ -539,11 +539,10 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                 onClick={isAllLocked ? unlockAllDays : lockAllDays}
                 disabled={saving}
                 size="sm"
-                variant="outline"
                 className={`${
                   isAllLocked
-                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-300 hover:bg-amber-500/30'
-                    : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                    ? 'bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30'
+                    : 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
                 }`}
               >
                 {isAllLocked ? (
@@ -830,8 +829,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             <div className="flex gap-3 p-4 border-t border-white/10">
               <Button
                 onClick={closeDayEditor}
-                variant="outline"
-                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
               >
                 Cancel
               </Button>
@@ -893,8 +891,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             <div className="flex gap-3 p-4 border-t border-white/10">
               <Button
                 onClick={closeWeeklyDayEditor}
-                variant="outline"
-                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
               >
                 Cancel
               </Button>

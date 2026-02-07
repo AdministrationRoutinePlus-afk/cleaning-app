@@ -3,9 +3,6 @@
 import { useState } from 'react'
 import type { JobSession, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 
 interface ReviewFormProps {
@@ -68,22 +65,22 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Submit Review</CardTitle>
-        <div className="text-sm text-gray-600">
+    <div className="bg-white/5 border border-white/10 rounded-xl">
+      <div className="p-6 pb-2">
+        <h3 className="text-lg font-semibold text-white">Submit Review</h3>
+        <div className="text-sm text-gray-300 mt-1">
           <p className="font-medium">{jobSession.job_template?.job_code} - {jobSession.job_template?.title}</p>
           {jobSession.employee && (
-            <p className="text-gray-500">Employee: {jobSession.employee.full_name}</p>
+            <p className="text-gray-400">Employee: {jobSession.employee.full_name}</p>
           )}
         </div>
-      </CardHeader>
+      </div>
 
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-6">
+        <div className="p-6 space-y-6">
           {/* Star Rating */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-300 mb-3">
               How would you rate this service?
             </label>
             <div className="flex gap-2">
@@ -95,7 +92,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
                   className={`w-12 h-12 text-2xl transition-all ${
                     rating && star <= rating
                       ? 'text-yellow-400 scale-110'
-                      : 'text-gray-300 hover:text-yellow-300'
+                      : 'text-gray-600 hover:text-yellow-300'
                   }`}
                 >
                   ★
@@ -103,7 +100,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
               ))}
             </div>
             {rating && (
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-sm text-gray-400 mt-2">
                 {rating === 5 && 'Excellent!'}
                 {rating === 4 && 'Very Good'}
                 {rating === 3 && 'Good'}
@@ -115,42 +112,41 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
 
           {/* Comment */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Additional Comments (Optional)
             </label>
-            <Textarea
+            <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Share your experience..."
               rows={4}
               maxLength={500}
-              className="resize-none"
+              className="w-full px-3 py-2 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-gray-500 mt-1">
               {comment.length}/500 characters
             </p>
           </div>
-        </CardContent>
+        </div>
 
-        <CardFooter className="flex gap-3">
-          <Button
+        <div className="flex gap-3 p-6 pt-2">
+          <button
             type="button"
-            variant="outline"
             onClick={onCancel}
             disabled={submitting}
-            className="flex-1"
+            className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
             Cancel
-          </Button>
-          <Button
+          </button>
+          <button
             type="submit"
             disabled={!rating || submitting}
-            className="flex-1"
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
             {submitting ? 'Submitting...' : 'Submit Review'}
-          </Button>
-        </CardFooter>
+          </button>
+        </div>
       </form>
-    </Card>
+    </div>
   )
 }

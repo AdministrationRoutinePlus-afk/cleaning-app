@@ -32,8 +32,8 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
   // Show loading while checking
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <p className="text-gray-400">Loading...</p>
       </div>
     )
   }
@@ -41,17 +41,17 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
   // Lock screen for PENDING accounts
   if (employeeStatus === 'PENDING') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="bg-white/10 rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">⏳</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
+          <h1 className="text-xl font-bold text-white mb-2">
             Account Being Validated
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-300 mb-6">
             Your account is being reviewed by the administrator. Please come back later.
           </p>
           <Button
-            variant="outline"
+            className="bg-white/10 text-white border border-white/20 hover:bg-white/20"
             onClick={() => {
               setLoading(true)
               checkStatus()
@@ -67,13 +67,13 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
   // Lock screen for INACTIVE/BLOCKED accounts
   if (employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="bg-white/10 rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">🚫</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
+          <h1 className="text-xl font-bold text-white mb-2">
             Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-300">
             Please contact your administrator for assistance.
           </p>
         </div>

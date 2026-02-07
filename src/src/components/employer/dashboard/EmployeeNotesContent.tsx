@@ -260,19 +260,17 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
               <div className="flex gap-2">
                 <Button
                   size="sm"
-                  variant="outline"
                   onClick={() => handleOpenEdit(note)}
-                  className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                  className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
                 >
                   <Edit2 className="w-3 h-3 mr-1" />
                   Edit
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
                   onClick={() => handleDelete(note.id)}
                   disabled={actionLoading}
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
@@ -373,12 +371,11 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
 
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setShowAddDialog(false)
                 resetForm()
               }}
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
               Cancel
             </Button>

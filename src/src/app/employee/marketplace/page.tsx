@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
 import type { JobSession, JobTemplate, Customer, Employee, JobExchange } from '@/types/database'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { parseISO, startOfDay } from 'date-fns'
@@ -527,7 +526,7 @@ export default function EmployeeMarketplacePage() {
 
         {mainTab === 'marketplace' ? (
           /* JOB MARKETPLACE SECTION */
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="w-full">
             {/* Sub-tabs - Same style as Fixed Weekly / Custom Dates (inside container) */}
             <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
               <div className="flex justify-center">
@@ -574,8 +573,8 @@ export default function EmployeeMarketplacePage() {
             </div>
 
             {/* MARKETPLACE TAB */}
-            <TabsContent value="marketplace" className="mt-0">
-              {loading ? (
+            {activeTab === 'marketplace' && (
+              loading ? (
                 <LoadingSpinner size="md" />
               ) : employeeStatus === 'PENDING' ? (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-8 text-center">
@@ -645,21 +644,20 @@ export default function EmployeeMarketplacePage() {
                   </p>
                   {(skippedJobs.length > 0 || interestedJobs.length > 0) && (
                     <Button
-                      variant="outline"
                       size="sm"
                       onClick={handleResetAll}
-                      className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                      className="bg-white/10 text-white border border-white/20 hover:bg-white/20"
                     >
                       Reset & Show All Jobs
                     </Button>
                   )}
                 </div>
-              )}
-            </TabsContent>
+              )
+            )}
 
             {/* INTERESTED TAB */}
-            <TabsContent value="interested" className="mt-0">
-              {interestedJobs.length === 0 ? (
+            {activeTab === 'interested' && (
+              interestedJobs.length === 0 ? (
                 <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
                   <div className="text-4xl mb-4">👀</div>
                   <h3 className="text-lg font-semibold text-white mb-2">
@@ -675,9 +673,9 @@ export default function EmployeeMarketplacePage() {
                     <JobListCard key={job.id} job={job} status="pending" />
                   ))}
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+              )
+            )}
+          </div>
         ) : (
           /* SWAP WITH TEAM SECTION */
           <div>
@@ -810,9 +808,8 @@ function JobListCard({
 
         {onRestore && (
           <Button
-            variant="outline"
             onClick={onRestore}
-            className="w-full bg-white/5 bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
             Restore
           </Button>

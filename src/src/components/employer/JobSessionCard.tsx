@@ -1,7 +1,6 @@
 'use client'
 
 import type { JobSessionFull } from '@/types/database'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
 interface JobSessionCardProps {
@@ -11,15 +10,15 @@ interface JobSessionCardProps {
 export function JobSessionCard({ session }: JobSessionCardProps) {
   const getStatusColor = (status: string) => {
     const colors = {
-      OFFERED: 'bg-blue-100 text-blue-800 border-blue-200',
-      CLAIMED: 'bg-purple-100 text-purple-800 border-purple-200',
-      APPROVED: 'bg-green-100 text-green-800 border-green-200',
-      IN_PROGRESS: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      COMPLETED: 'bg-gray-100 text-gray-800 border-gray-200',
-      EVALUATED: 'bg-teal-100 text-teal-800 border-teal-200',
-      CANCELLED: 'bg-red-100 text-red-800 border-red-200',
+      OFFERED: 'bg-gray-500/20 text-gray-300 border border-gray-500/30',
+      CLAIMED: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+      APPROVED: 'bg-green-500/20 text-green-300 border border-green-500/30',
+      IN_PROGRESS: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
+      COMPLETED: 'bg-gray-500/20 text-gray-300 border border-gray-500/30',
+      EVALUATED: 'bg-teal-500/20 text-teal-300 border border-teal-500/30',
+      CANCELLED: 'bg-red-500/20 text-red-300 border border-red-500/30',
     }
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+    return colors[status as keyof typeof colors] || 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
   }
 
   const formatDate = (dateString: string | null) => {
@@ -43,8 +42,8 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
+    <div className="bg-white/5 rounded-xl border border-white/10 hover:bg-white/[0.07] transition-colors">
+      <div className="p-4 pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -52,36 +51,35 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
                 {session.full_job_code || session.session_code}
               </span>
               <Badge
-                variant="outline"
                 className={getStatusColor(session.status)}
               >
                 {session.status}
               </Badge>
             </div>
-            <CardTitle className="text-lg truncate">
+            <h3 className="text-lg font-semibold text-white truncate">
               {session.job_template.title}
-            </CardTitle>
+            </h3>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-3">
+      <div className="px-4 pb-4 space-y-3">
         {/* Schedule Info */}
         <div className="space-y-2">
           {(session.job_template.time_window_start || session.job_template.time_window_end) && session.scheduled_date && (
-            <div className="bg-blue-50 p-2 rounded border border-blue-200">
-              <p className="text-xs text-blue-700 font-medium mb-1">Time Window</p>
+            <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+              <p className="text-xs text-blue-400 font-medium mb-1">Time Window</p>
               <div className="space-y-1 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">Start:</span>
-                  <span className="text-gray-700 font-medium">
+                  <span className="text-gray-300 font-medium">
                     {formatDate(session.scheduled_date)}
                     {session.job_template.time_window_start && ` at ${formatTime(session.job_template.time_window_start)}`}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">End:</span>
-                  <span className="text-gray-700 font-medium">
+                  <span className="text-gray-300 font-medium">
                     {formatDate(session.scheduled_end_date || session.scheduled_date)}
                     {session.job_template.time_window_end && ` at ${formatTime(session.job_template.time_window_end)}`}
                   </span>
@@ -95,7 +93,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {session.employee && (
           <div>
             <p className="text-xs text-gray-500">Assigned to</p>
-            <p className="text-sm font-medium">{session.employee.full_name}</p>
+            <p className="text-sm font-medium text-gray-200">{session.employee.full_name}</p>
           </div>
         )}
 
@@ -103,7 +101,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {session.job_template.customer && (
           <div>
             <p className="text-xs text-gray-500">Customer</p>
-            <p className="text-sm">
+            <p className="text-sm text-gray-300">
               {session.job_template.customer.full_name} ({session.job_template.customer.customer_code})
             </p>
           </div>
@@ -113,23 +111,23 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {session.job_template.address && (
           <div>
             <p className="text-xs text-gray-500">Address</p>
-            <p className="text-sm line-clamp-2">{session.job_template.address}</p>
+            <p className="text-sm text-gray-300 line-clamp-2">{session.job_template.address}</p>
           </div>
         )}
 
         {/* Pricing */}
         {(session.price_override || session.job_template.price_per_hour) && (
-          <div className="pt-2 border-t">
+          <div className="pt-2 border-t border-white/10">
             <p className="text-xs text-gray-500">Rate</p>
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium text-gray-200">
               ${session.price_override || session.job_template.price_per_hour}/hr
               {session.price_override && (
-                <span className="text-xs text-orange-600 ml-1">(override)</span>
+                <span className="text-xs text-orange-400 ml-1">(override)</span>
               )}
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

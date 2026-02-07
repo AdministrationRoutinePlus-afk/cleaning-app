@@ -4,8 +4,6 @@ import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import type { Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -210,11 +208,9 @@ export default function EmployeeProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
-          <Card className="bg-white/10  border-white/20">
-            <CardContent className="p-6 text-center">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
               <p className="text-gray-300">Employee profile not found</p>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </div>
     )
@@ -225,27 +221,36 @@ export default function EmployeeProfilePage() {
       <div className="max-w-md mx-auto">
         <h1 className="text-2xl font-bold text-white mb-6">Profile & Settings</h1>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-6">
-            <TabsTrigger value="personal" className="text-xs sm:text-sm">
-              Personal
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs sm:text-sm">
-              Documents
-            </TabsTrigger>
-            <TabsTrigger value="availability" className="text-xs sm:text-sm">
-              Availability
-            </TabsTrigger>
-          </TabsList>
+        {/* Tab Selector */}
+        <div className="flex gap-2 mb-6">
+          {[
+            { id: 'personal', label: 'Personal' },
+            { id: 'documents', label: 'Documents' },
+            { id: 'availability', label: 'Availability' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-blue-600 text-white shadow-lg border-b-2 border-blue-400'
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
           {/* Personal Info Tab */}
-          <TabsContent value="personal" className="space-y-4">
+          {activeTab === 'personal' && (
+          <div className="space-y-4">
             {/* Personal Information */}
-            <Card className="bg-white/10  border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white">Personal Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-xl">
+              <div className="p-4 border-b border-white/10">
+                <h3 className="text-lg font-semibold text-white">Personal Information</h3>
+              </div>
+              <div className="p-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="full-name" className="text-gray-300">Full Name</Label>
                   <Input
@@ -294,8 +299,8 @@ export default function EmployeeProfilePage() {
                     className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
-              </CardContent>
-              <CardFooter>
+              </div>
+              <div className="p-4 border-t border-white/10">
                 <Button
                   onClick={handleSavePersonalInfo}
                   disabled={saving || !fullName.trim() || !email.trim()}
@@ -303,18 +308,18 @@ export default function EmployeeProfilePage() {
                 >
                   {saving ? 'Saving...' : 'Save Personal Info'}
                 </Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
 
             {/* Notes */}
-            <Card className="bg-white/10  border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white">Notes for Employer</CardTitle>
-                <p className="text-sm text-gray-300">
+            <div className="bg-white/5 border border-white/10 rounded-xl">
+              <div className="p-4 border-b border-white/10">
+                <h3 className="text-lg font-semibold text-white">Notes for Employer</h3>
+                <p className="text-sm text-gray-400">
                   Add any notes your employer should know
                 </p>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div className="p-4">
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -323,8 +328,8 @@ export default function EmployeeProfilePage() {
                   disabled={saving}
                   className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                 />
-              </CardContent>
-              <CardFooter>
+              </div>
+              <div className="p-4 border-t border-white/10">
                 <Button
                   onClick={handleSaveNotes}
                   disabled={saving}
@@ -332,15 +337,15 @@ export default function EmployeeProfilePage() {
                 >
                   {saving ? 'Saving...' : 'Save Notes'}
                 </Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </div>
 
             {/* Settings */}
-            <Card className="bg-white/10  border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white">Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-xl">
+              <div className="p-4 border-b border-white/10">
+                <h3 className="text-lg font-semibold text-white">Settings</h3>
+              </div>
+              <div className="p-4 space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -385,22 +390,21 @@ export default function EmployeeProfilePage() {
                 <div className="pt-4 border-t border-white/20">
                   <Button
                     onClick={handleLogout}
-                    variant="outline"
-                    className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Change Password */}
-            <Card className="bg-white/10  border-white/20">
-              <CardHeader>
-                <CardTitle className="text-white">Change Password</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-xl">
+              <div className="p-4 border-b border-white/10">
+                <h3 className="text-lg font-semibold text-white">Change Password</h3>
+              </div>
+              <div className="p-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="new-password" className="text-gray-300">New Password</Label>
                   <Input
@@ -426,8 +430,8 @@ export default function EmployeeProfilePage() {
                     className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
-              </CardContent>
-              <CardFooter>
+              </div>
+              <div className="p-4 border-t border-white/10">
                 <Button
                   onClick={handleChangePassword}
                   disabled={saving || !newPassword || !confirmPassword}
@@ -435,12 +439,13 @@ export default function EmployeeProfilePage() {
                 >
                   {saving ? 'Changing...' : 'Change Password'}
                 </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
+              </div>
+            </div>
+          </div>
+          )}
 
           {/* Documents Tab */}
-          <TabsContent value="documents">
+          {activeTab === 'documents' && (
             <DocumentUpload
               employeeId={employee.id}
               currentDocumentUrl={employee.void_cheque_url}
@@ -448,13 +453,12 @@ export default function EmployeeProfilePage() {
                 setEmployee(prev => prev ? { ...prev, void_cheque_url: url || null } : null)
               }}
             />
-          </TabsContent>
+          )}
 
           {/* Availability Tab */}
-          <TabsContent value="availability">
+          {activeTab === 'availability' && (
             <AvailabilityEditor employeeId={employee.id} />
-          </TabsContent>
-        </Tabs>
+          )}
       </div>
     </div>
   )

@@ -5,10 +5,14 @@ import { useEffect, useState, useRef } from 'react'
 import type { JobTemplate, JobStep, Customer, JobSession } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { JobDetailCard } from '@/components/customer/JobDetailCard'
-import { Card, CardContent } from '@/components/ui/card'
 
 interface JobTemplateWithSteps extends JobTemplate {
   job_steps: JobStep[]
+}
+
+interface UpcomingSession {
+  scheduled_date: string
+  status: string
 }
 
 interface SessionCount {
@@ -20,6 +24,7 @@ interface SessionCount {
 export default function CustomerJobsPage() {
   const [jobTemplates, setJobTemplates] = useState<JobTemplateWithSteps[]>([])
   const [sessionCounts, setSessionCounts] = useState<Record<string, SessionCount>>({})
+  const [upcomingSessions, setUpcomingSessions] = useState<Record<string, UpcomingSession[]>>({})
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
   const supabaseRef = useRef(createClient())
@@ -86,25 +91,29 @@ export default function CustomerJobsPage() {
       const templatesData = (templates as JobTemplateWithSteps[]) || []
       setJobTemplates(templatesData)
 
-      // Get session counts for each template
+      // Get session counts and upcoming dates for each template
       if (templatesData.length > 0) {
         const templateIds = templatesData.map((t) => t.id)
 
         const { data: sessions, error: sessionsError } = await supabase
           .from('job_sessions')
-          .select('job_template_id, status')
+          .select('job_template_id, status, scheduled_date')
           .in('job_template_id', templateIds)
 
         if (sessionsError) throw sessionsError
 
+        const today = new Date().toISOString().split('T')[0]
+
         // Count upcoming and completed sessions per template
         const counts: Record<string, SessionCount> = {}
+        const upcoming: Record<string, UpcomingSession[]> = {}
         templatesData.forEach((template) => {
           counts[template.id] = {
             job_template_id: template.id,
             upcoming: 0,
             completed: 0
           }
+          upcoming[template.id] = []
         })
 
         sessions?.forEach((session) => {
@@ -114,16 +123,30 @@ export default function CustomerJobsPage() {
               upcoming: 0,
               completed: 0
             }
+            upcoming[session.job_template_id] = []
           }
 
           if (['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS'].includes(session.status)) {
             counts[session.job_template_id].upcoming++
+            // Collect upcoming sessions with dates >= today
+            if (session.scheduled_date && session.scheduled_date >= today) {
+              upcoming[session.job_template_id].push({
+                scheduled_date: session.scheduled_date,
+                status: session.status,
+              })
+            }
           } else if (['COMPLETED', 'EVALUATED'].includes(session.status)) {
             counts[session.job_template_id].completed++
           }
         })
 
+        // Sort upcoming sessions by date
+        Object.keys(upcoming).forEach((templateId) => {
+          upcoming[templateId].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
+        })
+
         setSessionCounts(counts)
+        setUpcomingSessions(upcoming)
       }
     } catch (error) {
       console.error('Error loading job templates:', error)
@@ -133,13 +156,13 @@ export default function CustomerJobsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-4xl mx-auto">
           <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-8 bg-white/10 rounded w-1/4"></div>
             <div className="space-y-3">
               {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded"></div>
+                <div key={i} className="h-64 bg-white/10 rounded"></div>
               ))}
             </div>
           </div>
@@ -150,34 +173,30 @@ export default function CustomerJobsPage() {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-4xl mx-auto">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-center text-gray-500">
-                Customer profile not found. Please contact support.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <p className="text-center text-gray-400">
+              Customer profile not found. Please contact support.
+            </p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">My Jobs</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">My Jobs</h1>
 
         {jobTemplates.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <p className="text-gray-500">No jobs found</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Jobs assigned to you will appear here
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+            <p className="text-gray-400">No jobs found</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Jobs assigned to you will appear here
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {jobTemplates.map((template) => (
@@ -186,6 +205,7 @@ export default function CustomerJobsPage() {
                 jobTemplate={template}
                 upcomingSessions={sessionCounts[template.id]?.upcoming || 0}
                 completedSessions={sessionCounts[template.id]?.completed || 0}
+                upcomingSessionDates={upcomingSessions[template.id] || []}
               />
             ))}
           </div>

@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import type { JobTemplate, JobStep } from '@/types/database'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+
+interface UpcomingSessionDate {
+  scheduled_date: string
+  status: string
+}
 
 interface JobDetailCardProps {
   jobTemplate: JobTemplate & {
@@ -13,9 +14,10 @@ interface JobDetailCardProps {
   }
   upcomingSessions?: number
   completedSessions?: number
+  upcomingSessionDates?: UpcomingSessionDate[]
 }
 
-export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSessions = 0 }: JobDetailCardProps) {
+export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSessions = 0, upcomingSessionDates = [] }: JobDetailCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   const formatTime = (time: string | null) => {
@@ -46,46 +48,55 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
     SUN: 'Sun'
   }
 
+  const getStatusBadge = () => {
+    if (jobTemplate.status === 'ACTIVE') {
+      return 'bg-green-500/20 text-green-300 border border-green-500/30'
+    }
+    return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+  }
+
   return (
-    <Card>
-      <CardHeader>
+    <div className="bg-white/5 border border-white/10 rounded-xl">
+      <div className="p-4 pb-2">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline">{jobTemplate.job_code}</Badge>
-              <Badge variant={jobTemplate.status === 'ACTIVE' ? 'default' : 'secondary'}>
+              <span className="bg-white/10 text-gray-300 border border-white/20 px-2 py-0.5 rounded text-xs font-medium">
+                {jobTemplate.job_code}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusBadge()}`}>
                 {jobTemplate.status}
-              </Badge>
+              </span>
             </div>
-            <CardTitle className="text-lg">{jobTemplate.title}</CardTitle>
+            <h3 className="text-lg font-semibold text-white">{jobTemplate.title}</h3>
             {jobTemplate.description && (
-              <p className="text-sm text-gray-600 mt-1">{jobTemplate.description}</p>
+              <p className="text-sm text-gray-300 mt-1">{jobTemplate.description}</p>
             )}
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4">
+      <div className="p-4 space-y-4">
         {/* Job Info Grid */}
         <div className="grid grid-cols-2 gap-3">
           {jobTemplate.address && (
             <div>
               <p className="text-xs text-gray-500">Address</p>
-              <p className="text-sm font-medium">{jobTemplate.address}</p>
+              <p className="text-sm font-medium text-gray-200">{jobTemplate.address}</p>
             </div>
           )}
 
           {jobTemplate.duration_minutes && (
             <div>
               <p className="text-xs text-gray-500">Duration</p>
-              <p className="text-sm font-medium">{formatDuration(jobTemplate.duration_minutes)}</p>
+              <p className="text-sm font-medium text-gray-200">{formatDuration(jobTemplate.duration_minutes)}</p>
             </div>
           )}
 
           {jobTemplate.time_window_start && jobTemplate.time_window_end && (
             <div>
               <p className="text-xs text-gray-500">Time Window</p>
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium text-gray-200">
                 {formatTime(jobTemplate.time_window_start)} - {formatTime(jobTemplate.time_window_end)}
               </p>
             </div>
@@ -94,7 +105,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
           {jobTemplate.is_recurring && (
             <div>
               <p className="text-xs text-gray-500">Frequency</p>
-              <p className="text-sm font-medium">
+              <p className="text-sm font-medium text-gray-200">
                 {jobTemplate.frequency_per_week}x per week
               </p>
             </div>
@@ -107,77 +118,94 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
             <p className="text-xs text-gray-500 mb-2">Available Days</p>
             <div className="flex flex-wrap gap-1">
               {jobTemplate.available_days.map((day) => (
-                <Badge key={day} variant="secondary" className="text-xs">
+                <span key={day} className="bg-gray-500/20 text-gray-300 border border-gray-500/30 px-2 py-0.5 rounded text-xs">
                   {dayLabels[day] || day}
-                </Badge>
+                </span>
               ))}
             </div>
           </div>
         )}
 
         {/* Session Stats */}
-        <div className="flex gap-4 pt-3 border-t">
+        <div className="flex gap-4 pt-3 border-t border-white/10">
           <div className="flex-1 text-center">
-            <p className="text-2xl font-bold text-blue-600">{upcomingSessions}</p>
+            <p className="text-2xl font-bold text-blue-400">{upcomingSessions}</p>
             <p className="text-xs text-gray-500">Upcoming</p>
           </div>
           <div className="flex-1 text-center">
-            <p className="text-2xl font-bold text-green-600">{completedSessions}</p>
+            <p className="text-2xl font-bold text-green-400">{completedSessions}</p>
             <p className="text-xs text-gray-500">Completed</p>
           </div>
+        </div>
+
+        {/* Upcoming Session Dates */}
+        <div className="pt-3 border-t border-white/10">
+          <p className="text-xs text-gray-500 mb-2">Upcoming Sessions</p>
+          {upcomingSessionDates.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {upcomingSessionDates.map((session, idx) => {
+                const date = new Date(session.scheduled_date + 'T00:00:00')
+                const formatted = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                return (
+                  <span
+                    key={idx}
+                    className="bg-blue-500/10 text-blue-300 border border-blue-500/20 px-2 py-1 rounded text-xs"
+                  >
+                    {formatted}
+                  </span>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No upcoming sessions scheduled</p>
+          )}
         </div>
 
         {/* Job Steps */}
         {jobTemplate.job_steps && jobTemplate.job_steps.length > 0 && (
           <div>
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => setExpanded(!expanded)}
-              className="w-full"
+              className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
               {expanded ? 'Hide' : 'Show'} Job Steps ({jobTemplate.job_steps.length})
-            </Button>
+            </button>
 
             {expanded && (
-              <Accordion type="single" collapsible className="mt-3">
+              <div className="mt-3 space-y-2">
                 {jobTemplate.job_steps
                   .sort((a, b) => a.step_order - b.step_order)
                   .map((step, index) => (
-                    <AccordionItem key={step.id} value={step.id}>
-                      <AccordionTrigger className="text-sm">
+                    <div key={step.id} className="bg-white/5 border border-white/10 rounded-lg p-3">
+                      <h4 className="text-sm font-medium text-white">
                         Step {index + 1}: {step.title}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2">
-                          {step.description && (
-                            <p className="text-sm text-gray-700">{step.description}</p>
-                          )}
-                          {step.products_needed && (
-                            <div className="bg-blue-50 p-2 rounded">
-                              <p className="text-xs font-medium text-blue-900 mb-1">
-                                Products Needed:
-                              </p>
-                              <p className="text-xs text-blue-800">{step.products_needed}</p>
-                            </div>
-                          )}
+                      </h4>
+                      {step.description && (
+                        <p className="text-sm text-gray-300 mt-1">{step.description}</p>
+                      )}
+                      {step.products_needed && (
+                        <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded mt-2">
+                          <p className="text-xs font-medium text-blue-300 mb-1">
+                            Products Needed:
+                          </p>
+                          <p className="text-xs text-blue-200">{step.products_needed}</p>
                         </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                      )}
+                    </div>
                   ))}
-              </Accordion>
+              </div>
             )}
           </div>
         )}
 
         {/* Notes */}
         {jobTemplate.notes && (
-          <div className="bg-yellow-50 p-3 rounded">
-            <p className="text-xs font-medium text-yellow-900 mb-1">Notes:</p>
-            <p className="text-sm text-yellow-800">{jobTemplate.notes}</p>
+          <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
+            <p className="text-xs font-medium text-yellow-300 mb-1">Notes:</p>
+            <p className="text-sm text-yellow-200">{jobTemplate.notes}</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import type {
   JobSession,
@@ -27,7 +27,11 @@ import {
   AlertCircle,
   MapPin,
   Clock,
-  XCircle
+  XCircle,
+  Play,
+  Timer,
+  Package,
+  StickyNote
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -54,6 +58,22 @@ interface JobData {
   refuseMessage?: ScheduleMessage | null
 }
 
+function formatElapsedTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h > 0) {
+    return `${h} hour${h !== 1 ? 's' : ''} ${m} minute${m !== 1 ? 's' : ''}`
+  }
+  return `${m} minute${m !== 1 ? 's' : ''}`
+}
+
 export default function JobExecutionPage() {
   const params = useParams()
   const router = useRouter()
@@ -65,16 +85,52 @@ export default function JobExecutionPage() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [showCompleteDialog, setShowCompleteDialog] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [showStartDialog, setShowStartDialog] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [employeeNotes, setEmployeeNotes] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
+  const [completionDuration, setCompletionDuration] = useState<number | null>(null)
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
   const isMountedRef = useRef(true)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Start the elapsed timer when job is IN_PROGRESS
+  useEffect(() => {
+    if (jobData?.session.status === 'IN_PROGRESS' && jobData.session.started_at) {
+      const startTime = new Date(jobData.session.started_at).getTime()
+
+      const updateElapsed = () => {
+        const now = Date.now()
+        setElapsedSeconds(Math.floor((now - startTime) / 1000))
+      }
+
+      updateElapsed()
+      timerRef.current = setInterval(updateElapsed, 1000)
+
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }
+    }
+  }, [jobData?.session.status, jobData?.session.started_at])
+
+  // Clean up timer on unmount
   useEffect(() => {
     isMountedRef.current = true
     loadJobData()
-    return () => { isMountedRef.current = false }
+    return () => {
+      isMountedRef.current = false
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
   }, [sessionId])
 
   const loadJobData = async () => {
@@ -152,13 +208,16 @@ export default function JobExecutionPage() {
         refuseMessage
       })
 
-      // Auto-start job if not started (with optimistic locking to prevent concurrent updates)
-      if (session.status === 'APPROVED') {
-        await supabase
-          .from('job_sessions')
-          .update({ status: 'IN_PROGRESS', started_at: new Date().toISOString() })
-          .eq('id', sessionId)
-          .eq('status', 'APPROVED')
+      // Load employee notes from session
+      if (session.employee_notes) {
+        setEmployeeNotes(session.employee_notes)
+      }
+
+      // If completed, compute the duration from started_at to completed_at
+      if ((session.status === 'COMPLETED' || session.status === 'EVALUATED') && session.started_at && session.completed_at) {
+        const start = new Date(session.started_at).getTime()
+        const end = new Date(session.completed_at).getTime()
+        setCompletionDuration(Math.floor((end - start) / 1000))
       }
     } catch (error) {
       console.error('Error loading job data:', error)
@@ -167,6 +226,28 @@ export default function JobExecutionPage() {
       if (isMountedRef.current) {
         setLoading(false)
       }
+    }
+  }
+
+  const handleStartJob = async () => {
+    setStarting(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({ status: 'IN_PROGRESS', started_at: new Date().toISOString() })
+        .eq('id', sessionId)
+        .eq('status', 'APPROVED')
+
+      if (error) throw error
+
+      toast.success('Job started!')
+      await loadJobData()
+    } catch (error) {
+      console.error('Error starting job:', error)
+      toast.error('Failed to start job')
+    } finally {
+      setStarting(false)
+      setShowStartDialog(false)
     }
   }
 
@@ -251,11 +332,22 @@ export default function JobExecutionPage() {
   const handleCompleteJob = async () => {
     setCompleting(true)
     try {
+      const completedAt = new Date().toISOString()
+      // Calculate actual duration in minutes
+      let actualDuration: number | null = null
+      if (jobData?.session.started_at) {
+        const start = new Date(jobData.session.started_at).getTime()
+        const end = new Date(completedAt).getTime()
+        actualDuration = Math.round((end - start) / 60000)
+        setCompletionDuration(Math.floor((end - start) / 1000))
+      }
+
       const { error } = await supabase
         .from('job_sessions')
         .update({
           status: 'COMPLETED',
-          completed_at: new Date().toISOString()
+          completed_at: completedAt,
+          actual_duration: actualDuration
         })
         .eq('id', sessionId)
 
@@ -272,6 +364,25 @@ export default function JobExecutionPage() {
     }
   }
 
+  const handleSaveNotes = useCallback(async () => {
+    if (!jobData) return
+    setSavingNotes(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({ employee_notes: employeeNotes })
+        .eq('id', sessionId)
+
+      if (error) throw error
+      toast.success('Notes saved')
+    } catch (error) {
+      console.error('Error saving notes:', error)
+      toast.error('Failed to save notes')
+    } finally {
+      setSavingNotes(false)
+    }
+  }, [jobData, employeeNotes, sessionId])
+
   const completedStepsCount = useMemo(() => {
     if (!jobData) return 0
     return jobData.stepProgress.filter(p => p.is_completed).length
@@ -279,6 +390,24 @@ export default function JobExecutionPage() {
 
   const totalSteps = jobData?.steps.length || 0
   const allStepsComplete = completedStepsCount === totalSteps && totalSteps > 0
+
+  // Aggregate all supplies needed from all steps (#14)
+  const suppliesNeeded = useMemo(() => {
+    if (!jobData) return []
+    const supplies: string[] = []
+    jobData.steps.forEach(step => {
+      if (step.products_needed) {
+        // Split by comma or newline and trim
+        step.products_needed.split(/[,\n]/).forEach(item => {
+          const trimmed = item.trim()
+          if (trimmed && !supplies.includes(trimmed)) {
+            supplies.push(trimmed)
+          }
+        })
+      }
+    })
+    return supplies
+  }, [jobData])
 
   const handleNextStep = () => {
     if (currentStepIndex < totalSteps - 1) {
@@ -315,6 +444,9 @@ export default function JobExecutionPage() {
   }
 
   const currentStep = jobData.steps[currentStepIndex]
+  const isApproved = jobData.session.status === 'APPROVED'
+  const isInProgress = jobData.session.status === 'IN_PROGRESS'
+  const isCompleted = jobData.session.status === 'COMPLETED' || jobData.session.status === 'EVALUATED'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
@@ -332,13 +464,28 @@ export default function JobExecutionPage() {
               Back
             </Button>
 
-            <Badge className={
-              jobData.session.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-              jobData.session.status === 'REFUSED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-              'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-            }>
-              {jobData.session.status === 'IN_PROGRESS' ? 'In Progress' : jobData.session.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {/* Elapsed Timer - shown when IN_PROGRESS (#9) */}
+              {isInProgress && (
+                <div className="flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-sm font-mono">
+                  <Timer className="w-3.5 h-3.5" />
+                  {formatElapsedTime(elapsedSeconds)}
+                </div>
+              )}
+
+              <Badge className={
+                isInProgress ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                jobData.session.status === 'REFUSED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                isApproved ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                isCompleted ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+              }>
+                {isInProgress ? 'In Progress' :
+                 isApproved ? 'Approved' :
+                 isCompleted ? 'Completed' :
+                 jobData.session.status}
+              </Badge>
+            </div>
           </div>
 
           <h1 className="text-xl font-bold text-white mb-2">
@@ -366,7 +513,15 @@ export default function JobExecutionPage() {
             )}
           </div>
 
-          {jobData.session.status !== 'REFUSED' && (
+          {/* Completion duration summary */}
+          {isCompleted && completionDuration !== null && (
+            <div className="flex items-center gap-2 text-sm text-blue-300 mb-4">
+              <Timer className="w-4 h-4" />
+              <span>Duration: {formatDuration(completionDuration)}</span>
+            </div>
+          )}
+
+          {!isApproved && jobData.session.status !== 'REFUSED' && (
             <ProgressBar
               current={completedStepsCount}
               total={totalSteps}
@@ -400,8 +555,70 @@ export default function JobExecutionPage() {
         </div>
       )}
 
-      {/* View Mode Selector - hidden for REFUSED jobs */}
-      {jobData.session.status !== 'REFUSED' && (
+      {/* APPROVED state: Show Start Job button and Supplies (#7 + #14) */}
+      {isApproved && (
+        <div className="max-w-6xl mx-auto p-4 space-y-4">
+          {/* Supplies Needed Section (#14) */}
+          {suppliesNeeded.length > 0 && (
+            <div className="bg-white/5 rounded-xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-semibold text-white">Supplies Needed</h3>
+              </div>
+              <p className="text-sm text-gray-400 mb-3">
+                Make sure you have the following before heading to the job site:
+              </p>
+              <ul className="space-y-2">
+                {suppliesNeeded.map((supply, index) => (
+                  <li key={index} className="flex items-center gap-2 text-gray-300">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                    {supply}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Start Job Button (#7) */}
+          <div className="p-6 bg-green-500/10 rounded-xl border border-green-500/30">
+            <div className="flex items-center gap-3 mb-4">
+              <Play className="w-8 h-8 text-green-400" />
+              <div>
+                <h3 className="font-semibold text-green-300">Ready to start?</h3>
+                <p className="text-sm text-green-400">
+                  This job is approved and ready to begin.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowStartDialog(true)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              size="lg"
+            >
+              <Play className="w-5 h-5 mr-2" />
+              Start Job
+            </Button>
+          </div>
+
+          {/* Job Steps Preview (read-only when APPROVED) */}
+          <div className="bg-white/5 rounded-xl border border-white/10 p-5">
+            <h3 className="text-lg font-semibold text-white mb-3">Job Steps Preview</h3>
+            <div className="space-y-2">
+              {jobData.steps.map((step, index) => (
+                <div key={step.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                  <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs text-gray-400 flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <span className="text-sm text-gray-300">{step.title}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Mode Selector - hidden for REFUSED and APPROVED jobs */}
+      {isInProgress && (
       <div className="max-w-6xl mx-auto p-4">
         {/* View Mode Toggle Buttons */}
         <div className="flex gap-2 max-w-md mx-auto mb-6">
@@ -434,7 +651,7 @@ export default function JobExecutionPage() {
           <div className="space-y-2">
             {jobData.steps.map((step, index) => {
               const stepProgress = jobData.stepProgress.find(p => p.job_step_id === step.id)
-              const isCompleted = stepProgress?.is_completed ?? false
+              const isStepCompleted = stepProgress?.is_completed ?? false
               const checklistItems = step.job_step_checklist
 
               return (
@@ -446,14 +663,14 @@ export default function JobExecutionPage() {
                   <div className="p-3 flex items-center gap-3">
                     {/* Completion toggle button */}
                     <button
-                      onClick={() => handleToggleStep(step.id, isCompleted)}
+                      onClick={() => handleToggleStep(step.id, isStepCompleted)}
                       className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                        isCompleted
+                        isStepCompleted
                           ? 'bg-green-500 border-green-500'
                           : 'border-white/30 hover:border-white/50'
                       }`}
                     >
-                      {isCompleted && <Check className="w-4 h-4 text-white" />}
+                      {isStepCompleted && <Check className="w-4 h-4 text-white" />}
                     </button>
 
                     {/* Step number + title */}
@@ -461,7 +678,7 @@ export default function JobExecutionPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">Step {index + 1}</span>
                         <span className={`text-sm font-medium ${
-                          isCompleted ? 'text-gray-500 line-through' : 'text-white'
+                          isStepCompleted ? 'text-gray-500 line-through' : 'text-white'
                         }`}>
                           {step.title}
                         </span>
@@ -529,10 +746,9 @@ export default function JobExecutionPage() {
             {/* Navigation */}
             <div className="flex justify-between items-center gap-4">
               <Button
-                variant="outline"
                 onClick={handlePreviousStep}
                 disabled={currentStepIndex === 0}
-                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Previous
@@ -541,10 +757,9 @@ export default function JobExecutionPage() {
                 {currentStepIndex + 1} of {totalSteps}
               </span>
               <Button
-                variant="outline"
                 onClick={handleNextStep}
                 disabled={currentStepIndex === totalSteps - 1}
-                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
               >
                 Next
                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -580,25 +795,106 @@ export default function JobExecutionPage() {
             </p>
           </div>
         )}
+
+        {/* Employee Notes Section (#11) */}
+        <div className="mt-6 bg-white/5 rounded-xl border border-white/10 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <StickyNote className="w-5 h-5 text-purple-400" />
+            <h3 className="text-lg font-semibold text-white">Notes</h3>
+          </div>
+          <textarea
+            value={employeeNotes}
+            onChange={(e) => setEmployeeNotes(e.target.value)}
+            onBlur={handleSaveNotes}
+            placeholder="Add any notes about this job..."
+            rows={4}
+            className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-gray-500 text-sm resize-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30"
+          />
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-gray-500">Notes auto-save when you tap away</p>
+            <Button
+              onClick={handleSaveNotes}
+              disabled={savingNotes}
+              variant="ghost"
+              size="sm"
+              className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+            >
+              {savingNotes ? 'Saving...' : 'Save Notes'}
+            </Button>
+          </div>
+        </div>
       </div>
       )}
 
-      {/* Complete Job Confirmation Dialog */}
-      <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <AlertDialogContent>
+      {/* Notes section for completed jobs */}
+      {isCompleted && (
+        <div className="max-w-6xl mx-auto p-4">
+          {/* Completion Duration */}
+          {completionDuration !== null && (
+            <div className="mb-4 p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
+              <div className="flex items-center gap-2 text-blue-300">
+                <Timer className="w-5 h-5" />
+                <span className="font-medium">Duration: {formatDuration(completionDuration)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Employee Notes (read-only for completed) */}
+          {employeeNotes && (
+            <div className="bg-white/5 rounded-xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <StickyNote className="w-5 h-5 text-purple-400" />
+                <h3 className="text-lg font-semibold text-white">Notes</h3>
+              </div>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap">{employeeNotes}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Start Job Confirmation Dialog (#7) */}
+      <AlertDialog open={showStartDialog} onOpenChange={setShowStartDialog}>
+        <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle>Complete Job?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to mark this job as complete? This action will notify the customer
-              and allow them to submit a review.
+            <AlertDialogTitle className="text-white">Start Job?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you ready to start this job? The timer will begin tracking your work duration.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={completing}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={starting} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleStartJob}
+              disabled={starting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {starting ? 'Starting...' : 'Start Job'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Complete Job Confirmation Dialog */}
+      <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Complete Job?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you sure you want to mark this job as complete? This action will notify the customer
+              and allow them to submit a review.
+              {elapsedSeconds > 0 && (
+                <span className="block mt-2 text-blue-300">
+                  Total duration: {formatDuration(elapsedSeconds)}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={completing} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCompleteJob}
               disabled={completing}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               {completing ? 'Completing...' : 'Complete Job'}
             </AlertDialogAction>

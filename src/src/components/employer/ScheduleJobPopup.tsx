@@ -17,9 +17,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { createClient } from '@/lib/supabase/client'
+import { getNextSessionNumber } from '@/lib/jobs/sessionGenerator'
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
 import { sanitizeText } from '@/lib/utils/sanitize'
 import { toast } from 'sonner'
+import { format } from 'date-fns'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate
@@ -38,6 +40,8 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const [isModifyingPrice, setIsModifyingPrice] = useState(false)
   const [isPushingMessage, setIsPushingMessage] = useState(false)
   const [isRefusing, setIsRefusing] = useState(false)
+  const [isReassigning, setIsReassigning] = useState(false)
+  const [isRecovering, setIsRecovering] = useState(false)
 
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
@@ -47,16 +51,20 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
   const [refuseReason, setRefuseReason] = useState('')
+  const [reassignEmployeeId, setReassignEmployeeId] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Employee availability: employeeId -> number of jobs on the session date
+  const [employeeAvailability, setEmployeeAvailability] = useState<Map<string, number>>(new Map())
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
   useEffect(() => {
-    if (isPushingMessage) {
+    if (isPushingMessage || isReassigning) {
       loadEmployees()
     }
-  }, [isPushingMessage])
+  }, [isPushingMessage, isReassigning])
 
   const loadEmployees = async () => {
     const { data, error } = await supabase
@@ -70,7 +78,33 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
       if (jobSession?.assigned_to) {
         setSelectedEmployeeIds([jobSession.assigned_to])
       }
+      // Load availability for the session date
+      if (jobSession?.scheduled_date) {
+        loadEmployeeAvailability(data, jobSession.scheduled_date)
+      }
     }
+  }
+
+  const loadEmployeeAvailability = async (employees: Employee[], date: string) => {
+    const { data: sessionsOnDate } = await supabase
+      .from('job_sessions')
+      .select('assigned_to')
+      .eq('scheduled_date', date)
+      .in('status', ['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS'])
+      .not('assigned_to', 'is', null)
+
+    const countMap = new Map<string, number>()
+    for (const emp of employees) {
+      countMap.set(emp.id, 0)
+    }
+    if (sessionsOnDate) {
+      for (const session of sessionsOnDate) {
+        if (session.assigned_to) {
+          countMap.set(session.assigned_to, (countMap.get(session.assigned_to) || 0) + 1)
+        }
+      }
+    }
+    setEmployeeAvailability(countMap)
   }
 
   const handleSelectAll = (checked: boolean) => {
@@ -95,6 +129,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   if (!jobSession || !jobSession.job_template) return null
 
   const canModify = jobSession.status !== 'CANCELLED' && jobSession.status !== 'COMPLETED' && jobSession.status !== 'EVALUATED' && jobSession.status !== 'MISSED' && jobSession.status !== 'OVERDUE'
+  const canRecover = jobSession.status === 'MISSED' || jobSession.status === 'OVERDUE'
 
   const getStatusBadge = (status: JobSessionStatus) => {
     const config: Record<string, { bg: string; text: string; border: string }> = {
@@ -183,6 +218,24 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             message: `Your claim was refused: ${sanitizedReason}`
           })
       }
+
+      // Create a replacement OFFERED session so the job goes back to marketplace
+      const nextNum = await getNextSessionNumber(supabase, jobSession.job_template_id)
+      const sessionCode = `A${String(nextNum).padStart(3, '0')}`
+      const fullJobCode = `${jobSession.job_template.job_code}-${sessionCode}`
+
+      await supabase
+        .from('job_sessions')
+        .insert({
+          job_template_id: jobSession.job_template_id,
+          session_code: sessionCode,
+          full_job_code: fullJobCode,
+          scheduled_date: jobSession.scheduled_date,
+          scheduled_end_date: jobSession.scheduled_end_date,
+          scheduled_time: jobSession.scheduled_time,
+          status: 'OFFERED',
+          assigned_to: null,
+        })
 
       setIsRefusing(false)
       setRefuseReason('')
@@ -307,16 +360,134 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     }
   }
 
+  const handleReassign = async () => {
+    if (!reassignEmployeeId) {
+      toast.error('Please select an employee')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const updateData: { assigned_to: string; status?: string } = {
+        assigned_to: reassignEmployeeId,
+      }
+      // If currently OFFERED, move to APPROVED
+      if (jobSession.status === 'OFFERED') {
+        updateData.status = 'APPROVED'
+      }
+
+      const { error } = await supabase
+        .from('job_sessions')
+        .update(updateData)
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      toast.success('Job reassigned successfully')
+      setIsReassigning(false)
+      setReassignEmployeeId('')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error reassigning job:', error)
+      toast.error('Failed to reassign job')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRecoverReschedule = async () => {
+    if (!newDate) {
+      toast.error('Please select a new date')
+      return
+    }
+
+    const selectedDate = new Date(newDate + 'T' + (newTime || '00:00'))
+    if (selectedDate < new Date()) {
+      toast.error('Cannot schedule a job in the past')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Cancel the current MISSED/OVERDUE session
+      const { error: cancelError } = await supabase
+        .from('job_sessions')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('id', jobSession.id)
+
+      if (cancelError) throw cancelError
+
+      // Create a new OFFERED session with the next session code
+      const nextNum = await getNextSessionNumber(supabase, jobSession.job_template_id)
+      const sessionCode = `A${String(nextNum).padStart(3, '0')}`
+      const fullJobCode = `${jobSession.job_template.job_code}-${sessionCode}`
+
+      const { error: insertError } = await supabase
+        .from('job_sessions')
+        .insert({
+          job_template_id: jobSession.job_template_id,
+          session_code: sessionCode,
+          full_job_code: fullJobCode,
+          scheduled_date: newDate,
+          scheduled_end_date: jobSession.scheduled_end_date,
+          scheduled_time: newTime || jobSession.scheduled_time,
+          status: 'OFFERED',
+          assigned_to: null,
+        })
+
+      if (insertError) throw insertError
+
+      toast.success('Session rescheduled as a new offering')
+      setIsRecovering(false)
+      setNewDate('')
+      setNewTime('')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error recovering session:', error)
+      toast.error('Failed to reschedule session')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRecoverCancel = async () => {
+    if (!confirm('Are you sure you want to cancel this session? It will not be rescheduled.')) return
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      toast.success('Session cancelled')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error cancelling session:', error)
+      toast.error('Failed to cancel session')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleClose = () => {
     setIsRescheduling(false)
     setIsModifyingPrice(false)
     setIsPushingMessage(false)
     setIsRefusing(false)
+    setIsReassigning(false)
+    setIsRecovering(false)
     setNewDate('')
     setNewTime('')
     setNewPrice('')
     setMessageContent('')
     setRefuseReason('')
+    setReassignEmployeeId('')
     setSelectedEmployeeIds([])
     setSelectAll(false)
     onClose()
@@ -346,7 +517,12 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               <div className="text-gray-400">
                 <span className="font-medium text-gray-300">Client Code:</span> {jobSession.job_template.client_code}
               </div>
-              {(jobSession.job_template.time_window_start || jobSession.job_template.time_window_end) && jobSession.scheduled_date && (
+              {(jobSession.job_template as any).customer?.full_name && (
+                <div className="col-span-2 text-gray-400">
+                  <span className="font-medium text-gray-300">Customer:</span> {(jobSession.job_template as any).customer.full_name}
+                </div>
+              )}
+              {jobSession.scheduled_date && (
                 <div className="col-span-2">
                   <div className="bg-blue-500/10 p-3 rounded border border-blue-500/20">
                     <span className="font-medium text-blue-400 block mb-2">Time Window</span>
@@ -354,6 +530,11 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500">Start:</span>
                         <span className="text-gray-300 font-medium">
+                          {jobSession.job_template.window_start_day && (
+                            <span className="text-blue-300 mr-1">
+                              {({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_start_day] || jobSession.job_template.window_start_day}
+                            </span>
+                          )}
                           {formatDate(jobSession.scheduled_date)}
                           {jobSession.job_template.time_window_start && ` at ${formatTime(jobSession.job_template.time_window_start)}`}
                         </span>
@@ -361,6 +542,11 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500">End:</span>
                         <span className="text-gray-300 font-medium">
+                          {jobSession.job_template.window_end_day && (
+                            <span className="text-blue-300 mr-1">
+                              {({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_end_day] || jobSession.job_template.window_end_day}
+                            </span>
+                          )}
                           {formatDate(jobSession.scheduled_end_date || jobSession.scheduled_date)}
                           {jobSession.job_template.time_window_end && ` at ${formatTime(jobSession.job_template.time_window_end)}`}
                         </span>
@@ -425,6 +611,116 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             ) : (
               <p className="text-gray-500 text-sm">No employee assigned yet</p>
             )}
+          </div>
+
+          {/* Session Timeline */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-1">
+            <h3 className="font-semibold text-lg text-white mb-3">Session Timeline</h3>
+            <div className="relative pl-6 space-y-3">
+              {(() => {
+                const steps: { label: string; time: string; color: string }[] = []
+                const statusOrder = ['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS', 'COMPLETED', 'EVALUATED']
+                const terminalStatuses = ['CANCELLED', 'REFUSED', 'MISSED', 'OVERDUE']
+                const currentIdx = statusOrder.indexOf(jobSession.status)
+                const isTerminal = terminalStatuses.includes(jobSession.status)
+
+                // Created (OFFERED)
+                steps.push({
+                  label: 'Created',
+                  time: format(new Date(jobSession.created_at), 'MMM d, yyyy h:mm a'),
+                  color: 'bg-gray-400',
+                })
+
+                // If employee was assigned (CLAIMED or beyond)
+                if (jobSession.assigned_to && (currentIdx >= 1 || isTerminal)) {
+                  steps.push({
+                    label: `Claimed by ${jobSession.employee?.full_name || 'Employee'}`,
+                    time: currentIdx >= 1 ? '' : '',
+                    color: 'bg-yellow-400',
+                  })
+                }
+
+                // If approved (APPROVED or beyond)
+                if (currentIdx >= 2) {
+                  steps.push({
+                    label: 'Approved',
+                    time: '',
+                    color: 'bg-blue-400',
+                  })
+                }
+
+                // If started (IN_PROGRESS or beyond)
+                if (currentIdx >= 3) {
+                  steps.push({
+                    label: 'Started',
+                    time: (jobSession as any).started_at ? format(new Date((jobSession as any).started_at), 'MMM d, yyyy h:mm a') : '',
+                    color: 'bg-purple-400',
+                  })
+                }
+
+                // If completed
+                if (currentIdx >= 4) {
+                  steps.push({
+                    label: 'Completed',
+                    time: (jobSession as any).completed_at ? format(new Date((jobSession as any).completed_at), 'MMM d, yyyy h:mm a') : '',
+                    color: 'bg-green-400',
+                  })
+                }
+
+                // If evaluated
+                if (currentIdx >= 5) {
+                  steps.push({
+                    label: 'Evaluated',
+                    time: '',
+                    color: 'bg-teal-400',
+                  })
+                }
+
+                // Terminal statuses
+                if (isTerminal) {
+                  const terminalColors: Record<string, string> = {
+                    CANCELLED: 'bg-red-400',
+                    REFUSED: 'bg-red-400',
+                    MISSED: 'bg-red-400',
+                    OVERDUE: 'bg-orange-400',
+                  }
+                  steps.push({
+                    label: jobSession.status.charAt(0) + jobSession.status.slice(1).toLowerCase(),
+                    time: jobSession.updated_at ? format(new Date(jobSession.updated_at), 'MMM d, yyyy h:mm a') : '',
+                    color: terminalColors[jobSession.status] || 'bg-red-400',
+                  })
+                }
+
+                // Current status indicator (if not terminal and not fully evaluated)
+                if (!isTerminal && currentIdx < 5) {
+                  const nextLabels: Record<string, string> = {
+                    OFFERED: 'Awaiting claim',
+                    CLAIMED: 'Awaiting approval',
+                    APPROVED: 'Ready to start',
+                    IN_PROGRESS: 'In progress',
+                    COMPLETED: 'Awaiting evaluation',
+                  }
+                  steps.push({
+                    label: nextLabels[jobSession.status] || jobSession.status,
+                    time: '',
+                    color: 'bg-white/30 animate-pulse',
+                  })
+                }
+
+                return steps.map((step, i) => (
+                  <div key={i} className="relative flex items-start gap-3">
+                    {i < steps.length - 1 && (
+                      <div className="absolute left-[-15px] top-3 w-px h-full bg-white/10" />
+                    )}
+                    <div className={`absolute left-[-18px] top-1 w-2.5 h-2.5 rounded-full ${step.color} ring-2 ring-gray-800`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white">{step.label}</p>
+                      {step.time && <p className="text-xs text-gray-500">{step.time}</p>}
+                    </div>
+                  </div>
+                ))
+              })()}
+            </div>
           </div>
 
           {/* Reschedule Section */}
@@ -528,6 +824,105 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             </div>
           )}
 
+          {/* Reassign Section */}
+          {isReassigning && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-blue-300">Reassign Job</h3>
+              <p className="text-sm text-gray-400">
+                Select a new employee for this session.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="reassign-employee" className="text-gray-300">Employee</Label>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1">
+                  {allEmployees.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">No active employees found</p>
+                  ) : (
+                    allEmployees.map(emp => {
+                      const jobCount = employeeAvailability.get(emp.id) || 0
+                      const isSelected = reassignEmployeeId === emp.id
+                      return (
+                        <button
+                          key={emp.id}
+                          type="button"
+                          onClick={() => setReassignEmployeeId(emp.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600/30 border border-blue-500/50 text-white'
+                              : 'hover:bg-white/10 text-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              jobCount === 0 ? 'bg-green-400' : 'bg-orange-400'
+                            }`}
+                          />
+                          <span className="flex-1">{emp.full_name}</span>
+                          {jobCount > 0 && (
+                            <span className="text-xs text-orange-300 bg-orange-500/20 px-1.5 py-0.5 rounded">
+                              {jobCount} job{jobCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleReassign}
+                  disabled={loading || !reassignEmployeeId}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {loading ? 'Reassigning...' : 'Confirm Reassign'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsReassigning(false)} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Recovery Reschedule Section (for MISSED/OVERDUE) */}
+          {isRecovering && (
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-orange-300">Reschedule {jobSession.status} Session</h3>
+              <p className="text-sm text-gray-400">
+                This will cancel the current session and create a new OFFERED session with the selected date.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="recover-date" className="text-gray-300">New Date</Label>
+                  <Input
+                    id="recover-date"
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="recover-time" className="text-gray-300">New Time (optional)</Label>
+                  <Input
+                    id="recover-time"
+                    type="time"
+                    value={newTime}
+                    onChange={(e) => setNewTime(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleRecoverReschedule} disabled={loading || !newDate} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  {loading ? 'Saving...' : 'Confirm Reschedule'}
+                </Button>
+                <Button variant="outline" onClick={() => { setIsRecovering(false); setNewDate(''); setNewTime('') }} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Push to Messages Section */}
           {isPushingMessage && (
             <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 space-y-4">
@@ -602,7 +997,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
         {/* Footer with action buttons */}
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && (
+          {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && !isReassigning && !isRecovering && (
             <>
               {jobSession.status === 'CLAIMED' && (
                 <>
@@ -623,6 +1018,25 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 </>
               )}
 
+              {canRecover && (
+                <>
+                  <Button
+                    onClick={() => setIsRecovering(true)}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Reschedule
+                  </Button>
+                  <Button
+                    onClick={handleRecoverCancel}
+                    disabled={loading}
+                    className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                  >
+                    {loading ? 'Cancelling...' : 'Cancel Session'}
+                  </Button>
+                </>
+              )}
+
               <Button
                 variant="outline"
                 onClick={() => setIsRescheduling(true)}
@@ -639,6 +1053,15 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
                 Modify Price
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setIsReassigning(true)}
+                disabled={loading || !canModify}
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                Reassign
               </Button>
 
               <Button

@@ -55,6 +55,7 @@ export default function LoadingSpinner({ size = "md", fullScreen = false }: Load
           width={512}
           height={512}
           className="w-full h-full object-contain"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
       </motion.div>
     </div>

@@ -364,6 +364,21 @@ export default function EmployerUsersPage() {
 
       if (!employer) throw new Error('Employer not found')
 
+      // Check for duplicate customer code
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('customer_code', customerForm.customer_code.toUpperCase())
+        .eq('created_by', employer.id)
+        .limit(1)
+        .single()
+
+      if (existingCustomer) {
+        toast.error('Customer code already exists')
+        setSubmitting(false)
+        return
+      }
+
       let authUserId: string | null = null
 
       if (customerForm.create_account && customerForm.username && customerForm.password) {

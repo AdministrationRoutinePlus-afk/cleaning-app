@@ -9,19 +9,27 @@ import { Check } from 'lucide-react'
 
 function ImageWithSkeleton({ src, alt, caption }: { src: string; alt: string; caption: string | null }) {
   const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
 
   return (
     <div className="relative aspect-video rounded-lg overflow-hidden bg-white/5">
-      {!loaded && (
+      {!loaded && !error && (
         <div className="absolute inset-0 animate-pulse bg-white/10" />
       )}
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-      />
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/5">
+          <span className="text-xs text-gray-500">Image unavailable</span>
+        </div>
+      ) : (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+      )}
       {caption && (
         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 p-1">
           <p className="text-xs text-white text-center">{caption}</p>

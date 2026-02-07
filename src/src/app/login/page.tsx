@@ -1,15 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type ProfileType = 'EMPLOYER' | 'EMPLOYEE'
 
@@ -20,6 +15,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [lockoutSeconds, setLockoutSeconds] = useState(0)
+
+  const isLockedOut = lockoutSeconds > 0
+
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return
+    const timer = setTimeout(() => {
+      setLockoutSeconds((s) => s - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [lockoutSeconds])
+
+  const triggerLockout = useCallback(() => {
+    setLockoutSeconds(30)
+    setFailedAttempts(0)
+  }, [])
 
   // Register state
   const [fullName, setFullName] = useState('')
@@ -94,6 +106,11 @@ export default function LoginPage() {
       setError('No profile found for this account. Please contact support.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login')
+      const newAttempts = failedAttempts + 1
+      setFailedAttempts(newAttempts)
+      if (newAttempts >= 5) {
+        triggerLockout()
+      }
     } finally {
       setLoading(false)
     }
@@ -197,9 +214,9 @@ export default function LoginPage() {
         </div>
 
         {/* LOGIN CARD */}
-        <Card className="w-full bg-white/10 backdrop-blur-md border-white/20 mb-6">
+        <div className="w-full bg-white/5 border border-white/10 rounded-xl backdrop-blur-md mb-6">
           <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4 pt-6">
+            <div className="space-y-4 p-6">
               {error && (
                 <div className="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -207,8 +224,8 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-gray-300">Username</Label>
-                <Input
+                <label htmlFor="username" className="text-sm text-gray-300">Username</label>
+                <input
                   id="username"
                   type="text"
                   placeholder="Enter your username"
@@ -217,13 +234,13 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                   autoComplete="username"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                  className="w-full px-3 py-2 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-300">Password</Label>
-                <Input
+                <label htmlFor="password" className="text-sm text-gray-300">Password</label>
+                <input
                   id="password"
                   type="password"
                   placeholder="Enter your password"
@@ -232,48 +249,49 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                   autoComplete="current-password"
-                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                  className="w-full px-3 py-2 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 />
               </div>
-            </CardContent>
+            </div>
 
-            <CardFooter className="pt-4">
-              <Button
+            <div className="px-6 pb-6 pt-4">
+              {isLockedOut && (
+                <p className="text-red-400 text-sm text-center mb-3">
+                  Too many attempts. Try again in {lockoutSeconds}s
+                </p>
+              )}
+              <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
-                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-base font-medium transition-colors disabled:opacity-50"
+                disabled={loading || isLockedOut}
               >
-                {loading ? 'Signing in...' : 'Sign In'}
-              </Button>
-            </CardFooter>
+                {loading ? 'Signing in...' : isLockedOut ? `Locked (${lockoutSeconds}s)` : 'Sign In'}
+              </button>
+            </div>
           </form>
-        </Card>
+        </div>
 
         {/* REGISTER SECTION */}
-        <Card className="w-full bg-white/10 backdrop-blur-md border-white/20">
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-2">
-                  New Here?
-                </h3>
-                <p className="text-sm text-gray-300">
-                  Join our team today
-                </p>
-              </div>
-
-              <Link href="/register" className="block">
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  size="lg"
-                >
-                  Register
-                </Button>
-              </Link>
+        <div className="w-full bg-white/5 border border-white/10 rounded-xl backdrop-blur-md p-6">
+          <div className="text-center space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-white mb-2">
+                New Here?
+              </h3>
+              <p className="text-sm text-gray-300">
+                Join our team today
+              </p>
             </div>
-          </CardContent>
-        </Card>
+
+            <Link href="/register" className="block">
+              <button
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg text-base font-medium transition-colors"
+              >
+                Register
+              </button>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   )

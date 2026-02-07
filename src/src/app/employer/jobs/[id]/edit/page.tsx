@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import type { Customer, JobTemplate, DayOfWeek, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { addDays, format, parseISO, nextDay, startOfDay } from 'date-fns'
+import { createJobSessions as createJobSessionsShared, getNextSessionNumber } from '@/lib/jobs/sessionGenerator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -223,13 +224,7 @@ export default function EditJobPage() {
   }
 
   /**
-   * Create job sessions based on window-based scheduling
-   *
-   * Window-based model:
-   * - A job has a time window from (start_day, start_time) to (end_day, end_time)
-   * - Example: Friday 5pm to Sunday 8pm
-   * - For recurring jobs: creates one session per week
-   * - For one-time jobs: creates sessions for specific dates
+   * Create job sessions using shared utility
    */
   const createJobSessions = async (
     jobTemplateId: string,
@@ -244,135 +239,65 @@ export default function EditJobPage() {
       end_date: string
       specific_dates: string[]
       exclude_dates: string[]
-    }
+    },
+    startingSessionNumber: number = 1,
+    preferredEmployeeId?: string
   ) => {
-    try {
-      // Map day abbreviations to date-fns day numbers (0 = Sunday, 1 = Monday, etc.)
-      const dayMap: Record<string, number> = {
-        'SUN': 0, 'MON': 1, 'TUE': 2, 'WED': 3, 'THU': 4, 'FRI': 5, 'SAT': 6
-      }
+    await createJobSessionsShared(supabase, jobTemplateId, jobCode, sessionData, startingSessionNumber, preferredEmployeeId)
+  }
 
-      const sessions: Array<{
-        job_template_id: string
-        session_code: string
-        full_job_code: string
-        scheduled_date: string
-        scheduled_end_date: string | null
-        scheduled_time: string | null
-        status: string
-      }> = []
+  /**
+   * Detect if scheduling fields changed between old job and new form data
+   */
+  const hasScheduleChanged = (): boolean => {
+    if (!job) return false
+    return (
+      (job.window_start_day || '') !== formData.window_start_day ||
+      (job.window_end_day || '') !== formData.window_end_day ||
+      (job.time_window_start || '') !== formData.time_window_start ||
+      (job.time_window_end || '') !== formData.time_window_end ||
+      (job.start_date || '') !== formData.start_date ||
+      (job.end_date || '') !== formData.end_date ||
+      (job.is_recurring || false) !== formData.is_recurring ||
+      JSON.stringify(job.specific_dates || []) !== JSON.stringify(formData.specific_dates) ||
+      JSON.stringify(job.exclude_dates || []) !== JSON.stringify(formData.exclude_dates)
+    )
+  }
 
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      let sessionCounter = 1
+  /**
+   * Regenerate OFFERED sessions when schedule changes on an active job.
+   * Keeps CLAIMED/APPROVED/IN_PROGRESS/COMPLETED sessions untouched.
+   */
+  const regenerateOfferedSessions = async () => {
+    if (!job) return
 
-      const generateSessionCode = () => {
-        const code = `A${String(sessionCounter).padStart(3, '0')}`
-        sessionCounter++
-        return code
-      }
+    // Delete only OFFERED sessions (safe — nobody claimed them)
+    const { error: deleteError } = await supabase
+      .from('job_sessions')
+      .delete()
+      .eq('job_template_id', jobId)
+      .eq('status', 'OFFERED')
 
-      // Parse exclude dates
-      const excludeDates = new Set(sessionData.exclude_dates)
-
-      console.log('=== SESSION CREATION (Window-based - Edit) ===')
-      console.log('is_recurring:', sessionData.is_recurring)
-      console.log('window:', sessionData.window_start_day, sessionData.time_window_start, '→', sessionData.window_end_day, sessionData.time_window_end)
-
-      // Calculate how many days the window spans
-      const startDayNum = dayMap[sessionData.window_start_day] ?? 0
-      const endDayNum = dayMap[sessionData.window_end_day] ?? startDayNum
-      let windowDays = endDayNum - startDayNum
-      if (windowDays < 0) windowDays += 7 // Handle wrap around (e.g., Sat to Mon)
-      if (windowDays === 0 && sessionData.window_start_day !== sessionData.window_end_day) windowDays = 7
-
-      console.log('Window spans', windowDays, 'days')
-
-      if (sessionData.is_recurring) {
-        // Recurring: Create one session per week from start_date to end_date
-        const startDate = sessionData.start_date ? parseISO(sessionData.start_date) : today
-        const endDate = sessionData.end_date ? parseISO(sessionData.end_date) : addDays(today, 30)
-
-        console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'))
-
-        // Find the first occurrence of window_start_day on or after startDate
-        let currentDate = new Date(startDate)
-        const targetDayNum = dayMap[sessionData.window_start_day]
-
-        // Move to the first window_start_day
-        while (currentDate.getDay() !== targetDayNum) {
-          currentDate = addDays(currentDate, 1)
-        }
-
-        console.log('First window starts:', format(currentDate, 'yyyy-MM-dd (EEEE)'))
-
-        // Create sessions week by week
-        while (currentDate <= endDate) {
-          const windowStart = new Date(currentDate)
-          const windowEnd = addDays(windowStart, windowDays)
-          const dateStr = format(windowStart, 'yyyy-MM-dd')
-
-          // Check if this week should be skipped
-          if (!excludeDates.has(dateStr)) {
-            const sessionCode = generateSessionCode()
-            sessions.push({
-              job_template_id: jobTemplateId,
-              session_code: sessionCode,
-              full_job_code: `${jobCode}-${sessionCode}`,
-              scheduled_date: dateStr,
-              scheduled_end_date: windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : null,
-              scheduled_time: sessionData.time_window_start || null,
-              status: 'OFFERED'
-            })
-            console.log(`Session ${sessionCode}: ${dateStr} → ${windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : 'same day'}`)
-          } else {
-            console.log(`Skipped: ${dateStr} (excluded)`)
-          }
-
-          // Move to next week
-          currentDate = addDays(currentDate, 7)
-        }
-      } else {
-        // One-time: Create sessions for specific dates
-        const datesToCreate = sessionData.specific_dates.filter(d => !excludeDates.has(d)).sort()
-
-        console.log('Specific dates:', datesToCreate)
-
-        for (const dateStr of datesToCreate) {
-          const windowStart = parseISO(dateStr)
-          const windowEnd = addDays(windowStart, windowDays)
-
-          const sessionCode = generateSessionCode()
-          sessions.push({
-            job_template_id: jobTemplateId,
-            session_code: sessionCode,
-            full_job_code: `${jobCode}-${sessionCode}`,
-            scheduled_date: dateStr,
-            scheduled_end_date: windowDays > 0 ? format(windowEnd, 'yyyy-MM-dd') : null,
-            scheduled_time: sessionData.time_window_start || null,
-            status: 'OFFERED'
-          })
-          console.log(`Session ${sessionCode}: ${dateStr}`)
-        }
-      }
-
-      // Insert all sessions
-      if (sessions.length > 0) {
-        const { error: sessionsError } = await supabase
-          .from('job_sessions')
-          .insert(sessions)
-
-        if (sessionsError) {
-          console.error('Error creating job sessions:', sessionsError)
-        } else {
-          console.log(`Created ${sessions.length} job session(s)`)
-        }
-      } else {
-        console.log('No sessions to create')
-      }
-    } catch (error) {
-      console.error('Error in createJobSessions:', error)
+    if (deleteError) {
+      console.error('Error deleting OFFERED sessions:', deleteError)
+      return
     }
+
+    // Get next session number to avoid code collisions
+    const nextNum = await getNextSessionNumber(supabase, jobId)
+
+    // Generate new sessions (APPROVED if preferred employee, otherwise OFFERED)
+    await createJobSessions(jobId, job.job_code, {
+      is_recurring: formData.is_recurring,
+      window_start_day: formData.window_start_day,
+      window_end_day: formData.window_end_day,
+      time_window_start: formData.time_window_start,
+      time_window_end: formData.time_window_end,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      specific_dates: formData.specific_dates,
+      exclude_dates: formData.exclude_dates,
+    }, nextNum, formData.preferred_employee_id || undefined)
   }
 
   const handleSubmit = async (status: 'DRAFT' | 'ACTIVE') => {
@@ -388,6 +313,16 @@ export default function EditJobPage() {
       if (!formData.title) {
         toast.error('Please fill in the job title')
         return
+      }
+
+      // Validate time windows
+      if (formData.window_start_day && formData.window_end_day &&
+          formData.window_start_day === formData.window_end_day &&
+          formData.time_window_start && formData.time_window_end) {
+        if (formData.time_window_end <= formData.time_window_start) {
+          toast.error('End time must be after start time when start and end days are the same')
+          return
+        }
       }
 
       // Prepare update data
@@ -427,10 +362,9 @@ export default function EditJobPage() {
 
       if (error) throw error
 
-      // If job was DRAFT and is now being ACTIVATED, create job sessions
-      // This ensures the job appears on the calendar
+      // Handle session creation/regeneration based on status transitions
       if (job.status === 'DRAFT' && status === 'ACTIVE') {
-        // Use form data for scheduling fields
+        // DRAFT -> ACTIVE: Create sessions from scratch
         await createJobSessions(jobId, job.job_code, {
           is_recurring: formData.is_recurring,
           window_start_day: formData.window_start_day,
@@ -441,7 +375,10 @@ export default function EditJobPage() {
           end_date: formData.end_date,
           specific_dates: formData.specific_dates,
           exclude_dates: formData.exclude_dates,
-        })
+        }, 1, formData.preferred_employee_id || undefined)
+      } else if (job.status === 'ACTIVE' && status === 'ACTIVE' && hasScheduleChanged()) {
+        // ACTIVE -> ACTIVE with schedule changes: Regenerate OFFERED sessions
+        await regenerateOfferedSessions()
       }
 
       // Delete existing steps (cascade will handle checklist and images)

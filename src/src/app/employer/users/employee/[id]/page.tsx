@@ -23,10 +23,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import type { Employee, Strike, Evaluation, JobSession } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -46,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { format } from 'date-fns'
+import { ArrowLeft, AlertTriangle, MapPin, Edit2 } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 // Extended JobSession type with joined job_template data
@@ -70,6 +68,15 @@ export default function EmployeeProfilePage() {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [jobHistory, setJobHistory] = useState<JobWithTemplate[]>([])
   const [employerId, setEmployerId] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<'history' | 'evaluations' | 'strikes'>('history')
+
+  // Performance metrics
+  const [perfMetrics, setPerfMetrics] = useState<{
+    totalCompleted: number
+    avgRating: number | null
+    onTimeRate: number | null
+    jobsThisMonth: number
+  }>({ totalCompleted: 0, avgRating: null, onTimeRate: null, jobsThisMonth: 0 })
 
   // Strike form state
   const [strikeDialogOpen, setStrikeDialogOpen] = useState(false)
@@ -186,6 +193,32 @@ export default function EmployeeProfilePage() {
         .limit(50)
 
       setJobHistory(jobsData || [])
+
+      // Calculate performance metrics
+      const allSessions = jobsData || []
+      const completedStatuses = ['COMPLETED', 'EVALUATED']
+      const totalCompleted = allSessions.filter(s => completedStatuses.includes(s.status)).length
+
+      // On-time rate: sessions that are not MISSED or OVERDUE out of total non-cancelled
+      const relevantSessions = allSessions.filter(s => s.status !== 'CANCELLED' && s.status !== 'REFUSED' && s.status !== 'OFFERED')
+      const missedOrOverdue = allSessions.filter(s => s.status === 'MISSED' || s.status === 'OVERDUE').length
+      const onTimeRate = relevantSessions.length > 0
+        ? ((relevantSessions.length - missedOrOverdue) / relevantSessions.length) * 100
+        : null
+
+      // Jobs this month
+      const now = new Date()
+      const firstOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd')
+      const jobsThisMonth = allSessions.filter(s =>
+        completedStatuses.includes(s.status) && s.scheduled_date && s.scheduled_date >= firstOfMonth
+      ).length
+
+      // Average rating from evaluations
+      const avgRating = (evalData && evalData.length > 0)
+        ? evalData.reduce((sum, e) => sum + e.rating, 0) / evalData.length
+        : null
+
+      setPerfMetrics({ totalCompleted, avgRating, onTimeRate, jobsThisMonth })
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -366,36 +399,36 @@ export default function EmployeeProfilePage() {
     }
   }
 
-  // Helper: Maps employee status to badge color
-  const getStatusColor = (status: Employee['status']) => {
+  // Helper: Maps employee status to dark theme badge
+  const getStatusBadge = (status: Employee['status']) => {
     switch (status) {
-      case 'ACTIVE': return 'bg-green-500'
-      case 'PENDING': return 'bg-yellow-500'
-      case 'INACTIVE': return 'bg-gray-500'
-      case 'BLOCKED': return 'bg-red-500'
-      default: return 'bg-gray-500'
+      case 'ACTIVE': return 'bg-green-500/20 text-green-300 border border-green-500/30'
+      case 'PENDING': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+      case 'INACTIVE': return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+      case 'BLOCKED': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
     }
   }
 
-  // Helper: Maps strike severity to badge color
-  const getSeverityColor = (severity: Strike['severity']) => {
+  // Helper: Maps strike severity to dark theme badge
+  const getSeverityBadge = (severity: Strike['severity']) => {
     switch (severity) {
-      case 'MINOR': return 'bg-yellow-500'
-      case 'MAJOR': return 'bg-orange-500'
-      case 'CRITICAL': return 'bg-red-500'
-      default: return 'bg-gray-500'
+      case 'MINOR': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+      case 'MAJOR': return 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+      case 'CRITICAL': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
     }
   }
 
-  // Helper: Maps job session status to badge color
-  const getSessionStatusColor = (status: string) => {
+  // Helper: Maps job session status to dark theme badge
+  const getSessionStatusBadge = (status: string) => {
     switch (status) {
-      case 'COMPLETED': return 'bg-green-500'
-      case 'EVALUATED': return 'bg-blue-500'
-      case 'IN_PROGRESS': return 'bg-yellow-500'
-      case 'APPROVED': return 'bg-cyan-500'
-      case 'CANCELLED': return 'bg-red-500'
-      default: return 'bg-gray-500'
+      case 'COMPLETED': return 'bg-green-500/20 text-green-300 border border-green-500/30'
+      case 'EVALUATED': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+      case 'IN_PROGRESS': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+      case 'APPROVED': return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+      case 'CANCELLED': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
     }
   }
 
@@ -405,409 +438,493 @@ export default function EmployeeProfilePage() {
 
   if (!employee) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 flex items-center justify-center">
-        <p className="text-gray-500">Employee not found</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
+        <p className="text-gray-400">Employee not found</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 pb-20">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => router.back()}>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
             Back
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Employee Profile</h1>
+          </button>
+          <h1 className="text-2xl font-bold text-white">Employee Profile</h1>
         </div>
 
         {/* Employee Info Card */}
-        <Card>
-          <CardHeader>
+        <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+          <div className="p-5">
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle className="text-xl">{employee.full_name}</CardTitle>
-                <p className="text-gray-600">{employee.email}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-xl font-bold text-white">{employee.full_name}</h2>
+                  <Badge className={getStatusBadge(employee.status)}>
+                    {employee.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-400">{employee.email}</p>
               </div>
-              <Badge className={getStatusColor(employee.status)}>
-                {employee.status}
-              </Badge>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Phone</p>
-                <p className="font-medium">{employee.phone || 'Not provided'}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Created</p>
-                <p className="font-medium">{format(new Date(employee.created_at), 'MMM d, yyyy')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Address</p>
-                <p className="font-medium">{employee.address || 'Not provided'}</p>
-              </div>
-              {employee.activated_at && (
+
+            <div className="mt-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Activated</p>
-                  <p className="font-medium">{format(new Date(employee.activated_at), 'MMM d, yyyy')}</p>
+                  <p className="text-xs text-gray-500 mb-0.5">Phone</p>
+                  <p className="text-sm text-gray-200">{employee.phone || 'Not provided'}</p>
                 </div>
-              )}
-            </div>
-
-            {/* Void Cheque */}
-            <div>
-              <p className="text-sm text-gray-500">Void Cheque</p>
-              {employee.void_cheque_url ? (
-                <a
-                  href={employee.void_cheque_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  View Document
-                </a>
-              ) : (
-                <p className="text-gray-400">Not uploaded</p>
-              )}
-            </div>
-
-            {/* Registration Information */}
-            {employee.notes && !employee.notes.startsWith('--- EMPLOYER NOTES ---') && (
-              <div>
-                <p className="text-sm text-gray-500 mb-2 font-semibold">Registration Information</p>
-                <div className="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  {(() => {
-                    const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
-                    const registrationPart = employee.notes.includes(employerNotesMarker)
-                      ? employee.notes.split(employerNotesMarker)[0]
-                      : employee.notes
-
-                    return registrationPart.split('\n').map((line, idx) => {
-                      const parts = line.split(': ')
-                      if (parts.length === 2) {
-                        return (
-                          <div key={idx} className="grid grid-cols-[160px_1fr] gap-3">
-                            <span className="text-sm font-semibold text-gray-700">{parts[0]}:</span>
-                            <span className="text-sm text-gray-900">{parts[1]}</span>
-                          </div>
-                        )
-                      }
-                      return null
-                    })
-                  })()}
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Created</p>
+                  <p className="text-sm text-gray-200">{format(new Date(employee.created_at), 'MMM d, yyyy')}</p>
                 </div>
-              </div>
-            )}
-
-            {/* Employer Notes */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-gray-500 font-semibold">Employer Notes</p>
-                {!editingNotes && (
-                  <Button variant="ghost" size="sm" onClick={() => setEditingNotes(true)}>
-                    {employerNotesValue ? 'Edit' : 'Add Notes'}
-                  </Button>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Address</p>
+                  <p className="text-sm text-gray-200">{employee.address || 'Not provided'}</p>
+                </div>
+                {employee.activated_at && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Activated</p>
+                    <p className="text-sm text-gray-200">{format(new Date(employee.activated_at), 'MMM d, yyyy')}</p>
+                  </div>
                 )}
               </div>
-              {editingNotes ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={employerNotesValue}
-                    onChange={(e) => setEmployerNotesValue(e.target.value)}
-                    placeholder="Add private notes about this employee (only visible to employer)..."
-                    rows={4}
-                    className="border-gray-300"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleSaveNotes}>Save</Button>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setEditingNotes(false)
-                      // Reset to saved value
-                      if (employee.notes) {
-                        const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
-                        if (employee.notes.includes(employerNotesMarker)) {
-                          setEmployerNotesValue(employee.notes.split(employerNotesMarker)[1] || '')
-                        } else {
-                          setEmployerNotesValue('')
+
+              {/* Void Cheque */}
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Void Cheque</p>
+                {employee.void_cheque_url ? (
+                  <a
+                    href={employee.void_cheque_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline text-sm"
+                  >
+                    View Document
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-400">Not uploaded</p>
+                )}
+              </div>
+
+              {/* Registration Information */}
+              {employee.notes && !employee.notes.startsWith('--- EMPLOYER NOTES ---') && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2 font-semibold">Registration Information</p>
+                  <div className="space-y-2 p-4 bg-white/5 rounded-lg border border-white/10">
+                    {(() => {
+                      const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
+                      const registrationPart = employee.notes.includes(employerNotesMarker)
+                        ? employee.notes.split(employerNotesMarker)[0]
+                        : employee.notes
+
+                      return registrationPart.split('\n').map((line, idx) => {
+                        const parts = line.split(': ')
+                        if (parts.length === 2) {
+                          return (
+                            <div key={idx} className="grid grid-cols-[160px_1fr] gap-3">
+                              <span className="text-sm font-semibold text-gray-400">{parts[0]}:</span>
+                              <span className="text-sm text-gray-200">{parts[1]}</span>
+                            </div>
+                          )
                         }
-                      }
-                    }}>
-                      Cancel
-                    </Button>
+                        return null
+                      })
+                    })()}
                   </div>
                 </div>
-              ) : (
-                <p className="text-gray-700 text-sm bg-gray-50 p-3 rounded-lg border border-gray-200 min-h-[60px]">
-                  {employerNotesValue || <span className="italic text-gray-400">No employer notes added yet</span>}
-                </p>
               )}
+
+              {/* Employer Notes */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-gray-500 font-semibold">Employer Notes</p>
+                  {!editingNotes && (
+                    <button
+                      onClick={() => setEditingNotes(true)}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs text-gray-300 hover:bg-white/10 transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      {employerNotesValue ? 'Edit' : 'Add Notes'}
+                    </button>
+                  )}
+                </div>
+                {editingNotes ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={employerNotesValue}
+                      onChange={(e) => setEmployerNotesValue(e.target.value)}
+                      placeholder="Add private notes about this employee (only visible to employer)..."
+                      rows={4}
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveNotes}
+                        className="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingNotes(false)
+                          // Reset to saved value
+                          if (employee.notes) {
+                            const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
+                            if (employee.notes.includes(employerNotesMarker)) {
+                              setEmployerNotesValue(employee.notes.split(employerNotesMarker)[1] || '')
+                            } else {
+                              setEmployerNotesValue('')
+                            }
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-300 p-3 bg-white/5 rounded-lg border border-white/10 min-h-[60px]">
+                    {employerNotesValue || <span className="italic text-gray-500">No employer notes added yet</span>}
+                  </p>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* Performance Metrics Card */}
+        <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+          <div className="p-5">
+            <h3 className="text-lg font-semibold text-white mb-4">Performance</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-white">{perfMetrics.totalCompleted}</p>
+                <p className="text-xs text-gray-400 mt-1">Jobs Completed</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-yellow-400">
+                  {perfMetrics.avgRating !== null ? perfMetrics.avgRating.toFixed(1) : '-'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Avg Rating</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-400">
+                  {perfMetrics.onTimeRate !== null ? `${Math.round(perfMetrics.onTimeRate)}%` : '-'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">On-time Rate</p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-blue-400">{perfMetrics.jobsThisMonth}</p>
+                <p className="text-xs text-gray-400 mt-1">This Month</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Login Credentials Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Login Credentials</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+          <div className="p-5">
+            <h3 className="text-lg font-semibold text-white mb-4">Login Credentials</h3>
+
             {credentialsLoading ? (
               <LoadingSpinner size="sm" />
             ) : employee.user_id && credentials ? (
-              // Has account - show credentials
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Username</p>
-                    <p className="font-medium font-mono">{credentials.username}</p>
+                    <p className="text-xs text-gray-500 mb-0.5">Username</p>
+                    <p className="text-sm font-mono text-gray-200">{credentials.username}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Password</p>
-                    <p className="font-medium text-gray-400">••••••••</p>
+                    <p className="text-xs text-gray-500 mb-0.5">Password</p>
+                    <p className="text-sm text-gray-400">••••••••</p>
                   </div>
                 </div>
 
                 {showPasswordForm ? (
-                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
-                    <Label>New Password</Label>
-                    <Input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password (min 6 chars)"
-                    />
+                  <div className="space-y-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-400">New Password</Label>
+                      <Input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Enter new password (min 6 chars)"
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
+                      />
+                    </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleUpdatePassword} disabled={passwordSaving}>
+                      <button
+                        onClick={handleUpdatePassword}
+                        disabled={passwordSaving}
+                        className="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
                         {passwordSaving ? 'Saving...' : 'Update Password'}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => {
-                        setShowPasswordForm(false)
-                        setNewPassword('')
-                      }}>
+                      </button>
+                      <button
+                        onClick={() => { setShowPasswordForm(false); setNewPassword('') }}
+                        className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+                      >
                         Cancel
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => setShowPasswordForm(true)}>
+                  <button
+                    onClick={() => setShowPasswordForm(true)}
+                    className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+                  >
                     Change Password
-                  </Button>
+                  </button>
                 )}
               </div>
             ) : (
-              // No account - show create option
               <div className="space-y-4">
-                <p className="text-gray-500">No login account linked to this employee.</p>
+                <p className="text-sm text-gray-400">No login account linked to this employee.</p>
 
                 {showCreateAccount ? (
-                  <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="space-y-2">
-                      <Label>Username</Label>
+                  <div className="space-y-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-400">Username</Label>
                       <Input
                         value={newAccountForm.username}
                         onChange={(e) => setNewAccountForm({ ...newAccountForm, username: e.target.value })}
                         placeholder="Enter username"
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Password</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-400">Password</Label>
                       <Input
                         type="password"
                         value={newAccountForm.password}
                         onChange={(e) => setNewAccountForm({ ...newAccountForm, password: e.target.value })}
                         placeholder="Enter password (min 6 chars)"
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleCreateAccount} disabled={accountCreating}>
+                      <button
+                        onClick={handleCreateAccount}
+                        disabled={accountCreating}
+                        className="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
                         {accountCreating ? 'Creating...' : 'Create Account'}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => {
-                        setShowCreateAccount(false)
-                        setNewAccountForm({ username: '', password: '' })
-                      }}>
+                      </button>
+                      <button
+                        onClick={() => { setShowCreateAccount(false); setNewAccountForm({ username: '', password: '' }) }}
+                        className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+                      >
                         Cancel
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <Button onClick={() => setShowCreateAccount(true)}>
+                  <button
+                    onClick={() => setShowCreateAccount(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  >
                     Create Login Account
-                  </Button>
+                  </button>
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Tabs for History, Evaluations, Strikes */}
-        <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="history">Job History ({jobHistory.length})</TabsTrigger>
-            <TabsTrigger value="evaluations">Evaluations ({evaluations.length})</TabsTrigger>
-            <TabsTrigger value="strikes">Strikes ({strikes.length})</TabsTrigger>
-          </TabsList>
+        {/* Tabs: Job History | Evaluations | Strikes */}
+        <div>
+          {/* Tab Headers */}
+          <div className="flex border-b border-white/10">
+            {([
+              { key: 'history' as const, label: 'Job History', count: jobHistory.length },
+              { key: 'evaluations' as const, label: 'Evaluations', count: evaluations.length },
+              { key: 'strikes' as const, label: 'Strikes', count: strikes.length },
+            ]).map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${
+                  activeTab === key
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {label} ({count})
+              </button>
+            ))}
+          </div>
 
-          {/* Job History */}
-          <TabsContent value="history" className="space-y-4 mt-4">
-            {jobHistory.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No job history</p>
-            ) : (
-              <div className="space-y-3">
-                {jobHistory.map((job) => (
-                  <Card key={job.id}>
-                    <CardContent className="py-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">{job.job_template?.title || 'Unknown Job'}</p>
-                          <p className="text-sm text-gray-500 font-mono">{job.full_job_code}</p>
-                          {job.job_template?.address && (
-                            <p className="text-sm text-gray-500">{job.job_template.address}</p>
-                          )}
-                          {job.scheduled_date && (
-                            <p className="text-sm text-gray-500">
-                              {format(new Date(job.scheduled_date), 'MMM d, yyyy')}
-                              {job.scheduled_time && ` at ${job.scheduled_time}`}
-                            </p>
-                          )}
+          {/* Job History Tab */}
+          {activeTab === 'history' && (
+            <div className="mt-4 space-y-3">
+              {jobHistory.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No job history</p>
+              ) : (
+                jobHistory.map((job) => (
+                  <div key={job.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                            {job.full_job_code}
+                          </span>
+                          <Badge className={getSessionStatusBadge(job.status)}>
+                            {job.status}
+                          </Badge>
                         </div>
-                        <Badge className={getSessionStatusColor(job.status)}>
-                          {job.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Evaluations */}
-          <TabsContent value="evaluations" className="space-y-4 mt-4">
-            {evaluations.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No evaluations yet</p>
-            ) : (
-              <div className="space-y-3">
-                {evaluations.map((evaluation) => (
-                  <Card key={evaluation.id}>
-                    <CardContent className="py-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-lg font-bold">{evaluation.rating}/5</span>
-                            <span className="text-yellow-500">
-                              {'★'.repeat(evaluation.rating)}{'☆'.repeat(5 - evaluation.rating)}
-                            </span>
-                          </div>
-                          {evaluation.comment && (
-                            <p className="text-gray-600">{evaluation.comment}</p>
-                          )}
-                          <p className="text-sm text-gray-400 mt-1">
-                            {format(new Date(evaluation.created_at), 'MMM d, yyyy')}
+                        <p className="font-medium text-white">{job.job_template?.title || 'Unknown Job'}</p>
+                        {job.job_template?.address && (
+                          <p className="text-xs text-gray-400 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {job.job_template.address}
                           </p>
-                        </div>
+                        )}
+                        {job.scheduled_date && (
+                          <p className="text-xs text-gray-500">
+                            {format(new Date(job.scheduled_date), 'MMM d, yyyy')}
+                            {job.scheduled_time && ` at ${job.scheduled_time}`}
+                          </p>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Strikes */}
-          <TabsContent value="strikes" className="space-y-4 mt-4">
-            <div className="flex justify-end">
-              <Dialog open={strikeDialogOpen} onOpenChange={setStrikeDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" size="sm">Add Strike</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add Strike</DialogTitle>
-                    <DialogDescription>
-                      Record a strike for {employee.full_name}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Severity</Label>
-                      <Select
-                        value={strikeForm.severity}
-                        onValueChange={(v) => setStrikeForm({ ...strikeForm, severity: v as typeof strikeForm.severity })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MINOR">Minor</SelectItem>
-                          <SelectItem value="MAJOR">Major</SelectItem>
-                          <SelectItem value="CRITICAL">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Description *</Label>
-                      <Input
-                        value={strikeForm.description}
-                        onChange={(e) => setStrikeForm({ ...strikeForm, description: e.target.value })}
-                        placeholder="What happened?"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Notes (optional)</Label>
-                      <Textarea
-                        value={strikeForm.notes}
-                        onChange={(e) => setStrikeForm({ ...strikeForm, notes: e.target.value })}
-                        placeholder="Additional details..."
-                        rows={3}
-                      />
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setStrikeDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant="destructive" onClick={handleAddStrike} disabled={submitting}>
-                      {submitting ? 'Adding...' : 'Add Strike'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                ))
+              )}
             </div>
+          )}
 
-            {strikes.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No strikes recorded</p>
-            ) : (
-              <div className="space-y-3">
-                {strikes.map((strike) => (
-                  <Card key={strike.id}>
-                    <CardContent className="py-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge className={getSeverityColor(strike.severity)}>
-                              {strike.severity}
-                            </Badge>
-                            <span className="text-sm text-gray-400">
-                              {format(new Date(strike.created_at), 'MMM d, yyyy')}
-                            </span>
-                          </div>
-                          <p className="font-medium">{strike.description}</p>
-                          {strike.notes && (
-                            <p className="text-sm text-gray-600 mt-1">{strike.notes}</p>
-                          )}
-                        </div>
+          {/* Evaluations Tab */}
+          {activeTab === 'evaluations' && (
+            <div className="mt-4 space-y-3">
+              {evaluations.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No evaluations yet</p>
+              ) : (
+                evaluations.map((evaluation) => (
+                  <div key={evaluation.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg font-bold text-white">{evaluation.rating}/5</span>
+                      <span className="text-yellow-400">
+                        {'★'.repeat(evaluation.rating)}{'☆'.repeat(5 - evaluation.rating)}
+                      </span>
+                    </div>
+                    {evaluation.comment && (
+                      <p className="text-sm text-gray-300">{evaluation.comment}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">
+                      {format(new Date(evaluation.created_at), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Strikes Tab */}
+          {activeTab === 'strikes' && (
+            <div className="mt-4 space-y-3">
+              <div className="flex justify-end">
+                <Dialog open={strikeDialogOpen} onOpenChange={setStrikeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Add Strike
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
+                    <DialogHeader>
+                      <DialogTitle className="text-white">Add Strike</DialogTitle>
+                      <DialogDescription className="text-gray-400">
+                        Record a strike for {employee.full_name}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-400">Severity</Label>
+                        <Select
+                          value={strikeForm.severity}
+                          onValueChange={(v) => setStrikeForm({ ...strikeForm, severity: v as typeof strikeForm.severity })}
+                        >
+                          <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-800 border-white/20">
+                            <SelectItem value="MINOR" className="text-yellow-300 hover:bg-white/10">Minor</SelectItem>
+                            <SelectItem value="MAJOR" className="text-orange-300 hover:bg-white/10">Major</SelectItem>
+                            <SelectItem value="CRITICAL" className="text-red-300 hover:bg-white/10">Critical</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-400">Description *</Label>
+                        <Input
+                          value={strikeForm.description}
+                          onChange={(e) => setStrikeForm({ ...strikeForm, description: e.target.value })}
+                          placeholder="What happened?"
+                          className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-400">Notes (optional)</Label>
+                        <Textarea
+                          value={strikeForm.notes}
+                          onChange={(e) => setStrikeForm({ ...strikeForm, notes: e.target.value })}
+                          placeholder="Additional details..."
+                          rows={3}
+                          className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setStrikeDialogOpen(false)}
+                        className="px-4 py-2 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleAddStrike}
+                        disabled={submitting}
+                        className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      >
+                        {submitting ? 'Adding...' : 'Add Strike'}
+                      </button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+
+              {strikes.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No strikes recorded</p>
+              ) : (
+                strikes.map((strike) => (
+                  <div key={strike.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className={getSeverityBadge(strike.severity)}>
+                        {strike.severity}
+                      </Badge>
+                      <span className="text-xs text-gray-500">
+                        {format(new Date(strike.created_at), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-white">{strike.description}</p>
+                    {strike.notes && (
+                      <p className="text-xs text-gray-400 mt-1">{strike.notes}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -7,6 +8,13 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function POST(request: NextRequest) {
   try {
+    // Auth check: verify caller is authenticated
+    const serverSupabase = await createServerSupabaseClient()
+    const { data: { user: caller }, error: authCheckError } = await serverSupabase.auth.getUser()
+    if (authCheckError || !caller) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { user_id } = body
 
