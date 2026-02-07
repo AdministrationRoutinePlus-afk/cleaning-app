@@ -40,7 +40,7 @@ export default function EmployerUsersPage() {
   // State
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [employeeJobs, setEmployeeJobs] = useState<Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null }>>>(new Map())
+  const [employeeJobs, setEmployeeJobs] = useState<Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null; address: string | null }>>>(new Map())
   const [loading, setLoading] = useState(true)
   const [activeMainTab, setActiveMainTab] = useState<'employees' | 'customers'>('employees')
   const [employeeTab, setEmployeeTab] = useState<'active' | 'pending' | 'inactive'>('active')
@@ -97,13 +97,13 @@ export default function EmployerUsersPage() {
         .from('job_sessions')
         .select(`
           id, assigned_to, status, full_job_code, scheduled_date, scheduled_time,
-          job_template:job_templates(title, customer:customers(full_name))
+          job_template:job_templates(title, address, customer:customers(full_name))
         `)
         .not('assigned_to', 'is', null)
 
       if (jobSessionsError) throw jobSessionsError
 
-      const jobsMap = new Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null }>>()
+      const jobsMap = new Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null; address: string | null }>>()
       for (const session of jobSessionsData || []) {
         if (!session.assigned_to) continue
         if (!jobsMap.has(session.assigned_to)) {
@@ -118,6 +118,7 @@ export default function EmployerUsersPage() {
           scheduled_time: session.scheduled_time,
           title: template?.title || 'Untitled',
           customer_name: template?.customer?.full_name || null,
+          address: template?.address || null,
         })
       }
       setEmployeeJobs(jobsMap)

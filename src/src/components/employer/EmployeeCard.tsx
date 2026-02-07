@@ -9,7 +9,7 @@ import type { Employee } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
-import { User, ShieldOff, Eye, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon } from 'lucide-react'
 
 export interface EmployeeJob {
   id: string
@@ -19,6 +19,7 @@ export interface EmployeeJob {
   scheduled_time: string | null
   title: string
   customer_name: string | null
+  address: string | null
 }
 
 interface EmployeeCardProps {
@@ -31,19 +32,19 @@ interface EmployeeCardProps {
   onViewProfile?: (employee: Employee) => void
 }
 
-const JOB_STATUS_CONFIG: { key: string; label: string; dotColor: string; textColor: string }[] = [
-  { key: 'OFFERED', label: 'Open', dotColor: 'bg-gray-500', textColor: 'text-gray-300' },
-  { key: 'CLAIMED', label: 'Claimed', dotColor: 'bg-yellow-500', textColor: 'text-yellow-300' },
-  { key: 'APPROVED', label: 'Approved', dotColor: 'bg-blue-500', textColor: 'text-blue-300' },
-  { key: 'IN_PROGRESS', label: 'In Progress', dotColor: 'bg-purple-500', textColor: 'text-purple-300' },
-  { key: 'COMPLETED', label: 'Completed', dotColor: 'bg-green-500', textColor: 'text-green-300' },
-  { key: 'EVALUATED', label: 'Evaluated', dotColor: 'bg-teal-500', textColor: 'text-teal-300' },
-  { key: 'CANCELLED', label: 'Cancelled', dotColor: 'bg-red-500', textColor: 'text-red-300' },
-  { key: 'MISSED', label: 'Missed', dotColor: 'bg-red-500', textColor: 'text-red-300' },
+const JOB_STATUS_CONFIG: { key: string; label: string; badgeBg: string; badgeText: string; tabActiveBg: string }[] = [
+  { key: 'OFFERED', label: 'Open', badgeBg: 'bg-gray-500/20', badgeText: 'text-gray-300', tabActiveBg: 'bg-gray-600' },
+  { key: 'CLAIMED', label: 'To Confirm', badgeBg: 'bg-yellow-500/20', badgeText: 'text-yellow-300', tabActiveBg: 'bg-yellow-600' },
+  { key: 'APPROVED', label: 'Scheduled', badgeBg: 'bg-blue-500/20', badgeText: 'text-blue-300', tabActiveBg: 'bg-blue-600' },
+  { key: 'IN_PROGRESS', label: 'In Progress', badgeBg: 'bg-purple-500/20', badgeText: 'text-purple-300', tabActiveBg: 'bg-purple-600' },
+  { key: 'COMPLETED', label: 'Completed', badgeBg: 'bg-green-500/20', badgeText: 'text-green-300', tabActiveBg: 'bg-green-600' },
+  { key: 'EVALUATED', label: 'Evaluated', badgeBg: 'bg-teal-500/20', badgeText: 'text-teal-300', tabActiveBg: 'bg-teal-600' },
+  { key: 'CANCELLED', label: 'Cancelled', badgeBg: 'bg-red-500/20', badgeText: 'text-red-300', tabActiveBg: 'bg-red-600' },
+  { key: 'MISSED', label: 'Missed', badgeBg: 'bg-red-500/20', badgeText: 'text-red-300', tabActiveBg: 'bg-red-600' },
 ]
 
 function getStatusConfig(status: string) {
-  return JOB_STATUS_CONFIG.find(s => s.key === status) || { key: status, label: status, dotColor: 'bg-gray-500', textColor: 'text-gray-300' }
+  return JOB_STATUS_CONFIG.find(s => s.key === status) || JOB_STATUS_CONFIG[0]
 }
 
 export function EmployeeCard({
@@ -55,7 +56,7 @@ export function EmployeeCard({
   onBlock,
   onViewProfile
 }: EmployeeCardProps) {
-  const [expandedStatus, setExpandedStatus] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string | null>(null)
 
   const getStatusBadge = (status: Employee['status']) => {
     switch (status) {
@@ -72,19 +73,22 @@ export function EmployeeCard({
     }
   }
 
-  // Build counts and group jobs by status
-  const jobCounts: Record<string, number> = {}
+  // Group jobs by status
   const jobsByStatus: Record<string, EmployeeJob[]> = {}
   if (jobs) {
     for (const job of jobs) {
-      jobCounts[job.status] = (jobCounts[job.status] || 0) + 1
       if (!jobsByStatus[job.status]) jobsByStatus[job.status] = []
       jobsByStatus[job.status].push(job)
     }
   }
 
   const hasJobs = jobs && jobs.length > 0
-  const activeStatuses = JOB_STATUS_CONFIG.filter(s => jobCounts[s.key] && jobCounts[s.key] > 0)
+  const activeStatuses = JOB_STATUS_CONFIG.filter(s => jobsByStatus[s.key]?.length > 0)
+
+  // Auto-select first tab if none selected
+  const selectedTab = activeTab && jobsByStatus[activeTab] ? activeTab : activeStatuses[0]?.key || null
+  const selectedConfig = selectedTab ? getStatusConfig(selectedTab) : null
+  const selectedJobs = selectedTab ? jobsByStatus[selectedTab] || [] : []
 
   return (
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 overflow-hidden w-full">
@@ -103,57 +107,82 @@ export function EmployeeCard({
         </div>
       </div>
       <div className="px-4 pb-3 space-y-3">
-        {/* Job Status Counts - clickable to expand */}
-        <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+        {/* Jobs Section */}
+        <div className="bg-gray-800/60 rounded-xl border border-white/10 overflow-hidden">
           {hasJobs ? (
-            <div>
-              <div className="flex flex-wrap gap-1.5 p-2">
-                {activeStatuses.map(s => (
-                  <button
-                    key={s.key}
-                    onClick={() => setExpandedStatus(expandedStatus === s.key ? null : s.key)}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors cursor-pointer ${
-                      expandedStatus === s.key
-                        ? 'bg-white/15 ring-1 ring-white/20'
-                        : 'bg-white/5 hover:bg-white/10'
-                    } ${s.textColor}`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${s.dotColor}`} />
-                    {jobCounts[s.key]} {s.label}
-                    {expandedStatus === s.key ? (
-                      <ChevronUp className="w-3 h-3 ml-0.5" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3 ml-0.5" />
-                    )}
-                  </button>
-                ))}
+            <>
+              {/* Status Tabs */}
+              <div className="flex gap-1.5 p-2 overflow-x-auto">
+                {activeStatuses.map(s => {
+                  const count = jobsByStatus[s.key]?.length || 0
+                  const isActive = selectedTab === s.key
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => setActiveTab(s.key)}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        isActive
+                          ? `${s.tabActiveBg} text-white shadow-lg`
+                          : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                      }`}
+                    >
+                      {s.label}
+                      {count > 0 && (
+                        <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
+                          isActive ? 'bg-white/20' : 'bg-white/10'
+                        }`}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
 
-              {/* Expanded job details */}
-              {expandedStatus && jobsByStatus[expandedStatus] && (
-                <div className="border-t border-white/10 px-2 py-1.5 space-y-1 max-h-48 overflow-y-auto">
-                  {jobsByStatus[expandedStatus].map(job => (
-                    <div key={job.id} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/5 text-xs">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{job.title}</p>
-                        <div className="flex items-center gap-2 text-gray-400">
-                          {job.full_job_code && <span>{job.full_job_code}</span>}
-                          {job.customer_name && <span>{job.customer_name}</span>}
+              {/* Job Cards */}
+              {selectedTab && selectedJobs.length > 0 && (
+                <div className="px-2 pb-2 space-y-2 max-h-64 overflow-y-auto">
+                  {selectedJobs.map(job => (
+                    <div key={job.id} className="bg-gray-900/60 rounded-lg p-3 border-l-2 border-white/20 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-white font-bold text-sm">{job.full_job_code || '---'}</p>
+                          <p className="text-gray-400 text-xs">{job.title}</p>
                         </div>
+                        {selectedConfig && (
+                          <Badge className={`${selectedConfig.badgeBg} ${selectedConfig.badgeText} border-0 text-[10px] shrink-0`}>
+                            {selectedConfig.label}
+                          </Badge>
+                        )}
                       </div>
                       {job.scheduled_date && (
-                        <span className="text-gray-400 ml-2 shrink-0">
-                          {format(new Date(job.scheduled_date + 'T00:00:00'), 'MMM d')}
-                          {job.scheduled_time && ` ${job.scheduled_time.slice(0, 5)}`}
-                        </span>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <Calendar className="w-3 h-3 shrink-0" />
+                          <span>
+                            {format(new Date(job.scheduled_date + 'T00:00:00'), 'MMM d, yyyy')}
+                            {job.scheduled_time && `  at ${job.scheduled_time.slice(0, 5)}`}
+                          </span>
+                        </div>
+                      )}
+                      {job.address && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{job.address}</span>
+                        </div>
+                      )}
+                      {job.customer_name && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <UserIcon className="w-3 h-3 shrink-0" />
+                          <span>{job.customer_name}</span>
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </>
           ) : (
-            <p className="text-xs text-gray-500 text-center p-2">No jobs assigned</p>
+            <p className="text-xs text-gray-500 text-center py-3">No jobs assigned</p>
           )}
         </div>
 
