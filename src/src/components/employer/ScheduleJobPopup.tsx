@@ -452,6 +452,29 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     }
   }
 
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to permanently delete this session? This cannot be undone.')) return
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .delete()
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      toast.success('Session deleted')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error deleting session:', error)
+      toast.error('Failed to delete session')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleRecoverCancel = async () => {
     if (!confirm('Are you sure you want to cancel this session? It will not be rescheduled.')) return
 
@@ -508,9 +531,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
         <div className="space-y-4">
           {/* Job Details */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-2">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
             <h3 className="font-semibold text-lg text-white">Job Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="text-gray-400">
                 <span className="font-medium text-gray-300">Job Code:</span> {jobSession.job_template.job_code}
               </div>
@@ -522,39 +545,55 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                   <span className="font-medium text-gray-300">Customer:</span> {(jobSession.job_template as any).customer.full_name}
                 </div>
               )}
-              {jobSession.scheduled_date && (
-                <div className="col-span-2">
-                  <div className="bg-blue-500/10 p-3 rounded border border-blue-500/20">
-                    <span className="font-medium text-blue-400 block mb-2">Time Window</span>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">Start:</span>
-                        <span className="text-gray-300 font-medium">
-                          {jobSession.job_template.window_start_day && (
-                            <span className="text-blue-300 mr-1">
-                              {({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_start_day] || jobSession.job_template.window_start_day}
-                            </span>
-                          )}
-                          {formatDate(jobSession.scheduled_date)}
-                          {jobSession.job_template.time_window_start && ` at ${formatTime(jobSession.job_template.time_window_start)}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500">End:</span>
-                        <span className="text-gray-300 font-medium">
-                          {jobSession.job_template.window_end_day && (
-                            <span className="text-blue-300 mr-1">
-                              {({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_end_day] || jobSession.job_template.window_end_day}
-                            </span>
-                          )}
-                          {formatDate(jobSession.scheduled_end_date || jobSession.scheduled_date)}
-                          {jobSession.job_template.time_window_end && ` at ${formatTime(jobSession.job_template.time_window_end)}`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+            </div>
+
+            {/* Scheduled Date & Time - always show from session data */}
+            <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-400 font-medium">Scheduled Date</span>
+                <span className="text-white font-medium">
+                  {jobSession.scheduled_date
+                    ? format(new Date(jobSession.scheduled_date + 'T12:00:00'), 'EEE, MMM d, yyyy')
+                    : 'Not set'}
+                </span>
+              </div>
+              {jobSession.scheduled_end_date && jobSession.scheduled_end_date !== jobSession.scheduled_date && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-blue-400 font-medium">End Date</span>
+                  <span className="text-white font-medium">
+                    {format(new Date(jobSession.scheduled_end_date + 'T12:00:00'), 'EEE, MMM d, yyyy')}
+                  </span>
                 </div>
               )}
+              {jobSession.scheduled_time && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-blue-400 font-medium">Time</span>
+                  <span className="text-white font-medium">{formatTime(jobSession.scheduled_time)}</span>
+                </div>
+              )}
+              {(jobSession.job_template.time_window_start || jobSession.job_template.time_window_end) && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-blue-400 font-medium">Time Window</span>
+                  <span className="text-white font-medium">
+                    {jobSession.job_template.time_window_start && formatTime(jobSession.job_template.time_window_start)}
+                    {jobSession.job_template.time_window_start && jobSession.job_template.time_window_end && ' — '}
+                    {jobSession.job_template.time_window_end && formatTime(jobSession.job_template.time_window_end)}
+                  </span>
+                </div>
+              )}
+              {(jobSession.job_template.window_start_day || jobSession.job_template.window_end_day) && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-blue-400 font-medium">Day Window</span>
+                  <span className="text-white font-medium">
+                    {jobSession.job_template.window_start_day && (({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_start_day] || jobSession.job_template.window_start_day)}
+                    {jobSession.job_template.window_start_day && jobSession.job_template.window_end_day && ' — '}
+                    {jobSession.job_template.window_end_day && (({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_end_day] || jobSession.job_template.window_end_day)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-sm">
               {jobSession.job_template.duration_minutes && (
                 <div className="text-gray-400">
                   <span className="font-medium text-gray-300">Duration:</span> {jobSession.job_template.duration_minutes} min
@@ -574,15 +613,13 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               )}
             </div>
             {jobSession.job_template.address && (
-              <div className="pt-2 text-gray-400">
-                <span className="font-medium text-gray-300">Address:</span>
-                <p>{jobSession.job_template.address}</p>
+              <div className="text-sm text-gray-400">
+                <span className="font-medium text-gray-300">Address:</span> {jobSession.job_template.address}
               </div>
             )}
             {jobSession.job_template.description && (
-              <div className="pt-2 text-gray-400">
-                <span className="font-medium text-gray-300">Description:</span>
-                <p>{jobSession.job_template.description}</p>
+              <div className="text-sm text-gray-400">
+                <span className="font-medium text-gray-300">Description:</span> {jobSession.job_template.description}
               </div>
             )}
           </div>
@@ -1033,6 +1070,13 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                     className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
                   >
                     {loading ? 'Cancelling...' : 'Cancel Session'}
+                  </Button>
+                  <Button
+                    onClick={handleDelete}
+                    disabled={loading}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {loading ? 'Deleting...' : 'Delete'}
                   </Button>
                 </>
               )}
