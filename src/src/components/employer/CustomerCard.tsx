@@ -4,6 +4,7 @@ import type { Customer } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Building2, Edit2, Eye, ShieldOff } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface CustomerCardProps {
   customer: Customer
@@ -20,14 +21,15 @@ export function CustomerCard({
   onBlock,
   onViewJobs
 }: CustomerCardProps) {
+  const { t } = useTranslation()
   const getStatusBadge = (status: Customer['status']) => {
     switch (status) {
       case 'ACTIVE':
-        return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">ACTIVE</Badge>
+        return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">{t('ACTIVE')}</Badge>
       case 'INACTIVE':
-        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">INACTIVE</Badge>
+        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{t('INACTIVE')}</Badge>
       case 'BLOCKED':
-        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">BLOCKED</Badge>
+        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">{t('BLOCKED')}</Badge>
       default:
         return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{status}</Badge>
     }
@@ -57,8 +59,8 @@ export function CustomerCard({
       <div className="px-4 pb-3 space-y-3">
         {(customer.phone || customer.address) && (
           <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20 space-y-1">
-            {customer.phone && <p className="text-sm text-gray-300">Phone: {customer.phone}</p>}
-            {customer.address && <p className="text-sm text-gray-300">Address: {customer.address}</p>}
+            {customer.phone && <p className="text-sm text-gray-300">{t('Phone:')} {customer.phone}</p>}
+            {customer.address && <p className="text-sm text-gray-300">{t('Address:')} {customer.address}</p>}
           </div>
         )}
 
@@ -70,7 +72,7 @@ export function CustomerCard({
               className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               <Edit2 className="w-3 h-3 mr-1" />
-              Edit
+              {t('Edit')}
             </Button>
           )}
           {customer.status === 'ACTIVE' && onDeactivate && (
@@ -79,7 +81,7 @@ export function CustomerCard({
               onClick={() => onDeactivate(customer)}
               className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
-              Deactivate
+              {t('Deactivate')}
             </Button>
           )}
           {customer.status !== 'BLOCKED' && onBlock && (
@@ -89,7 +91,7 @@ export function CustomerCard({
               className="flex-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
             >
               <ShieldOff className="w-3 h-3 mr-1" />
-              Block
+              {t('Block')}
             </Button>
           )}
           {onViewJobs && (
@@ -99,7 +101,7 @@ export function CustomerCard({
               className="flex-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30"
             >
               <Eye className="w-3 h-3 mr-1" />
-              View Jobs
+              {t('View Jobs')}
             </Button>
           )}
         </div>

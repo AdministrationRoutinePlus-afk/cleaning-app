@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { Send, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export function QuickMessageCard() {
+  const { t } = useTranslation()
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -119,7 +121,7 @@ export function QuickMessageCard() {
       setTimeout(() => setSent(false), 3000)
     } catch (error) {
       console.error('Error sending message:', error)
-      toast.error('Failed to send message')
+      toast.error(t('Failed to send message'))
     } finally {
       setSending(false)
     }
@@ -130,7 +132,7 @@ export function QuickMessageCard() {
       <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type a quick message to your boss..."
+        placeholder={t('Type a quick message to your boss...')}
         className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 resize-none min-h-[80px]"
         disabled={sending || !conversationId}
       />
@@ -138,7 +140,7 @@ export function QuickMessageCard() {
         {sent ? (
           <div className="flex items-center gap-2 text-green-400 text-sm">
             <Check className="w-4 h-4" />
-            Message sent!
+            {t('Message sent!')}
           </div>
         ) : (
           <div></div>
@@ -149,18 +151,18 @@ export function QuickMessageCard() {
           className="bg-blue-500 hover:bg-blue-600 text-white"
         >
           {sending ? (
-            'Sending...'
+            t('Sending...')
           ) : (
             <>
               <Send className="w-4 h-4 mr-2" />
-              Send
+              {t('Send')}
             </>
           )}
         </Button>
       </div>
       {!conversationId && (
         <p className="text-xs text-amber-400">
-          Chat not available. Contact your administrator.
+          {t('Chat not available. Contact your administrator.')}
         </p>
       )}
     </div>

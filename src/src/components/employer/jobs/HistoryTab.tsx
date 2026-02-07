@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 const PAGE_SIZE = 25
 
@@ -56,6 +57,7 @@ interface HistoryTabProps {
 }
 
 export function HistoryTab({ employerId }: HistoryTabProps) {
+  const { t } = useTranslation()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const isMountedRef = useRef(true)
@@ -228,7 +230,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
       allFilteredJobsRef.current = jobsWithEvaluations
     } catch (error) {
       console.error('Error fetching data:', error)
-      toast.error('Failed to load job history')
+      toast.error(t('Failed to load job history'))
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
@@ -255,7 +257,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
   const handleExportCSV = () => {
     const allJobs = allFilteredJobsRef.current
     if (allJobs.length === 0) {
-      toast.error('No data to export')
+      toast.error(t('No data to export'))
       return
     }
 
@@ -294,7 +296,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    toast.success(`Exported ${allJobs.length} record${allJobs.length !== 1 ? 's' : ''}`)
+    toast.success(`${t('Exported')} ${allJobs.length} ${allJobs.length !== 1 ? t('records') : t('record')}`)
   }
 
   const getStatusBadge = (status: string) => {
@@ -332,7 +334,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Search..."
+            placeholder={t('Search...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8 h-9 text-sm bg-white/5 border-white/20 text-white placeholder:text-gray-500"
@@ -343,7 +345,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
           size="sm"
           onClick={handleExportCSV}
           className="h-9 border-white/20 text-gray-300 hover:bg-white/10"
-          title="Export CSV"
+          title={t('Export CSV')}
         >
           <Download className="h-4 w-4" />
         </Button>
@@ -364,23 +366,23 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t('Status')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="" className="text-white hover:bg-white/10">All</SelectItem>
-                <SelectItem value="COMPLETED" className="text-white hover:bg-white/10">Completed</SelectItem>
-                <SelectItem value="EVALUATED" className="text-white hover:bg-white/10">Evaluated</SelectItem>
-                <SelectItem value="CANCELLED" className="text-white hover:bg-white/10">Cancelled</SelectItem>
-                <SelectItem value="REFUSED" className="text-white hover:bg-white/10">Refused</SelectItem>
-                <SelectItem value="MISSED" className="text-white hover:bg-white/10">Missed</SelectItem>
+                <SelectItem value="" className="text-white hover:bg-white/10">{t('All')}</SelectItem>
+                <SelectItem value="COMPLETED" className="text-white hover:bg-white/10">{t('Completed')}</SelectItem>
+                <SelectItem value="EVALUATED" className="text-white hover:bg-white/10">{t('Evaluated')}</SelectItem>
+                <SelectItem value="CANCELLED" className="text-white hover:bg-white/10">{t('Cancelled')}</SelectItem>
+                <SelectItem value="REFUSED" className="text-white hover:bg-white/10">{t('Refused')}</SelectItem>
+                <SelectItem value="MISSED" className="text-white hover:bg-white/10">{t('Missed')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCustomer} onValueChange={setFilterCustomer}>
               <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Customer" />
+                <SelectValue placeholder={t('Customer')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="" className="text-white hover:bg-white/10">All</SelectItem>
+                <SelectItem value="" className="text-white hover:bg-white/10">{t('All')}</SelectItem>
                 {customers.map(c => (
                   <SelectItem key={c.id} value={c.id} className="text-white hover:bg-white/10">{c.full_name}</SelectItem>
                 ))}
@@ -388,10 +390,10 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             </Select>
             <Select value={filterEmployee} onValueChange={setFilterEmployee}>
               <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Employee" />
+                <SelectValue placeholder={t('Employee')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="" className="text-white hover:bg-white/10">All</SelectItem>
+                <SelectItem value="" className="text-white hover:bg-white/10">{t('All')}</SelectItem>
                 {employees.map(e => (
                   <SelectItem key={e.id} value={e.id} className="text-white hover:bg-white/10">{e.full_name}</SelectItem>
                 ))}
@@ -399,12 +401,12 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             </Select>
             <Select value={filterRating} onValueChange={setFilterRating}>
               <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Rating" />
+                <SelectValue placeholder={t('Rating')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="" className="text-white hover:bg-white/10">Any</SelectItem>
+                <SelectItem value="" className="text-white hover:bg-white/10">{t('Any')}</SelectItem>
                 {[5, 4, 3, 2, 1].map(r => (
-                  <SelectItem key={r} value={r.toString()} className="text-white hover:bg-white/10">{r} star</SelectItem>
+                  <SelectItem key={r} value={r.toString()} className="text-white hover:bg-white/10">{r} {t('star')}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -426,31 +428,31 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             />
             <Select value={filterHasReview} onValueChange={setFilterHasReview}>
               <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Review" />
+                <SelectValue placeholder={t('Review')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="" className="text-white hover:bg-white/10">All</SelectItem>
-                <SelectItem value="yes" className="text-white hover:bg-white/10">Has review</SelectItem>
-                <SelectItem value="no" className="text-white hover:bg-white/10">No review</SelectItem>
+                <SelectItem value="" className="text-white hover:bg-white/10">{t('All')}</SelectItem>
+                <SelectItem value="yes" className="text-white hover:bg-white/10">{t('Has review')}</SelectItem>
+                <SelectItem value="no" className="text-white hover:bg-white/10">{t('No review')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-              <X className="h-3 w-3" /> Clear filters
+              <X className="h-3 w-3" /> {t('Clear filters')}
             </button>
           )}
         </div>
       )}
 
       {/* Results Count */}
-      <div className="text-sm text-gray-500">{totalCount} result{totalCount !== 1 ? 's' : ''}</div>
+      <div className="text-sm text-gray-500">{totalCount} {totalCount !== 1 ? t('results') : t('result')}</div>
 
       {/* Jobs List */}
       <div className="space-y-2">
         {jobs.length === 0 ? (
           <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center text-gray-400 text-sm">
-            {hasActiveFilters ? 'No matches' : 'No history yet'}
+            {hasActiveFilters ? t('No matches') : t('No history yet')}
           </div>
         ) : (
           jobs.map(job => (
@@ -477,7 +479,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
                     </Badge>
                   </div>
                   <div className="text-xs text-gray-500 truncate">
-                    {job.job_template.customer?.full_name || 'No customer'}
+                    {job.job_template.customer?.full_name || t('No customer')}
                     {job.employee && ` · ${job.employee.full_name}`}
                   </div>
                 </div>
@@ -504,19 +506,19 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
                   <div className="grid grid-cols-2 gap-2 text-xs pt-2">
                     {job.job_template.description && (
                       <div className="col-span-2">
-                        <span className="text-gray-500">Description:</span>{' '}
+                        <span className="text-gray-500">{t('Description:')}</span>{' '}
                         <span className="text-gray-300">{job.job_template.description}</span>
                       </div>
                     )}
                     {job.job_template.address && (
                       <div className="col-span-2">
-                        <span className="text-gray-500">Address:</span>{' '}
+                        <span className="text-gray-500">{t('Address:')}</span>{' '}
                         <span className="text-gray-300">{job.job_template.address}</span>
                       </div>
                     )}
                     {job.completed_at && (
                       <div>
-                        <span className="text-gray-500">Completed:</span>{' '}
+                        <span className="text-gray-500">{t('Completed:')}</span>{' '}
                         <span className="text-gray-300">{format(parseISO(job.completed_at), 'MMM d, h:mm a')}</span>
                       </div>
                     )}
@@ -549,10 +551,10 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             className="h-8 bg-white/5 border-white/20 text-gray-300 hover:bg-white/10 disabled:opacity-40"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Previous
+            {t('Previous')}
           </Button>
           <span className="text-sm text-gray-400">
-            Page {currentPage} of {totalPages}
+            {t('Page')} {currentPage} {t('of')} {totalPages}
           </span>
           <Button
             variant="outline"
@@ -561,7 +563,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             disabled={currentPage >= totalPages}
             className="h-8 bg-white/5 border-white/20 text-gray-300 hover:bg-white/10 disabled:opacity-40"
           >
-            Next
+            {t('Next')}
             <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         </div>

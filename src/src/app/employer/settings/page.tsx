@@ -11,8 +11,10 @@ import { AccountSettings } from '@/components/employer/AccountSettings'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export default function EmployerSettingsPage() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [employerId, setEmployerId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string>('')
@@ -101,7 +103,7 @@ export default function EmployerSettingsPage() {
       setCompanyInfo(companyData || null)
     } catch (error) {
       console.error('Error loading settings:', error)
-      toast.error('Failed to load settings')
+      toast.error(t('Failed to load settings'))
     } finally {
       setLoading(false)
     }
@@ -288,7 +290,7 @@ export default function EmployerSettingsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg font-medium text-red-400">Failed to load settings</div>
+          <div className="text-lg font-medium text-red-400">{t('Failed to load settings')}</div>
         </div>
       </div>
     )
@@ -297,15 +299,15 @@ export default function EmployerSettingsPage() {
   return (
     <div className="min-h-screen p-4 pb-20">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">{t('Settings')}</h1>
         <p className="text-gray-400 mb-6">
-          Manage your account, notifications, and company information
+          {t('Manage your account, notifications, and company information')}
         </p>
 
         <Accordion type="single" collapsible className="space-y-4">
           <AccordionItem value="appearance" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold text-white">App Appearance</span>
+              <span className="text-lg font-semibold text-white">{t('App Appearance')}</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AppearanceSettings
@@ -321,7 +323,7 @@ export default function EmployerSettingsPage() {
 
           <AccordionItem value="notifications" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold text-white">Notifications</span>
+              <span className="text-lg font-semibold text-white">{t('Notifications')}</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <NotificationSettings
@@ -340,7 +342,7 @@ export default function EmployerSettingsPage() {
 
           <AccordionItem value="company" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold text-white">Company Information</span>
+              <span className="text-lg font-semibold text-white">{t('Company Information')}</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <CompanyInfoForm
@@ -352,7 +354,7 @@ export default function EmployerSettingsPage() {
 
           <AccordionItem value="management" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold text-white">Account Management</span>
+              <span className="text-lg font-semibold text-white">{t('Account Management')}</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AccountManagement />
@@ -361,7 +363,7 @@ export default function EmployerSettingsPage() {
 
           <AccordionItem value="account" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold text-white">Account & Security</span>
+              <span className="text-lg font-semibold text-white">{t('Account & Security')}</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AccountSettings

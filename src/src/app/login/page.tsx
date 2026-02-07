@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type ProfileType = 'EMPLOYER' | 'EMPLOYEE'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   // Login state
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -103,9 +105,9 @@ export default function LoginPage() {
       }
 
       // If no profile found, show error
-      setError('No profile found for this account. Please contact support.')
+      setError(t('No profile found for this account. Please contact support.'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during login')
+      setError(err instanceof Error ? err.message : t('An error occurred during login'))
       const newAttempts = failedAttempts + 1
       setFailedAttempts(newAttempts)
       if (newAttempts >= 5) {
@@ -123,13 +125,13 @@ export default function LoginPage() {
 
     // Validation
     if (regPassword !== confirmPassword) {
-      setRegError('Passwords do not match')
+      setRegError(t('Passwords do not match'))
       setRegLoading(false)
       return
     }
 
     if (regPassword.length < 6) {
-      setRegError('Password must be at least 6 characters long')
+      setRegError(t('Password must be at least 6 characters long'))
       setRegLoading(false)
       return
     }
@@ -191,7 +193,7 @@ export default function LoginPage() {
       } else if (typeof err === 'object' && err !== null && 'message' in err) {
         setRegError(String((err as { message: unknown }).message))
       } else {
-        setRegError('An error occurred during registration')
+        setRegError(t('An error occurred during registration'))
       }
     } finally {
       setRegLoading(false)
@@ -224,11 +226,11 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="username" className="text-sm text-gray-300">Username</label>
+                <label htmlFor="username" className="text-sm text-gray-300">{t('Username')}</label>
                 <input
                   id="username"
                   type="text"
-                  placeholder="Enter your username"
+                  placeholder={t('Enter your username')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
@@ -239,11 +241,11 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm text-gray-300">Password</label>
+                <label htmlFor="password" className="text-sm text-gray-300">{t('Password')}</label>
                 <input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder={t('Enter your password')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -257,7 +259,7 @@ export default function LoginPage() {
             <div className="px-6 pb-6 pt-4">
               {isLockedOut && (
                 <p className="text-red-400 text-sm text-center mb-3">
-                  Too many attempts. Try again in {lockoutSeconds}s
+                  {t('Too many attempts. Try again in')} {lockoutSeconds}s
                 </p>
               )}
               <button
@@ -265,7 +267,7 @@ export default function LoginPage() {
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-base font-medium transition-colors disabled:opacity-50"
                 disabled={loading || isLockedOut}
               >
-                {loading ? 'Signing in...' : isLockedOut ? `Locked (${lockoutSeconds}s)` : 'Sign In'}
+                {loading ? t('Signing in...') : isLockedOut ? `${t('Locked')} (${lockoutSeconds}s)` : t('Sign In')}
               </button>
             </div>
           </form>
@@ -276,10 +278,10 @@ export default function LoginPage() {
           <div className="text-center space-y-4">
             <div>
               <h3 className="text-lg font-bold text-white mb-2">
-                New Here?
+                {t('New Here?')}
               </h3>
               <p className="text-sm text-gray-300">
-                Join our team today
+                {t('Join our team today')}
               </p>
             </div>
 
@@ -287,7 +289,7 @@ export default function LoginPage() {
               <button
                 className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg text-base font-medium transition-colors"
               >
-                Register
+                {t('Register')}
               </button>
             </Link>
           </div>

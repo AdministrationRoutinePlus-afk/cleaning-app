@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface DocumentUploadProps {
   employeeId: string
@@ -13,6 +14,7 @@ interface DocumentUploadProps {
 }
 
 export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess }: DocumentUploadProps) {
+  const { t } = useTranslation()
   const [uploading, setUploading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentDocumentUrl)
   const supabase = createClient()
@@ -24,13 +26,13 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
     // Validate file type (images and PDFs)
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Please upload a JPEG, PNG, or PDF file')
+      toast.error(t('Please upload a JPEG, PNG, or PDF file'))
       return
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB')
+      toast.error(t('File size must be less than 5MB'))
       return
     }
 
@@ -88,10 +90,10 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
 
       setPreviewUrl(publicUrl)
       onUploadSuccess(publicUrl)
-      toast.success('Document uploaded successfully!')
+      toast.success(t('Document uploaded successfully!'))
     } catch (error) {
       console.error('Error uploading document:', error)
-      toast.error('Failed to upload document. Please try again.')
+      toast.error(t('Failed to upload document. Please try again.'))
     } finally {
       setUploading(false)
     }
@@ -125,10 +127,10 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
 
       setPreviewUrl(null)
       onUploadSuccess('')
-      toast.success('Document removed successfully!')
+      toast.success(t('Document removed successfully!'))
     } catch (error) {
       console.error('Error removing document:', error)
-      toast.error('Failed to remove document. Please try again.')
+      toast.error(t('Failed to remove document. Please try again.'))
     } finally {
       setUploading(false)
     }
@@ -143,9 +145,9 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl">
       <div className="p-4 border-b border-white/10">
-        <h3 className="text-lg font-semibold text-white">Void Cheque</h3>
+        <h3 className="text-lg font-semibold text-white">{t('Void Cheque')}</h3>
         <p className="text-sm text-gray-400">
-          Upload a void cheque for direct deposit setup
+          {t('Upload a void cheque for direct deposit setup')}
         </p>
       </div>
       <div className="p-4 space-y-4">
@@ -168,7 +170,7 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  <p className="mt-2 text-sm text-gray-400">PDF Document</p>
+                  <p className="mt-2 text-sm text-gray-400">{t('PDF Document')}</p>
                 </div>
               ) : (
                 <img
@@ -186,14 +188,14 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
                 className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
                 disabled={uploading}
               >
-                View Document
+                {t('View Document')}
               </Button>
               <Button
                 onClick={handleRemove}
                 className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
                 disabled={uploading}
               >
-                {uploading ? 'Removing...' : 'Remove'}
+                {uploading ? t('Removing...') : t('Remove')}
               </Button>
             </div>
 
@@ -203,7 +205,7 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
                 htmlFor="replace-file"
                 className="cursor-pointer inline-block text-sm text-blue-400 hover:text-blue-300"
               >
-                Replace with new document
+                {t('Replace with new document')}
               </Label>
               <input
                 id="replace-file"
@@ -243,10 +245,10 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
                 />
               </svg>
               <p className="mt-2 text-sm text-gray-300">
-                {uploading ? 'Uploading...' : 'Click to upload or drag and drop'}
+                {uploading ? t('Uploading...') : t('Click to upload or drag and drop')}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                JPEG, PNG, or PDF (max 5MB)
+                {t('JPEG, PNG, or PDF (max 5MB)')}
               </p>
             </label>
 
@@ -264,8 +266,7 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
         {/* Information */}
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
           <p className="text-xs text-blue-300">
-            <strong>Note:</strong> A void cheque is required for payroll setup. This document is
-            securely stored and only accessible by your employer.
+            <strong>{t('Note:')}</strong> {t('A void cheque is required for payroll setup. This document is securely stored and only accessible by your employer.')}
           </p>
         </div>
       </div>

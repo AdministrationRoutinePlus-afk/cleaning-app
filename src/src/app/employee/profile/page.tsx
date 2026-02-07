@@ -2,6 +2,7 @@
 
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 import type { Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import {
 } from '@/lib/firebase/notifications'
 
 export default function EmployeeProfilePage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('personal')
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
@@ -72,7 +74,7 @@ export default function EmployeeProfilePage() {
       setNotes(data.notes || '')
     } catch (error) {
       console.error('Error loading employee profile:', error)
-      toast.error('Failed to load your profile')
+      toast.error(t('Failed to load your profile'))
     } finally {
       setLoading(false)
     }
@@ -96,11 +98,11 @@ export default function EmployeeProfilePage() {
 
       if (error) throw error
 
-      toast.success('Personal information updated successfully!')
+      toast.success(t('Personal information updated successfully!'))
       await loadEmployeeProfile()
     } catch (error) {
       console.error('Error saving personal info:', error)
-      toast.error('Failed to save personal information')
+      toast.error(t('Failed to save personal information'))
     } finally {
       setSaving(false)
     }
@@ -121,11 +123,11 @@ export default function EmployeeProfilePage() {
 
       if (error) throw error
 
-      toast.success('Notes saved successfully!')
+      toast.success(t('Notes saved successfully!'))
       await loadEmployeeProfile()
     } catch (error) {
       console.error('Error saving notes:', error)
-      toast.error('Failed to save notes')
+      toast.error(t('Failed to save notes'))
     } finally {
       setSaving(false)
     }
@@ -157,17 +159,17 @@ export default function EmployeeProfilePage() {
 
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
-      toast.error('Please enter both password fields')
+      toast.error(t('Please enter both password fields'))
       return
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match')
+      toast.error(t('Passwords do not match'))
       return
     }
 
     if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters')
+      toast.error(t('Password must be at least 6 characters'))
       return
     }
 
@@ -179,12 +181,12 @@ export default function EmployeeProfilePage() {
 
       if (error) throw error
 
-      toast.success('Password changed successfully!')
+      toast.success(t('Password changed successfully!'))
       setNewPassword('')
       setConfirmPassword('')
     } catch (error) {
       console.error('Error changing password:', error)
-      toast.error('Failed to change password')
+      toast.error(t('Failed to change password'))
     } finally {
       setSaving(false)
     }
@@ -209,7 +211,7 @@ export default function EmployeeProfilePage() {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
           <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-              <p className="text-gray-300">Employee profile not found</p>
+              <p className="text-gray-300">{t('Employee profile not found')}</p>
           </div>
         </div>
       </div>
@@ -219,7 +221,7 @@ export default function EmployeeProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 pb-20">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">Profile & Settings</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">{t('Profile & Settings')}</h1>
 
         {/* Tab Selector */}
         <div className="flex gap-2 mb-6">
@@ -237,7 +239,7 @@ export default function EmployeeProfilePage() {
                   : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
               }`}
             >
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>
@@ -248,11 +250,11 @@ export default function EmployeeProfilePage() {
             {/* Personal Information */}
             <div className="bg-white/5 border border-white/10 rounded-xl">
               <div className="p-4 border-b border-white/10">
-                <h3 className="text-lg font-semibold text-white">Personal Information</h3>
+                <h3 className="text-lg font-semibold text-white">{t('Personal Information')}</h3>
               </div>
               <div className="p-4 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full-name" className="text-gray-300">Full Name</Label>
+                  <Label htmlFor="full-name" className="text-gray-300">{t('Full Name')}</Label>
                   <Input
                     id="full-name"
                     value={fullName}
@@ -263,7 +265,7 @@ export default function EmployeeProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-300">Email</Label>
+                  <Label htmlFor="email" className="text-gray-300">{t('Email')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -275,7 +277,7 @@ export default function EmployeeProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-gray-300">Phone</Label>
+                  <Label htmlFor="phone" className="text-gray-300">{t('Phone')}</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -288,7 +290,7 @@ export default function EmployeeProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-gray-300">Address</Label>
+                  <Label htmlFor="address" className="text-gray-300">{t('Address')}</Label>
                   <Textarea
                     id="address"
                     value={address}
@@ -306,7 +308,7 @@ export default function EmployeeProfilePage() {
                   disabled={saving || !fullName.trim() || !email.trim()}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {saving ? 'Saving...' : 'Save Personal Info'}
+                  {saving ? t('Saving...') : t('Save Personal Info')}
                 </Button>
               </div>
             </div>
@@ -314,9 +316,9 @@ export default function EmployeeProfilePage() {
             {/* Notes */}
             <div className="bg-white/5 border border-white/10 rounded-xl">
               <div className="p-4 border-b border-white/10">
-                <h3 className="text-lg font-semibold text-white">Notes for Employer</h3>
+                <h3 className="text-lg font-semibold text-white">{t('Notes for Employer')}</h3>
                 <p className="text-sm text-gray-400">
-                  Add any notes your employer should know
+                  {t('Add any notes your employer should know')}
                 </p>
               </div>
               <div className="p-4">
@@ -335,7 +337,7 @@ export default function EmployeeProfilePage() {
                   disabled={saving}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {saving ? 'Saving...' : 'Save Notes'}
+                  {saving ? t('Saving...') : t('Save Notes')}
                 </Button>
               </div>
             </div>
@@ -343,7 +345,7 @@ export default function EmployeeProfilePage() {
             {/* Settings */}
             <div className="bg-white/5 border border-white/10 rounded-xl">
               <div className="p-4 border-b border-white/10">
-                <h3 className="text-lg font-semibold text-white">Settings</h3>
+                <h3 className="text-lg font-semibold text-white">{t('Settings')}</h3>
               </div>
               <div className="p-4 space-y-4">
                 <div className="space-y-2">
@@ -355,9 +357,9 @@ export default function EmployeeProfilePage() {
                         <BellOff className="w-4 h-4 text-gray-400" />
                       )}
                       <div>
-                        <Label htmlFor="push-notifications" className="text-white">Push Notifications</Label>
+                        <Label htmlFor="push-notifications" className="text-white">{t('Push Notifications')}</Label>
                         <p className="text-sm text-gray-300">
-                          Receive alerts about jobs and messages
+                          {t('Receive alerts about jobs and messages')}
                         </p>
                       </div>
                     </div>
@@ -371,17 +373,17 @@ export default function EmployeeProfilePage() {
                   {permissionStatus === 'granted' && (
                     <p className="text-xs text-green-400 flex items-center gap-1 ml-6">
                       <CheckCircle className="w-3 h-3" />
-                      Notifications enabled
+                      {t('Notifications enabled')}
                     </p>
                   )}
                   {permissionStatus === 'denied' && (
                     <p className="text-xs text-red-400 ml-6">
-                      Notifications blocked. Enable in browser settings.
+                      {t('Notifications blocked. Enable in browser settings.')}
                     </p>
                   )}
                   {requestingPermission && (
                     <p className="text-xs text-blue-400 ml-6">
-                      Requesting permission...
+                      {t('Requesting permission...')}
                     </p>
                   )}
                 </div>
@@ -393,7 +395,7 @@ export default function EmployeeProfilePage() {
                     className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
                   >
                     <LogOut className="w-4 h-4 mr-2" />
-                    Logout
+                    {t('Logout')}
                   </Button>
                 </div>
               </div>
@@ -402,30 +404,30 @@ export default function EmployeeProfilePage() {
             {/* Change Password */}
             <div className="bg-white/5 border border-white/10 rounded-xl">
               <div className="p-4 border-b border-white/10">
-                <h3 className="text-lg font-semibold text-white">Change Password</h3>
+                <h3 className="text-lg font-semibold text-white">{t('Change Password')}</h3>
               </div>
               <div className="p-4 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="new-password" className="text-gray-300">New Password</Label>
+                  <Label htmlFor="new-password" className="text-gray-300">{t('New Password')}</Label>
                   <Input
                     id="new-password"
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder={t('Enter new password')}
                     disabled={saving}
                     className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-gray-300">Confirm Password</Label>
+                  <Label htmlFor="confirm-password" className="text-gray-300">{t('Confirm Password')}</Label>
                   <Input
                     id="confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
+                    placeholder={t('Confirm new password')}
                     disabled={saving}
                     className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                   />
@@ -437,7 +439,7 @@ export default function EmployeeProfilePage() {
                   disabled={saving || !newPassword || !confirmPassword}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {saving ? 'Changing...' : 'Change Password'}
+                  {saving ? t('Changing...') : t('Change Password')}
                 </Button>
               </div>
             </div>

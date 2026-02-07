@@ -10,6 +10,7 @@ import {
   getNotificationPermissionStatus,
   areNotificationsEnabled
 } from '@/lib/firebase/notifications'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface NotificationSettingsProps {
   pushEnabled: boolean
@@ -43,6 +44,7 @@ export function NotificationSettings({
   reminder6Hours,
   onSave,
 }: NotificationSettingsProps) {
+  const { t } = useTranslation()
   const [settings, setSettings] = useState({
     pushEnabled,
     soundEnabled,
@@ -96,7 +98,7 @@ export function NotificationSettings({
     <div className="space-y-6">
       {/* General Settings */}
       <div className="space-y-4">
-        <h3 className="font-medium text-sm text-gray-400">General</h3>
+        <h3 className="font-medium text-sm text-gray-400">{t('General')}</h3>
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -107,7 +109,7 @@ export function NotificationSettings({
                   <BellOff className="w-4 h-4 text-gray-500" />
                 )}
                 <Label htmlFor="push_enabled" className="flex-1 text-gray-300">
-                  Push Notifications
+                  {t('Push Notifications')}
                 </Label>
               </div>
               <Switch
@@ -120,28 +122,28 @@ export function NotificationSettings({
             {permissionStatus === 'granted' && (
               <p className="text-xs text-green-400 flex items-center gap-1 ml-6">
                 <CheckCircle className="w-3 h-3" />
-                Notifications enabled
+                {t('Notifications enabled')}
               </p>
             )}
             {permissionStatus === 'denied' && (
               <p className="text-xs text-red-400 ml-6">
-                Notifications blocked. Enable in browser settings.
+                {t('Notifications blocked. Enable in browser settings.')}
               </p>
             )}
             {permissionStatus === 'default' && !requestingPermission && (
               <p className="text-xs text-gray-500 ml-6">
-                Enable to receive alerts on your device
+                {t('Enable to receive alerts on your device')}
               </p>
             )}
             {requestingPermission && (
               <p className="text-xs text-blue-400 ml-6">
-                Requesting permission...
+                {t('Requesting permission...')}
               </p>
             )}
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="sound_enabled" className="flex-1 text-gray-300">
-              Sound Alerts
+              {t('Sound Alerts')}
             </Label>
             <Switch
               id="sound_enabled"
@@ -154,11 +156,11 @@ export function NotificationSettings({
 
       {/* Event Notifications */}
       <div className="space-y-4">
-        <h3 className="font-medium text-sm text-gray-400">Events</h3>
+        <h3 className="font-medium text-sm text-gray-400">{t('Events')}</h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="notify_new_message" className="flex-1 text-gray-300">
-              New Messages
+              {t('New Messages')}
             </Label>
             <Switch
               id="notify_new_message"
@@ -168,7 +170,7 @@ export function NotificationSettings({
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="notify_job_claimed" className="flex-1 text-gray-300">
-              Job Claimed by Employee
+              {t('Job Claimed by Employee')}
             </Label>
             <Switch
               id="notify_job_claimed"
@@ -178,7 +180,7 @@ export function NotificationSettings({
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="notify_exchange_request" className="flex-1 text-gray-300">
-              Job Exchange Requests
+              {t('Job Exchange Requests')}
             </Label>
             <Switch
               id="notify_exchange_request"
@@ -191,11 +193,11 @@ export function NotificationSettings({
 
       {/* Reminders */}
       <div className="space-y-4">
-        <h3 className="font-medium text-sm text-gray-400">Job Reminders</h3>
+        <h3 className="font-medium text-sm text-gray-400">{t('Job Reminders')}</h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="reminder_2_days" className="flex-1 text-gray-300">
-              2 Days Before
+              {t('2 Days Before')}
             </Label>
             <Switch
               id="reminder_2_days"
@@ -205,7 +207,7 @@ export function NotificationSettings({
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="reminder_1_day" className="flex-1 text-gray-300">
-              1 Day Before
+              {t('1 Day Before')}
             </Label>
             <Switch
               id="reminder_1_day"
@@ -215,7 +217,7 @@ export function NotificationSettings({
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="reminder_6_hours" className="flex-1 text-gray-300">
-              6 Hours Before
+              {t('6 Hours Before')}
             </Label>
             <Switch
               id="reminder_6_hours"
@@ -228,7 +230,7 @@ export function NotificationSettings({
 
       {/* Save Button */}
       <Button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-        {saving ? 'Saving...' : 'Save Notification Settings'}
+        {saving ? t('Saving...') : t('Save Notification Settings')}
       </Button>
     </div>
   )

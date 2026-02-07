@@ -2,12 +2,14 @@
 
 import type { JobSessionFull } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionCardProps {
   session: JobSessionFull
 }
 
 export function JobSessionCard({ session }: JobSessionCardProps) {
+  const { t } = useTranslation()
   const getStatusColor = (status: string) => {
     const colors = {
       OFFERED: 'bg-gray-500/20 text-gray-300 border border-gray-500/30',
@@ -22,7 +24,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
   }
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not scheduled'
+    if (!dateString) return t('Not scheduled')
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -68,17 +70,17 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         <div className="space-y-2">
           {(session.job_template.time_window_start || session.job_template.time_window_end) && session.scheduled_date && (
             <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-              <p className="text-xs text-blue-400 font-medium mb-1">Time Window</p>
+              <p className="text-xs text-blue-400 font-medium mb-1">{t('Time Window')}</p>
               <div className="space-y-1 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Start:</span>
+                  <span className="text-gray-500">{t('Start:')}</span>
                   <span className="text-gray-300 font-medium">
                     {formatDate(session.scheduled_date)}
                     {session.job_template.time_window_start && ` at ${formatTime(session.job_template.time_window_start)}`}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-500">End:</span>
+                  <span className="text-gray-500">{t('End:')}</span>
                   <span className="text-gray-300 font-medium">
                     {formatDate(session.scheduled_end_date || session.scheduled_date)}
                     {session.job_template.time_window_end && ` at ${formatTime(session.job_template.time_window_end)}`}
@@ -92,7 +94,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {/* Employee Info */}
         {session.employee && (
           <div>
-            <p className="text-xs text-gray-500">Assigned to</p>
+            <p className="text-xs text-gray-500">{t('Assigned to')}</p>
             <p className="text-sm font-medium text-gray-200">{session.employee.full_name}</p>
           </div>
         )}
@@ -100,7 +102,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {/* Customer Info */}
         {session.job_template.customer && (
           <div>
-            <p className="text-xs text-gray-500">Customer</p>
+            <p className="text-xs text-gray-500">{t('Customer')}</p>
             <p className="text-sm text-gray-300">
               {session.job_template.customer.full_name} ({session.job_template.customer.customer_code})
             </p>
@@ -110,7 +112,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {/* Address */}
         {session.job_template.address && (
           <div>
-            <p className="text-xs text-gray-500">Address</p>
+            <p className="text-xs text-gray-500">{t('Address')}</p>
             <p className="text-sm text-gray-300 line-clamp-2">{session.job_template.address}</p>
           </div>
         )}
@@ -118,11 +120,11 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
         {/* Pricing */}
         {(session.price_override || session.job_template.price_per_hour) && (
           <div className="pt-2 border-t border-white/10">
-            <p className="text-xs text-gray-500">Rate</p>
+            <p className="text-xs text-gray-500">{t('Rate')}</p>
             <p className="text-sm font-medium text-gray-200">
               ${session.price_override || session.job_template.price_per_hour}/hr
               {session.price_override && (
-                <span className="text-xs text-orange-400 ml-1">(override)</span>
+                <span className="text-xs text-orange-400 ml-1">{t('(override)')}</span>
               )}
             </p>
           </div>

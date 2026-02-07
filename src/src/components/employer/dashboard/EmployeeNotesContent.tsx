@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils/dateFormatters'
 import { Plus, User, FileText, AlertCircle, Calendar, Clock, Trash2, Edit2 } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { format } from 'date-fns'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface EmployerNoteWithEmployee extends EmployerNote {
   employee: Employee
@@ -25,6 +26,7 @@ interface EmployeeNotesContentProps {
 }
 
 export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) {
+  const { t } = useTranslation()
   const [notes, setNotes] = useState<EmployerNoteWithEmployee[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -142,7 +144,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
   }
 
   const handleDelete = async (noteId: string) => {
-    if (!confirm('Are you sure you want to delete this note?')) return
+    if (!confirm(t('Are you sure you want to delete this note?'))) return
 
     setActionLoading(true)
     try {
@@ -167,13 +169,13 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
   const getNoteTypeBadge = (type: EmployerNoteType) => {
     switch (type) {
       case 'ILLNESS':
-        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">Illness</Badge>
+        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">{t('Illness')}</Badge>
       case 'ABSENCE':
-        return <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">Absence</Badge>
+        return <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">{t('Absence')}</Badge>
       case 'PERFORMANCE':
-        return <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">Performance</Badge>
+        return <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">{t('Performance')}</Badge>
       case 'OTHER':
-        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">Other</Badge>
+        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{t('Other')}</Badge>
     }
   }
 
@@ -204,7 +206,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
           <SelectContent className="bg-gray-800 border-white/20">
             {filterOptions.map((option) => (
               <SelectItem key={option.value} value={option.value} className="text-white hover:bg-white/10">
-                {option.label}
+                {t(option.label)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -214,7 +216,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
           className="bg-blue-600 hover:bg-blue-700 text-white"
         >
           <Plus className="w-4 h-4 mr-1" />
-          Add
+          {t('Add')}
         </Button>
       </div>
 
@@ -222,7 +224,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
       <div className="space-y-3">
         {filteredNotes.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No notes found
+            {t('No notes found')}
           </div>
         ) : (
           filteredNotes.map((note) => (
@@ -264,7 +266,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
                   className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
                 >
                   <Edit2 className="w-3 h-3 mr-1" />
-                  Edit
+                  {t('Edit')}
                 </Button>
                 <Button
                   size="sm"
@@ -290,18 +292,18 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
         <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <DialogHeader>
             <DialogTitle className="text-white">
-              {editingNote ? 'Edit Note' : 'Add Employee Note'}
+              {editingNote ? t('Edit Note') : t('Add Employee Note')}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Employee
+                {t('Employee')}
               </label>
               <Select value={formEmployeeId} onValueChange={setFormEmployeeId}>
                 <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                  <SelectValue placeholder="Select employee..." />
+                  <SelectValue placeholder={t('Select employee...')} />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-white/20">
                   {employees.map((employee) => (
@@ -315,7 +317,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Note Type
+                {t('Note Type')}
               </label>
               <Select value={formNoteType} onValueChange={(v) => setFormNoteType(v as EmployerNoteType)}>
                 <SelectTrigger className="bg-white/5 border-white/20 text-white">
@@ -324,7 +326,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
                 <SelectContent className="bg-gray-800 border-white/20">
                   {noteTypes.map((type) => (
                     <SelectItem key={type.value} value={type.value} className="text-white hover:bg-white/10">
-                      {type.label}
+                      {t(type.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -333,7 +335,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Date
+                {t('Date')}
               </label>
               <Input
                 type="date"
@@ -345,10 +347,10 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Title
+                {t('Title')}
               </label>
               <Input
-                placeholder="Note title..."
+                placeholder={t('Note title...')}
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
                 className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
@@ -357,10 +359,10 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Details (optional)
+                {t('Details (optional)')}
               </label>
               <Textarea
-                placeholder="Additional details..."
+                placeholder={t('Additional details...')}
                 value={formContent}
                 onChange={(e) => setFormContent(e.target.value)}
                 rows={3}
@@ -377,14 +379,14 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
               }}
               className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={handleSave}
               disabled={!formEmployeeId || !formTitle.trim() || !formNoteDate || actionLoading}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {editingNote ? 'Save Changes' : 'Add Note'}
+              {editingNote ? t('Save Changes') : t('Add Note')}
             </Button>
           </DialogFooter>
         </DialogContent>

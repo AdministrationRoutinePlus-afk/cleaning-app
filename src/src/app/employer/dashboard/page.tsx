@@ -11,10 +11,12 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import { Briefcase, DollarSign, FileText, ListTodo, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type DashboardSection = 'jobs' | 'payroll' | 'notes' | 'todos'
 
 export default function EmployerDashboardPage() {
+  const { t } = useTranslation()
   const [employer, setEmployer] = useState<Employer | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<DashboardSection>('jobs')
@@ -53,7 +55,7 @@ export default function EmployerDashboardPage() {
       }
     } catch (error) {
       console.error('Error loading employer:', error)
-      toast.error('Failed to load dashboard')
+      toast.error(t('Failed to load dashboard'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -69,7 +71,7 @@ export default function EmployerDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-white/10 rounded-2xl p-8 text-center border border-white/20">
-          <p className="text-gray-300">Employer profile not found</p>
+          <p className="text-gray-300">{t('Employer profile not found')}</p>
         </div>
       </div>
     )
@@ -78,25 +80,25 @@ export default function EmployerDashboardPage() {
   const sections = [
     {
       id: 'jobs' as DashboardSection,
-      label: 'Jobs Overview',
+      label: t('Jobs Overview'),
       icon: Briefcase,
       color: 'purple',
     },
     {
       id: 'payroll' as DashboardSection,
-      label: 'Payroll',
+      label: t('Payroll'),
       icon: DollarSign,
       color: 'green',
     },
     {
       id: 'notes' as DashboardSection,
-      label: 'Employee Notes',
+      label: t('Employee Notes'),
       icon: FileText,
       color: 'blue',
     },
     {
       id: 'todos' as DashboardSection,
-      label: 'To-Do & Notes',
+      label: t('To-Do & Notes'),
       icon: ListTodo,
       color: 'amber',
     }
@@ -140,7 +142,7 @@ export default function EmployerDashboardPage() {
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white">{t('Dashboard')}</h1>
           <Link
             href="/employer/settings"
             className="p-2 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobExchangeWithDetails extends JobExchange {
   job_session: JobSession & {
@@ -25,6 +26,7 @@ interface ExchangeRequestCardProps {
 }
 
 export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
@@ -95,14 +97,14 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
       onUpdate()
     } catch (error) {
       console.error('Error handling exchange decision:', error)
-      toast.error('Failed to process exchange request')
+      toast.error(t('Failed to process exchange request'))
     } finally {
       setLoading(false)
     }
   }
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Not scheduled'
+    if (!dateStr) return t('Not scheduled')
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -120,10 +122,10 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
               <span className="text-sm font-mono text-gray-500">
                 {exchange.job_session.job_template?.job_code || exchange.job_session.session_code}
               </span>
-              <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">PENDING</Badge>
+              <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">{t('PENDING')}</Badge>
             </div>
             <h3 className="font-medium text-white">
-              {exchange.job_session.job_template?.title || 'Job Exchange Request'}
+              {exchange.job_session.job_template?.title || t('Job Exchange Request')}
             </h3>
           </div>
         </div>
@@ -132,32 +134,32 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
       <div className="px-4 pb-3 space-y-3">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <p className="text-xs text-gray-500">From</p>
+            <p className="text-xs text-gray-500">{t('From')}</p>
             <p className="text-sm font-medium text-white">{exchange.from_employee.full_name}</p>
           </div>
           <ArrowRight className="w-4 h-4 text-gray-500" />
           <div className="flex-1">
-            <p className="text-xs text-gray-500">To</p>
+            <p className="text-xs text-gray-500">{t('To')}</p>
             <p className="text-sm font-medium text-white">
-              {exchange.to_employee?.full_name || 'Marketplace'}
+              {exchange.to_employee?.full_name || t('Marketplace')}
             </p>
           </div>
         </div>
 
         <div>
-          <p className="text-xs text-gray-500">Scheduled Date</p>
+          <p className="text-xs text-gray-500">{t('Scheduled Date')}</p>
           <p className="text-sm text-gray-300">{formatDate(exchange.job_session.scheduled_date)}</p>
         </div>
 
         {exchange.reason && (
           <div>
-            <p className="text-xs text-gray-500">Reason</p>
+            <p className="text-xs text-gray-500">{t('Reason')}</p>
             <p className="text-sm text-gray-300">{exchange.reason}</p>
           </div>
         )}
 
         <div>
-          <p className="text-xs text-gray-500">Requested</p>
+          <p className="text-xs text-gray-500">{t('Requested')}</p>
           <p className="text-sm text-gray-300">{formatDate(exchange.requested_at)}</p>
         </div>
       </div>
@@ -171,7 +173,7 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
           className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
         >
           <X className="w-3 h-3 mr-1" />
-          {loading ? '...' : 'Deny'}
+          {loading ? '...' : t('Deny')}
         </Button>
         <Button
           size="sm"
@@ -180,7 +182,7 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
           className="flex-1 bg-green-600 hover:bg-green-700 text-white"
         >
           <Check className="w-3 h-3 mr-1" />
-          {loading ? '...' : 'Approve'}
+          {loading ? '...' : t('Approve')}
         </Button>
       </div>
     </div>

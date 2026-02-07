@@ -6,6 +6,7 @@ import type { JobSession, Customer, Evaluation } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { ReviewForm } from '@/components/customer/ReviewForm'
 import { ReviewCard } from '@/components/customer/ReviewCard'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template?: {
@@ -31,6 +32,7 @@ interface EvaluationWithDetails extends Evaluation {
 }
 
 export default function CustomerReviewsPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('pending')
   const [pendingSessions, setPendingSessions] = useState<JobSessionWithDetails[]>([])
   const [submittedReviews, setSubmittedReviews] = useState<EvaluationWithDetails[]>([])
@@ -61,7 +63,7 @@ export default function CustomerReviewsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !isMountedRef.current) {
-        if (user === null) toast.error('Please log in to view reviews')
+        if (user === null) toast.error(t('Please log in to view reviews'))
         return
       }
 
@@ -78,7 +80,7 @@ export default function CustomerReviewsPage() {
       }
     } catch (error) {
       console.error('Error loading customer data:', error)
-      if (isMountedRef.current) toast.error('Failed to load customer profile')
+      if (isMountedRef.current) toast.error(t('Failed to load customer profile'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -112,7 +114,7 @@ export default function CustomerReviewsPage() {
       setPendingSessions((data as JobSessionWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading pending sessions:', error)
-      toast.error('Failed to load pending reviews')
+      toast.error(t('Failed to load pending reviews'))
     }
   }
 
@@ -141,7 +143,7 @@ export default function CustomerReviewsPage() {
       setSubmittedReviews((data as EvaluationWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading submitted reviews:', error)
-      toast.error('Failed to load submitted reviews')
+      toast.error(t('Failed to load submitted reviews'))
     }
   }
 
@@ -185,7 +187,7 @@ export default function CustomerReviewsPage() {
         <div className="max-w-4xl mx-auto">
           <div className="bg-white/5 border border-white/10 rounded-xl p-6">
             <p className="text-center text-gray-400">
-              Customer profile not found. Please contact support.
+              {t('Customer profile not found. Please contact support.')}
             </p>
           </div>
         </div>
@@ -196,7 +198,7 @@ export default function CustomerReviewsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">Reviews</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">{t('Reviews')}</h1>
 
         {selectedSession ? (
           <ReviewForm
@@ -217,7 +219,7 @@ export default function CustomerReviewsPage() {
                     : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200'
                 }`}
               >
-                Awaiting Review ({pendingSessions.length})
+                {t('Awaiting Review')} ({pendingSessions.length})
               </button>
               <button
                 onClick={() => setActiveTab('submitted')}
@@ -227,7 +229,7 @@ export default function CustomerReviewsPage() {
                     : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200'
                 }`}
               >
-                Submitted ({submittedReviews.length})
+                {t('Submitted')} ({submittedReviews.length})
               </button>
             </div>
 
@@ -236,9 +238,9 @@ export default function CustomerReviewsPage() {
               <>
                 {pendingSessions.length === 0 ? (
                   <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
-                    <p className="text-gray-400">No completed jobs awaiting review</p>
+                    <p className="text-gray-400">{t('No completed jobs awaiting review')}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Reviews will appear here after jobs are completed
+                      {t('Reviews will appear here after jobs are completed')}
                     </p>
                   </div>
                 ) : (
@@ -252,18 +254,18 @@ export default function CustomerReviewsPage() {
                             </h3>
                             {session.employee && (
                               <p className="text-sm text-gray-300 mt-1">
-                                Employee: {session.employee.full_name}
+                                {t('Employee')}: {session.employee.full_name}
                               </p>
                             )}
                             <p className="text-sm text-gray-400 mt-1">
-                              Completed: {formatDate(session.completed_at)}
+                              {t('Completed')}: {formatDate(session.completed_at)}
                             </p>
                           </div>
                           <button
                             onClick={() => setSelectedSession(session)}
                             className="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                           >
-                            Write Review
+                            {t('Write Review')}
                           </button>
                         </div>
                       </div>
@@ -278,9 +280,9 @@ export default function CustomerReviewsPage() {
               <>
                 {submittedReviews.length === 0 ? (
                   <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
-                    <p className="text-gray-400">No reviews submitted yet</p>
+                    <p className="text-gray-400">{t('No reviews submitted yet')}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Your submitted reviews will appear here
+                      {t('Your submitted reviews will appear here')}
                     </p>
                   </div>
                 ) : (

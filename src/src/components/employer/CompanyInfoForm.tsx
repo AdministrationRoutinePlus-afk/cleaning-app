@@ -5,6 +5,7 @@ import type { CompanyInfo } from '@/types/database'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface CompanyInfoFormProps {
   companyInfo: CompanyInfo | null
@@ -20,6 +21,7 @@ interface CompanyInfoFormProps {
 }
 
 export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     companyName: companyInfo?.company_name || '',
     phone: companyInfo?.phone || '',
@@ -55,7 +57,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="company_name" className="text-gray-300">Company Name</Label>
+        <Label htmlFor="company_name" className="text-gray-300">{t('Company Name')}</Label>
         <Input
           id="company_name"
           type="text"
@@ -67,7 +69,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone" className="text-gray-300">Phone</Label>
+        <Label htmlFor="phone" className="text-gray-300">{t('Phone')}</Label>
         <Input
           id="phone"
           type="tel"
@@ -79,7 +81,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email" className="text-gray-300">Email</Label>
+        <Label htmlFor="email" className="text-gray-300">{t('Email')}</Label>
         <Input
           id="email"
           type="email"
@@ -91,7 +93,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="address" className="text-gray-300">Address</Label>
+        <Label htmlFor="address" className="text-gray-300">{t('Address')}</Label>
         <Input
           id="address"
           type="text"
@@ -103,7 +105,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="website" className="text-gray-300">Website</Label>
+        <Label htmlFor="website" className="text-gray-300">{t('Website')}</Label>
         <Input
           id="website"
           type="url"
@@ -115,7 +117,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="default_hourly_rate" className="text-gray-300">Default Hourly Rate ($)</Label>
+        <Label htmlFor="default_hourly_rate" className="text-gray-300">{t('Default Hourly Rate ($)')}</Label>
         <Input
           id="default_hourly_rate"
           type="number"
@@ -129,7 +131,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="tax_number" className="text-gray-300">Tax Number</Label>
+        <Label htmlFor="tax_number" className="text-gray-300">{t('Tax Number')}</Label>
         <Input
           id="tax_number"
           type="text"
@@ -141,7 +143,7 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
       </div>
 
       <Button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-        {saving ? 'Saving...' : 'Save Company Information'}
+        {saving ? t('Saving...') : t('Save Company Information')}
       </Button>
     </div>
   )

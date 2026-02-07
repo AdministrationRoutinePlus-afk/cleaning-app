@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SplashProvider from "@/components/providers/SplashProvider";
+import LanguageProviderWrapper from "@/components/providers/LanguageProviderWrapper";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -43,13 +44,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SplashProvider>
-          {/* Main content */}
-          <main>
-            {children}
-          </main>
-          <Toaster />
-        </SplashProvider>
+        <LanguageProviderWrapper>
+          <SplashProvider>
+            {/* Main content */}
+            <main>
+              {children}
+            </main>
+            <Toaster />
+          </SplashProvider>
+        </LanguageProviderWrapper>
       </body>
     </html>
   );

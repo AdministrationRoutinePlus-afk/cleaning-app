@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface EmployeeChatViewProps {
   conversationId: string
@@ -17,6 +18,7 @@ interface EmployeeChatViewProps {
 }
 
 export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readOnly = false }: EmployeeChatViewProps) {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -142,7 +144,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      toast.error('Failed to send message')
+      toast.error(t('Failed to send message'))
     } finally {
       setSending(false)
     }
@@ -163,8 +165,8 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (date.toDateString() === today.toDateString()) return 'Today'
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+    if (date.toDateString() === today.toDateString()) return t('Today')
+    if (date.toDateString() === yesterday.toDateString()) return t('Yesterday')
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
@@ -203,7 +205,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
               onClick={onBack}
               className="text-white hover:bg-white/20"
             >
-              ← Back
+              {t('Back')}
             </Button>
           )}
           <CardTitle className="text-lg text-white">{title}</CardTitle>
@@ -213,7 +215,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-gray-400 py-8">
-            No messages yet. Start the conversation!
+            {t('No messages yet. Start the conversation!')}
           </div>
         ) : (
           messages.map((message, index) => (
@@ -237,7 +239,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
                   }`}
                 >
                   {message.is_system && (
-                    <p className="text-xs opacity-75 mb-1">System Message</p>
+                    <p className="text-xs opacity-75 mb-1">{t('System Message')}</p>
                   )}
                   <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                   <p
@@ -261,7 +263,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
+              placeholder={t('Type a message...')}
               disabled={sending}
               className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-blue-500"
             />
@@ -271,11 +273,11 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
               className="bg-blue-500 hover:bg-blue-600 text-white"
             >
               {sending ? (
-                'Sending...'
+                t('Sending...')
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Send
+                  {t('Send')}
                 </>
               )}
             </Button>
@@ -285,7 +287,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
       {(readOnly || isAnnouncement) && (
         <CardFooter className="border-t border-white/20 p-4">
           <div className="w-full text-center text-gray-400 text-sm">
-            📢 This is a read-only announcement
+            {t('This is a read-only announcement')}
           </div>
         </CardFooter>
       )}

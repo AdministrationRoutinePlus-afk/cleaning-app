@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export function EmployeeStatusGate({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const [employeeStatus, setEmployeeStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -33,7 +35,7 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+        <p className="text-gray-400">{t('Loading...')}</p>
       </div>
     )
   }
@@ -45,10 +47,10 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
         <div className="bg-white/10 rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">⏳</div>
           <h1 className="text-xl font-bold text-white mb-2">
-            Account Being Validated
+            {t('Account Being Validated')}
           </h1>
           <p className="text-gray-300 mb-6">
-            Your account is being reviewed by the administrator. Please come back later.
+            {t('Your account is being reviewed by the administrator. Please come back later.')}
           </p>
           <Button
             className="bg-white/10 text-white border border-white/20 hover:bg-white/20"
@@ -57,7 +59,7 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
               checkStatus()
             }}
           >
-            Check Again
+            {t('Check Again')}
           </Button>
         </div>
       </div>
@@ -71,10 +73,10 @@ export function EmployeeStatusGate({ children }: { children: React.ReactNode }) 
         <div className="bg-white/10 rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">🚫</div>
           <h1 className="text-xl font-bold text-white mb-2">
-            Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
+            {employeeStatus === 'BLOCKED' ? t('Account Blocked') : t('Account Inactive')}
           </h1>
           <p className="text-gray-300">
-            Please contact your administrator for assistance.
+            {t('Please contact your administrator for assistance.')}
           </p>
         </div>
       </div>

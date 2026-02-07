@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { JobTemplate, JobStep } from '@/types/database'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface UpcomingSessionDate {
   scheduled_date: string
@@ -18,6 +19,7 @@ interface JobDetailCardProps {
 }
 
 export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSessions = 0, upcomingSessionDates = [] }: JobDetailCardProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const formatTime = (time: string | null) => {
@@ -81,21 +83,21 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
         <div className="grid grid-cols-2 gap-3">
           {jobTemplate.address && (
             <div>
-              <p className="text-xs text-gray-500">Address</p>
+              <p className="text-xs text-gray-500">{t('Address')}</p>
               <p className="text-sm font-medium text-gray-200">{jobTemplate.address}</p>
             </div>
           )}
 
           {jobTemplate.duration_minutes && (
             <div>
-              <p className="text-xs text-gray-500">Duration</p>
+              <p className="text-xs text-gray-500">{t('Duration')}</p>
               <p className="text-sm font-medium text-gray-200">{formatDuration(jobTemplate.duration_minutes)}</p>
             </div>
           )}
 
           {jobTemplate.time_window_start && jobTemplate.time_window_end && (
             <div>
-              <p className="text-xs text-gray-500">Time Window</p>
+              <p className="text-xs text-gray-500">{t('Time Window')}</p>
               <p className="text-sm font-medium text-gray-200">
                 {formatTime(jobTemplate.time_window_start)} - {formatTime(jobTemplate.time_window_end)}
               </p>
@@ -104,9 +106,9 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
 
           {jobTemplate.is_recurring && (
             <div>
-              <p className="text-xs text-gray-500">Frequency</p>
+              <p className="text-xs text-gray-500">{t('Frequency')}</p>
               <p className="text-sm font-medium text-gray-200">
-                {jobTemplate.frequency_per_week}x per week
+                {jobTemplate.frequency_per_week}x {t('per week')}
               </p>
             </div>
           )}
@@ -115,7 +117,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
         {/* Available Days */}
         {jobTemplate.available_days && jobTemplate.available_days.length > 0 && (
           <div>
-            <p className="text-xs text-gray-500 mb-2">Available Days</p>
+            <p className="text-xs text-gray-500 mb-2">{t('Available Days')}</p>
             <div className="flex flex-wrap gap-1">
               {jobTemplate.available_days.map((day) => (
                 <span key={day} className="bg-gray-500/20 text-gray-300 border border-gray-500/30 px-2 py-0.5 rounded text-xs">
@@ -130,17 +132,17 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
         <div className="flex gap-4 pt-3 border-t border-white/10">
           <div className="flex-1 text-center">
             <p className="text-2xl font-bold text-blue-400">{upcomingSessions}</p>
-            <p className="text-xs text-gray-500">Upcoming</p>
+            <p className="text-xs text-gray-500">{t('Upcoming')}</p>
           </div>
           <div className="flex-1 text-center">
             <p className="text-2xl font-bold text-green-400">{completedSessions}</p>
-            <p className="text-xs text-gray-500">Completed</p>
+            <p className="text-xs text-gray-500">{t('Completed')}</p>
           </div>
         </div>
 
         {/* Upcoming Session Dates */}
         <div className="pt-3 border-t border-white/10">
-          <p className="text-xs text-gray-500 mb-2">Upcoming Sessions</p>
+          <p className="text-xs text-gray-500 mb-2">{t('Upcoming Sessions')}</p>
           {upcomingSessionDates.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {upcomingSessionDates.map((session, idx) => {
@@ -157,7 +159,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No upcoming sessions scheduled</p>
+            <p className="text-sm text-gray-500">{t('No upcoming sessions scheduled')}</p>
           )}
         </div>
 
@@ -168,7 +170,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
               onClick={() => setExpanded(!expanded)}
               className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
-              {expanded ? 'Hide' : 'Show'} Job Steps ({jobTemplate.job_steps.length})
+              {expanded ? t('Hide') : t('Show')} {t('Job Steps')} ({jobTemplate.job_steps.length})
             </button>
 
             {expanded && (
@@ -178,7 +180,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
                   .map((step, index) => (
                     <div key={step.id} className="bg-white/5 border border-white/10 rounded-lg p-3">
                       <h4 className="text-sm font-medium text-white">
-                        Step {index + 1}: {step.title}
+                        {t('Step')} {index + 1}: {step.title}
                       </h4>
                       {step.description && (
                         <p className="text-sm text-gray-300 mt-1">{step.description}</p>
@@ -186,7 +188,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
                       {step.products_needed && (
                         <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded mt-2">
                           <p className="text-xs font-medium text-blue-300 mb-1">
-                            Products Needed:
+                            {t('Products Needed')}:
                           </p>
                           <p className="text-xs text-blue-200">{step.products_needed}</p>
                         </div>
@@ -201,7 +203,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
         {/* Notes */}
         {jobTemplate.notes && (
           <div className="bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
-            <p className="text-xs font-medium text-yellow-300 mb-1">Notes:</p>
+            <p className="text-xs font-medium text-yellow-300 mb-1">{t('Notes')}:</p>
             <p className="text-sm text-yellow-200">{jobTemplate.notes}</p>
           </div>
         )}

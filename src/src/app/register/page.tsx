@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface RegistrationData {
   fullName: string
@@ -26,6 +27,7 @@ interface RegistrationData {
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 12
   const [loading, setLoading] = useState(false)
@@ -148,19 +150,19 @@ export default function RegisterPage() {
     try {
       // Validation
       if (!data.fullName || !data.username || !data.password) {
-        setError('Please provide at least name, username, and password')
+        setError(t('Please provide at least name, username, and password'))
         setLoading(false)
         return
       }
 
       if (data.password !== data.confirmPassword) {
-        setError('Passwords do not match')
+        setError(t('Passwords do not match'))
         setLoading(false)
         return
       }
 
       if (data.password.length < 6) {
-        setError('Password must be at least 6 characters long')
+        setError(t('Password must be at least 6 characters long'))
         setLoading(false)
         return
       }
@@ -232,7 +234,7 @@ export default function RegisterPage() {
       } else if (typeof err === 'object' && err !== null && 'message' in err) {
         setError(String((err as { message: unknown }).message))
       } else {
-        setError('An error occurred during registration')
+        setError(t('An error occurred during registration'))
       }
     } finally {
       setLoading(false)
@@ -244,7 +246,7 @@ export default function RegisterPage() {
       case 1:
         return (
           <div className="space-y-4">
-            <label htmlFor="fullName" className="block text-gray-300 text-lg">What's your full name?</label>
+            <label htmlFor="fullName" className="block text-gray-300 text-lg">{t("What's your full name?")}</label>
             <input
               id="fullName"
               type="text"
@@ -260,7 +262,7 @@ export default function RegisterPage() {
       case 2:
         return (
           <div className="space-y-4">
-            <label htmlFor="username" className="block text-gray-300 text-lg">Choose a username</label>
+            <label htmlFor="username" className="block text-gray-300 text-lg">{t('Choose a username')}</label>
             <div className="relative">
               <input
                 id="username"
@@ -292,12 +294,12 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-400">Only lowercase letters and numbers allowed</p>
+              <p className="text-xs text-gray-400">{t('Only lowercase letters and numbers allowed')}</p>
               {usernameStatus === 'available' && (
-                <p className="text-xs text-green-400 font-medium">Available</p>
+                <p className="text-xs text-green-400 font-medium">{t('Available')}</p>
               )}
               {usernameStatus === 'taken' && (
-                <p className="text-xs text-red-400 font-medium">Username taken</p>
+                <p className="text-xs text-red-400 font-medium">{t('Username taken')}</p>
               )}
             </div>
           </div>
@@ -306,7 +308,7 @@ export default function RegisterPage() {
       case 3:
         return (
           <div className="space-y-4">
-            <label htmlFor="email" className="block text-gray-300 text-lg">What's your email address? (optional)</label>
+            <label htmlFor="email" className="block text-gray-300 text-lg">{t("What's your email address? (optional)")}</label>
             <input
               id="email"
               type="email"
@@ -322,7 +324,7 @@ export default function RegisterPage() {
       case 4:
         return (
           <div className="space-y-4">
-            <label htmlFor="phone" className="block text-gray-300 text-lg">What's your phone number?</label>
+            <label htmlFor="phone" className="block text-gray-300 text-lg">{t("What's your phone number?")}</label>
             <input
               id="phone"
               type="tel"
@@ -338,11 +340,11 @@ export default function RegisterPage() {
       case 5:
         return (
           <div className="space-y-4">
-            <label htmlFor="password" className="block text-gray-300 text-lg">Create a password</label>
+            <label htmlFor="password" className="block text-gray-300 text-lg">{t('Create a password')}</label>
             <input
               id="password"
               type="password"
-              placeholder="At least 6 characters"
+              placeholder={t('At least 6 characters')}
               value={data.password}
               onChange={(e) => setData({ ...data, password: e.target.value })}
               disabled={loading}
@@ -351,7 +353,7 @@ export default function RegisterPage() {
             <input
               id="confirmPassword"
               type="password"
-              placeholder="Confirm password"
+              placeholder={t('Confirm password')}
               value={data.confirmPassword}
               onChange={(e) => setData({ ...data, confirmPassword: e.target.value })}
               disabled={loading}
@@ -363,10 +365,10 @@ export default function RegisterPage() {
       case 6:
         return (
           <div className="space-y-4">
-            <label htmlFor="address" className="block text-gray-300 text-lg">What's your address?</label>
+            <label htmlFor="address" className="block text-gray-300 text-lg">{t("What's your address?")}</label>
             <textarea
               id="address"
-              placeholder="Street, City, State, ZIP"
+              placeholder={t('Street, City, State, ZIP')}
               value={data.address}
               onChange={(e) => setData({ ...data, address: e.target.value })}
               disabled={loading}
@@ -379,10 +381,10 @@ export default function RegisterPage() {
       case 7:
         return (
           <div className="space-y-4">
-            <label htmlFor="previousWork" className="block text-gray-300 text-lg">What previous work experience do you have?</label>
+            <label htmlFor="previousWork" className="block text-gray-300 text-lg">{t('What previous work experience do you have?')}</label>
             <textarea
               id="previousWork"
-              placeholder="Tell us about your cleaning or related experience..."
+              placeholder={t('Tell us about your cleaning or related experience...')}
               value={data.previousWork}
               onChange={(e) => setData({ ...data, previousWork: e.target.value })}
               disabled={loading}
@@ -395,11 +397,11 @@ export default function RegisterPage() {
       case 8:
         return (
           <div className="space-y-4">
-            <label htmlFor="workDuration" className="block text-gray-300 text-lg">How much time did you spend at your previous job?</label>
+            <label htmlFor="workDuration" className="block text-gray-300 text-lg">{t('How much time did you spend at your previous job?')}</label>
             <input
               id="workDuration"
               type="text"
-              placeholder="e.g., 2 years, 6 months..."
+              placeholder={t('e.g., 2 years, 6 months...')}
               value={data.workDuration}
               onChange={(e) => setData({ ...data, workDuration: e.target.value })}
               disabled={loading}
@@ -411,9 +413,9 @@ export default function RegisterPage() {
       case 9:
         return (
           <div className="space-y-4">
-            <label className="block text-gray-300 text-lg">How many hours per week do you want to work?</label>
+            <label className="block text-gray-300 text-lg">{t('How many hours per week do you want to work?')}</label>
             <div className="space-y-3">
-              {['10-20 hours', '20-30 hours', '30-40 hours', '40+ hours'].map((option) => (
+              {[t('10-20 hours'), t('20-30 hours'), t('30-40 hours'), t('40+ hours')].map((option) => (
                 <button
                   key={option}
                   type="button"
@@ -435,11 +437,11 @@ export default function RegisterPage() {
       case 10:
         return (
           <div className="space-y-4">
-            <label htmlFor="expectedSalary" className="block text-gray-300 text-lg">What salary do you find acceptable?</label>
+            <label htmlFor="expectedSalary" className="block text-gray-300 text-lg">{t('What salary do you find acceptable?')}</label>
             <input
               id="expectedSalary"
               type="text"
-              placeholder="e.g., $20/hour or $800/week"
+              placeholder={t('e.g., $20/hour or $800/week')}
               value={data.expectedSalary}
               onChange={(e) => setData({ ...data, expectedSalary: e.target.value })}
               disabled={loading}
@@ -451,14 +453,14 @@ export default function RegisterPage() {
       case 11:
         return (
           <div className="space-y-4">
-            <label className="block text-gray-300 text-lg">When are you available to work?</label>
+            <label className="block text-gray-300 text-lg">{t('When are you available to work?')}</label>
             <div className="space-y-3">
               {[
-                { value: 'morning', label: 'Morning (6am-12pm)' },
-                { value: 'day', label: 'Day (12pm-6pm)' },
-                { value: 'evening', label: 'Evening (6pm-10pm)' },
-                { value: 'night', label: 'Night (10pm-6am)' },
-                { value: 'weekends', label: 'Weekends' }
+                { value: 'morning', label: t('Morning (6am-12pm)') },
+                { value: 'day', label: t('Day (12pm-6pm)') },
+                { value: 'evening', label: t('Evening (6pm-10pm)') },
+                { value: 'night', label: t('Night (10pm-6am)') },
+                { value: 'weekends', label: t('Weekends') }
               ].map((option) => (
                 <div
                   key={option.value}
@@ -488,7 +490,7 @@ export default function RegisterPage() {
       case 12:
         return (
           <div className="space-y-4">
-            <label htmlFor="resume" className="block text-gray-300 text-lg">Upload your resume (optional)</label>
+            <label htmlFor="resume" className="block text-gray-300 text-lg">{t('Upload your resume (optional)')}</label>
             <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-white/40 transition-colors">
               <input
                 id="resume"
@@ -528,7 +530,7 @@ export default function RegisterPage() {
         {/* Progress Bar */}
         <div className="mb-6">
           <div className="flex justify-between text-sm text-gray-400 mb-2">
-            <span>Step {currentStep} of {totalSteps}</span>
+            <span>{t('Step')} {currentStep} {t('of')} {totalSteps}</span>
             <span>{Math.round((currentStep / totalSteps) * 100)}%</span>
           </div>
           <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -542,7 +544,7 @@ export default function RegisterPage() {
         {/* Card */}
         <div className="bg-white/5 border border-white/10 rounded-xl backdrop-blur-md">
           <div className="p-6 pb-2">
-            <h2 className="text-white text-2xl font-semibold">Employee Registration</h2>
+            <h2 className="text-white text-2xl font-semibold">{t('Employee Registration')}</h2>
           </div>
 
           <div className="p-6 min-h-[300px]">
@@ -564,7 +566,7 @@ export default function RegisterPage() {
                 className="bg-white/10 border border-white/20 text-white hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
+                {t('Back')}
               </button>
             )}
 
@@ -575,7 +577,7 @@ export default function RegisterPage() {
                 disabled={loading}
                 className="bg-white/10 border border-white/20 text-gray-300 hover:bg-white/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
               >
-                Skip
+                {t('Skip')}
               </button>
 
               <button
@@ -584,7 +586,7 @@ export default function RegisterPage() {
                 disabled={loading || (currentStep === 2 && (usernameStatus === 'taken' || usernameStatus === 'checking'))}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center"
               >
-                {loading ? 'Processing...' : currentStep === totalSteps ? 'Submit' : 'Next'}
+                {loading ? t('Processing...') : currentStep === totalSteps ? t('Submit') : t('Next')}
                 {currentStep < totalSteps && <ChevronRight className="w-4 h-4 ml-1" />}
               </button>
             </div>

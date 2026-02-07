@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { Calendar, Clock, MapPin, User, X, ArrowLeftRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ interface MyJobCardProps {
 }
 
 export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
+  const { t } = useTranslation()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
@@ -76,7 +78,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
   // Format date for display
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Not scheduled'
+    if (!dateStr) return t('Not scheduled')
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -137,7 +139,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       }
     } catch (error) {
       console.error('Error canceling interest:', error)
-      toast.error('Failed to cancel. Please try again.')
+      toast.error(t('Failed to cancel. Please try again.'))
     } finally {
       setLoading(false)
       setShowCancelDialog(false)
@@ -171,14 +173,14 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
       if (error) throw error
 
-      toast.success('Job posted to exchange board! Other employees can now request it.')
+      toast.success(t('Job posted to exchange board! Other employees can now request it.'))
 
       if (onStatusChange) {
         onStatusChange()
       }
     } catch (error) {
       console.error('Error requesting exchange:', error)
-      toast.error('Failed to request exchange. Please try again.')
+      toast.error(t('Failed to request exchange. Please try again.'))
     } finally {
       setLoading(false)
       setShowExchangeDialog(false)
@@ -208,7 +210,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       }
     } catch (error) {
       console.error('Error starting job:', error)
-      toast.error('Failed to start job. Please try again.')
+      toast.error(t('Failed to start job. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -234,7 +236,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
               onClick={handleViewDetails}
               className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
-              View
+              {t('View')}
             </Button>
             <Button
               onClick={() => setShowCancelDialog(true)}
@@ -242,7 +244,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
               className="flex-1 bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
             >
               <X className="w-4 h-4 mr-1" />
-              Cancel
+              {t('Cancel')}
             </Button>
           </div>
         )
@@ -251,7 +253,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <div className="space-y-2">
             {!canStartJob && (
               <div className="text-xs text-amber-400 text-center p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
-                ⏰ This job can only be started during its time window
+                {t('This job can only be started during its time window')}
               </div>
             )}
             <Button
@@ -263,7 +265,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
                   : 'bg-gray-500/10 border border-gray-500/30 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {loading ? 'Starting...' : 'Start Job'}
+              {loading ? t('Starting...') : t('Start Job')}
             </Button>
             <Button
               onClick={() => setShowExchangeDialog(true)}
@@ -271,7 +273,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
               className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
               <ArrowLeftRight className="w-4 h-4 mr-1" />
-              Request Exchange
+              {t('Request Exchange')}
             </Button>
           </div>
         )
@@ -281,7 +283,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             onClick={handleViewSteps}
             className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
-            View Steps
+            {t('View Steps')}
           </Button>
         )
       case 'COMPLETED':
@@ -291,7 +293,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             onClick={handleViewDetails}
             className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
-            View Details
+            {t('View Details')}
           </Button>
         )
       case 'REFUSED':
@@ -300,20 +302,20 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             onClick={handleViewDetails}
             className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
-            View Details
+            {t('View Details')}
           </Button>
         )
       case 'MISSED':
         return (
           <div className="space-y-2">
             <div className="text-xs text-red-400 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/30">
-              This job was not started within its time window
+              {t('This job was not started within its time window')}
             </div>
             <Button
               onClick={handleViewDetails}
               className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
-              View Details
+              {t('View Details')}
             </Button>
           </div>
         )
@@ -321,13 +323,13 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         return (
           <div className="space-y-2">
             <div className="text-xs text-red-400 text-center p-2 bg-red-500/10 rounded-lg border border-red-500/30">
-              This job was started but not completed within its time window
+              {t('This job was started but not completed within its time window')}
             </div>
             <Button
               onClick={handleViewDetails}
               className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
             >
-              View Details
+              {t('View Details')}
             </Button>
           </div>
         )
@@ -394,7 +396,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           {/* Duration */}
           {job_template.duration_minutes && (
             <div className="bg-gray-800/60 rounded-xl p-3 text-center border border-white/20">
-              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Duration</p>
+              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">{t('Duration')}</p>
               <p className="text-white font-bold text-base">
                 {Math.floor(job_template.duration_minutes / 60)}h {job_template.duration_minutes % 60}m
               </p>
@@ -404,7 +406,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           {/* Pay Rate */}
           {job_template.price_per_hour && (
             <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 rounded-xl p-3 text-center border border-yellow-500/40">
-              <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">Pay Rate</p>
+              <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">{t('Pay Rate')}</p>
               <p className="text-white font-bold text-base">
                 ${job_template.price_per_hour.toFixed(2)}/hr
               </p>
@@ -417,7 +419,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Start</p>
+                <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">{t('Start')}</p>
                 <p className="text-white font-bold text-sm">
                   {formatDate(scheduled_date)}
                 </p>
@@ -426,7 +428,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
                 </p>
               </div>
               <div className="text-center border-l border-white/20 pl-4">
-                <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">End</p>
+                <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">{t('End')}</p>
                 <p className="text-white font-bold text-sm">
                   {formatDate(jobSession.scheduled_end_date || scheduled_date)}
                 </p>
@@ -441,7 +443,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         {/* Address */}
         {address && (
           <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20">
-            <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Location</p>
+            <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">{t('Location')}</p>
             <p className="text-white text-sm">{address}</p>
           </div>
         )}
@@ -460,20 +462,19 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Cancel Interest?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">{t('Cancel Interest?')}</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-300">
-              Are you sure you want to cancel your interest in this job?
-              The job will go back to the marketplace for other employees.
+              {t('Are you sure you want to cancel your interest in this job? The job will go back to the marketplace for other employees.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Keep Job</AlertDialogCancel>
+            <AlertDialogCancel disabled={loading} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">{t('Keep Job')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCancelInterest}
               disabled={loading}
               className="bg-red-600 hover:bg-red-700"
             >
-              {loading ? 'Canceling...' : 'Yes, Cancel'}
+              {loading ? t('Canceling...') : t('Yes, Cancel')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -483,20 +484,19 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       <AlertDialog open={showExchangeDialog} onOpenChange={setShowExchangeDialog}>
         <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Request Exchange?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">{t('Request Exchange?')}</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-300">
-              This will post the job to the exchange board. Other employees can request to take over this job.
-              The exchange requires employer approval.
+              {t('This will post the job to the exchange board. Other employees can request to take over this job. The exchange requires employer approval.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={loading} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRequestExchange}
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {loading ? 'Posting...' : 'Post to Exchange'}
+              {loading ? t('Posting...') : t('Post to Exchange')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

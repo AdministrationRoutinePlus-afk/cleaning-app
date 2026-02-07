@@ -15,7 +15,9 @@ import type { Employee } from '@/types/database'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
 import { sanitizeText } from '@/lib/utils/sanitize'
+import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import { addDays } from 'date-fns'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type StatusFilter = 'all' | 'unclaimed' | 'pending' | 'scheduled' | 'in_progress' | 'issues'
 
@@ -24,6 +26,7 @@ interface ActiveJobsTabProps {
 }
 
 export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState<JobSessionFull[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -54,6 +57,9 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
   const fetchData = async () => {
     try {
       setLoading(true)
+
+      // Cleanup stale sessions before fetching
+      await cleanupStaleSessions(supabase)
 
       const { data: templates } = await supabase
         .from('job_templates')
@@ -89,7 +95,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       setSessions(sessionsData as JobSessionFull[] || [])
     } catch (error) {
       console.error('Error fetching active sessions:', error)
-      if (isMountedRef.current) toast.error('Failed to load active jobs')
+      if (isMountedRef.current) toast.error(t('Failed to load active jobs'))
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
@@ -245,7 +251,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
 
   const handleSendUrgencyNotify = async () => {
     if (!urgencyNotifySessionId || urgencySelectedEmps.length === 0 || !urgencyMessage.trim()) {
-      toast.error('Select employees and enter a message')
+      toast.error(t('Select employees and enter a message'))
       return
     }
     setUrgencySending(true)
@@ -259,11 +265,11 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
           message: sanitizedMessage,
         })))
       if (error) throw error
-      toast.success(`Notified ${urgencySelectedEmps.length} employee(s)`)
+      toast.success(`${t('Notified')} ${urgencySelectedEmps.length} ${t('employee(s)')}`)
       setUrgencyNotifySessionId(null)
     } catch (error) {
       console.error('Error sending notifications:', error)
-      toast.error('Failed to send notifications')
+      toast.error(t('Failed to send notifications'))
     } finally {
       setUrgencySending(false)
     }
@@ -296,12 +302,12 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'OFFERED': return 'Unclaimed'
-      case 'CLAIMED': return 'Pending'
-      case 'APPROVED': return 'Scheduled'
-      case 'IN_PROGRESS': return 'In Progress'
-      case 'MISSED': return 'Missed'
-      case 'OVERDUE': return 'Overdue'
+      case 'OFFERED': return t('Unclaimed')
+      case 'CLAIMED': return t('Pending')
+      case 'APPROVED': return t('Scheduled')
+      case 'IN_PROGRESS': return t('In Progress')
+      case 'MISSED': return t('Missed')
+      case 'OVERDUE': return t('Overdue')
       default: return status
     }
   }
@@ -346,13 +352,13 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
             <AlertTriangle className={`h-5 w-5 shrink-0 ${urgentCount > 0 ? 'text-red-400' : 'text-orange-400'}`} />
             <div className="flex-1">
               <p className="font-medium text-white">
-                {nextWeekUnclaimed.length} unclaimed job{nextWeekUnclaimed.length !== 1 ? 's' : ''} this week
+                {nextWeekUnclaimed.length} {t('unclaimed')} {nextWeekUnclaimed.length !== 1 ? t('jobs') : t('job')} {t('this week')}
               </p>
               <p className="text-sm text-gray-300">
-                {urgentCount > 0 && <span className="text-red-300 font-medium">{urgentCount} within 2 days</span>}
+                {urgentCount > 0 && <span className="text-red-300 font-medium">{urgentCount} {t('within 2 days')}</span>}
                 {urgentCount > 0 && nextWeekUnclaimed.length - urgentCount > 0 && ' · '}
                 {nextWeekUnclaimed.length - urgentCount > 0 && (
-                  <span className="text-orange-300">{nextWeekUnclaimed.length - urgentCount} later this week</span>
+                  <span className="text-orange-300">{nextWeekUnclaimed.length - urgentCount} {t('later this week')}</span>
                 )}
               </p>
             </div>
@@ -400,7 +406,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
                             daysUntil <= 1 ? 'bg-red-500/20 text-red-300' : daysUntil <= 3 ? 'bg-orange-500/20 text-orange-300' : 'bg-gray-500/20 text-gray-400'
                           }`}>
-                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `${daysUntil}d`}
+                            {daysUntil === 0 ? t('Today') : daysUntil === 1 ? t('Tomorrow') : `${daysUntil}d`}
                           </span>
                         )}
                         <button
@@ -408,14 +414,14 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                           className={`p-1.5 rounded-lg transition-colors ${
                             isNotifying ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'
                           }`}
-                          title="Notify employees"
+                          title={t('Notify employees')}
                         >
                           <Send className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleSessionClick(session) }}
                           className="p-1.5 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 transition-colors"
-                          title="View details"
+                          title={t('View details')}
                         >
                           <Search className="w-3.5 h-3.5" />
                         </button>
@@ -433,7 +439,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                               onCheckedChange={(c) => handleUrgencySelectAll(!!c)}
                             />
                             <label htmlFor={`ua-${session.id}`} className="text-xs font-medium text-gray-300 cursor-pointer">
-                              All ({urgencyEmployees.length})
+                              {t('All')} ({urgencyEmployees.length})
                             </label>
                           </div>
                           {urgencyEmployees.map(emp => (
@@ -452,7 +458,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                         <Textarea
                           value={urgencyMessage}
                           onChange={(e) => setUrgencyMessage(e.target.value)}
-                          placeholder="e.g., This job needs to be claimed ASAP!"
+                          placeholder={t('e.g., This job needs to be claimed ASAP!')}
                           rows={2}
                           className="text-sm bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                         />
@@ -463,14 +469,14 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                             disabled={urgencySending || urgencySelectedEmps.length === 0 || !urgencyMessage.trim()}
                             className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
                           >
-                            {urgencySending ? 'Sending...' : `Send to ${urgencySelectedEmps.length}`}
+                            {urgencySending ? t('Sending...') : `${t('Send to')} ${urgencySelectedEmps.length}`}
                           </Button>
                           <Button
                             size="sm"
                             onClick={() => setUrgencyNotifySessionId(null)}
                             className="bg-white/10 border border-white/20 text-white hover:bg-white/20 text-xs"
                           >
-                            Cancel
+                            {t('Cancel')}
                           </Button>
                         </div>
                       </div>
@@ -487,7 +493,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
         <Input
-          placeholder="Search jobs, employees, customers..."
+          placeholder={t('Search jobs, employees, customers...')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9 h-10 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
@@ -505,12 +511,12 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       {/* Status Filter Row */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
         {([
-          { key: 'all' as StatusFilter, label: 'All' },
-          { key: 'unclaimed' as StatusFilter, label: 'Unclaimed' },
-          { key: 'pending' as StatusFilter, label: 'Pending' },
-          { key: 'scheduled' as StatusFilter, label: 'Scheduled' },
-          { key: 'in_progress' as StatusFilter, label: 'In Progress' },
-          { key: 'issues' as StatusFilter, label: 'Issues' },
+          { key: 'all' as StatusFilter, label: t('All') },
+          { key: 'unclaimed' as StatusFilter, label: t('Unclaimed') },
+          { key: 'pending' as StatusFilter, label: t('Pending') },
+          { key: 'scheduled' as StatusFilter, label: t('Scheduled') },
+          { key: 'in_progress' as StatusFilter, label: t('In Progress') },
+          { key: 'issues' as StatusFilter, label: t('Issues') },
         ]).map(({ key, label }) => (
           <button
             key={key}
@@ -533,9 +539,9 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
         {/* Tab Headers */}
         <div className="flex">
           {([
-            { key: 'employee' as FilterTab, label: 'Employee', icon: User, active: !!filterEmployee },
-            { key: 'customer' as FilterTab, label: 'Customer', icon: Briefcase, active: !!filterCustomer },
-            { key: 'dates' as FilterTab, label: 'Dates', icon: CalendarDays, active: !!(filterDateFrom || filterDateTo) },
+            { key: 'employee' as FilterTab, label: t('Employee'), icon: User, active: !!filterEmployee },
+            { key: 'customer' as FilterTab, label: t('Customer'), icon: Briefcase, active: !!filterCustomer },
+            { key: 'dates' as FilterTab, label: t('Dates'), icon: CalendarDays, active: !!(filterDateFrom || filterDateTo) },
           ]).map(({ key, label, icon: Icon, active }) => (
             <button
               key={key}
@@ -570,7 +576,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                All
+                {t('All')}
               </button>
               <button
                 onClick={() => setFilterEmployee(filterEmployee === '_unclaimed' ? '' : '_unclaimed')}
@@ -581,7 +587,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                 }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                Unclaimed
+                {t('Unclaimed')}
               </button>
               {uniqueEmployees.map(([id, name]) => (
                 <button
@@ -599,7 +605,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                 </button>
               ))}
               {uniqueEmployees.length === 0 && (
-                <p className="text-xs text-gray-500 py-1">No employees assigned yet</p>
+                <p className="text-xs text-gray-500 py-1">{t('No employees assigned yet')}</p>
               )}
             </div>
           </div>
@@ -618,7 +624,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                All
+                {t('All')}
               </button>
               {uniqueCustomers.map(([id, name]) => (
                 <button
@@ -636,7 +642,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                 </button>
               ))}
               {uniqueCustomers.length === 0 && (
-                <p className="text-xs text-gray-500 py-1">No customers found</p>
+                <p className="text-xs text-gray-500 py-1">{t('No customers found')}</p>
               )}
             </div>
           </div>
@@ -648,10 +654,10 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
             {/* Quick date presets */}
             <div className="flex flex-wrap gap-2 mb-3">
               {([
-                { label: 'Today', from: format(new Date(), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') },
-                { label: 'This week', from: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return format(d, 'yyyy-MM-dd') })(), to: (() => { const d = new Date(); d.setDate(d.getDate() + (6 - d.getDay())); return format(d, 'yyyy-MM-dd') })() },
-                { label: 'Next 7 days', from: format(new Date(), 'yyyy-MM-dd'), to: (() => { const d = new Date(); d.setDate(d.getDate() + 7); return format(d, 'yyyy-MM-dd') })() },
-                { label: 'Next 30 days', from: format(new Date(), 'yyyy-MM-dd'), to: (() => { const d = new Date(); d.setDate(d.getDate() + 30); return format(d, 'yyyy-MM-dd') })() },
+                { label: t('Today'), from: format(new Date(), 'yyyy-MM-dd'), to: format(new Date(), 'yyyy-MM-dd') },
+                { label: t('This week'), from: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return format(d, 'yyyy-MM-dd') })(), to: (() => { const d = new Date(); d.setDate(d.getDate() + (6 - d.getDay())); return format(d, 'yyyy-MM-dd') })() },
+                { label: t('Next 7 days'), from: format(new Date(), 'yyyy-MM-dd'), to: (() => { const d = new Date(); d.setDate(d.getDate() + 7); return format(d, 'yyyy-MM-dd') })() },
+                { label: t('Next 30 days'), from: format(new Date(), 'yyyy-MM-dd'), to: (() => { const d = new Date(); d.setDate(d.getDate() + 30); return format(d, 'yyyy-MM-dd') })() },
               ]).map(({ label, from, to }) => {
                 const isActive = filterDateFrom === from && filterDateTo === to
                 return (
@@ -680,7 +686,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
             {/* Custom range */}
             <div className="flex items-center gap-2">
               <div className="flex-1 space-y-1">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">From</label>
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">{t('From')}</label>
                 <Input
                   type="date"
                   value={filterDateFrom}
@@ -690,7 +696,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
               </div>
               <span className="text-gray-600 mt-4">-</span>
               <div className="flex-1 space-y-1">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">To</label>
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">{t('To')}</label>
                 <Input
                   type="date"
                   value={filterDateTo}
@@ -715,12 +721,12 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       {/* Active Filters Summary */}
       {hasActiveFilters && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500">{filteredSessions.length} result{filteredSessions.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-gray-500">{filteredSessions.length} {filteredSessions.length !== 1 ? t('results') : t('result')}</span>
           <span className="text-gray-700">|</span>
           {filterEmployee && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-300 border border-blue-500/25">
               <User className="w-3 h-3" />
-              {filterEmployee === '_unclaimed' ? 'Unclaimed' : uniqueEmployees.find(([id]) => id === filterEmployee)?.[1]}
+              {filterEmployee === '_unclaimed' ? t('Unclaimed') : uniqueEmployees.find(([id]) => id === filterEmployee)?.[1]}
               <button onClick={() => setFilterEmployee('')} className="ml-0.5 hover:text-white"><X className="w-3 h-3" /></button>
             </span>
           )}
@@ -743,7 +749,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
             </span>
           )}
           <button onClick={clearFilters} className="text-xs text-gray-500 hover:text-gray-300 ml-auto">
-            Clear all
+            {t('Clear all')}
           </button>
         </div>
       )}
@@ -752,11 +758,11 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       {filteredSessions.length === 0 ? (
         <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
           <p className="text-gray-400">
-            {hasActiveFilters ? 'No matching sessions' : statusFilter === 'all' ? 'No active sessions' : `No ${statusFilter.replace('_', ' ')} sessions`}
+            {hasActiveFilters ? t('No matching sessions') : statusFilter === 'all' ? t('No active sessions') : `${t('No')} ${t(statusFilter.replace('_', ' '))} ${t('sessions')}`}
           </p>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="text-sm text-blue-400 hover:text-blue-300 mt-2">
-              Clear filters
+              {t('Clear filters')}
             </button>
           )}
         </div>
@@ -782,7 +788,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                     <span className="text-sm font-medium text-white">
                       {session.scheduled_date
                         ? format(new Date(session.scheduled_date), 'EEE, MMM d, yyyy')
-                        : 'No date'}
+                        : t('No date')}
                     </span>
                     {daysUntil !== null && daysUntil >= 0 && daysUntil <= 7 && (
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
@@ -790,7 +796,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                         daysUntil <= 3 ? 'bg-orange-500/20 text-orange-300' :
                         'bg-gray-500/20 text-gray-400'
                       }`}>
-                        {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil}d`}
+                        {daysUntil === 0 ? t('Today') : daysUntil === 1 ? t('Tomorrow') : `${t('In')} ${daysUntil}d`}
                       </span>
                     )}
                     {session.scheduled_time && (
@@ -811,7 +817,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                     {session.full_job_code || session.session_code}
                   </span>
                   <span className="text-sm font-medium text-white truncate">
-                    {jobTemplate?.title || 'Untitled'}
+                    {jobTemplate?.title || t('Untitled')}
                   </span>
                 </div>
 
@@ -838,7 +844,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                         {session.employee.full_name}
                       </span>
                     ) : (
-                      <span className="text-orange-400 italic">Unclaimed</span>
+                      <span className="text-orange-400 italic">{t('Unclaimed')}</span>
                     )}
                   </div>
                 </div>

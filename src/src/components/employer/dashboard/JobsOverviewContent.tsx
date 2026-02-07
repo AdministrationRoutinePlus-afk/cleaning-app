@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
 import { Check, X, Clock, Calendar, MapPin, User, ChevronRight } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate & { customer: Customer | null }
@@ -24,6 +25,7 @@ interface JobsOverviewContentProps {
 }
 
 export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState<JobSessionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<JobTab>('confirm')
@@ -127,21 +129,21 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
   })
 
   const tabs = [
-    { id: 'confirm' as JobTab, label: 'To Confirm', count: sessions.filter(s => s.status === 'CLAIMED').length },
-    { id: 'scheduled' as JobTab, label: 'Scheduled', count: sessions.filter(s => s.status === 'APPROVED').length },
-    { id: 'completed' as JobTab, label: 'Completed', count: sessions.filter(s => s.status === 'COMPLETED' || s.status === 'EVALUATED').length },
+    { id: 'confirm' as JobTab, label: t('To Confirm'), count: sessions.filter(s => s.status === 'CLAIMED').length },
+    { id: 'scheduled' as JobTab, label: t('Scheduled'), count: sessions.filter(s => s.status === 'APPROVED').length },
+    { id: 'completed' as JobTab, label: t('Completed'), count: sessions.filter(s => s.status === 'COMPLETED' || s.status === 'EVALUATED').length },
   ]
 
   const getStatusBadge = (status: JobSessionStatus) => {
     switch (status) {
       case 'CLAIMED':
-        return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Pending</Badge>
+        return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">{t('Pending')}</Badge>
       case 'APPROVED':
-        return <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">Scheduled</Badge>
+        return <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">{t('Scheduled')}</Badge>
       case 'COMPLETED':
-        return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">Completed</Badge>
+        return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">{t('Completed')}</Badge>
       case 'EVALUATED':
-        return <Badge className="bg-teal-500/20 text-teal-300 border border-teal-500/30">Evaluated</Badge>
+        return <Badge className="bg-teal-500/20 text-teal-300 border border-teal-500/30">{t('Evaluated')}</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -181,9 +183,9 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
       <div className="space-y-3">
         {filteredSessions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            {activeTab === 'confirm' && 'No jobs waiting for confirmation'}
-            {activeTab === 'scheduled' && 'No scheduled jobs'}
-            {activeTab === 'completed' && 'No completed jobs'}
+            {activeTab === 'confirm' && t('No jobs waiting for confirmation')}
+            {activeTab === 'scheduled' && t('No scheduled jobs')}
+            {activeTab === 'completed' && t('No completed jobs')}
           </div>
         ) : (
           filteredSessions.map((session) => (
@@ -244,7 +246,7 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                   >
                     <Check className="w-4 h-4 mr-1" />
-                    Approve
+                    {t('Approve')}
                   </Button>
                   <Button
                     size="sm"
@@ -257,7 +259,7 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
                     className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
                   >
                     <X className="w-4 h-4 mr-1" />
-                    Refuse
+                    {t('Refuse')}
                   </Button>
                 </div>
               )}
@@ -270,13 +272,13 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
       <Dialog open={showRefuseDialog} onOpenChange={setShowRefuseDialog}>
         <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <DialogHeader>
-            <DialogTitle className="text-white">Refuse Claim</DialogTitle>
+            <DialogTitle className="text-white">{t('Refuse Claim')}</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Please provide a reason for refusing this claim. The employee will be notified.
+              {t('Please provide a reason for refusing this claim. The employee will be notified.')}
             </DialogDescription>
           </DialogHeader>
           <Textarea
-            placeholder="Reason for refusal..."
+            placeholder={t('Reason for refusal...')}
             value={refuseReason}
             onChange={(e) => setRefuseReason(e.target.value)}
             rows={3}
@@ -292,14 +294,14 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
               }}
               className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={handleRefuse}
               disabled={!refuseReason.trim() || actionLoading}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Refuse Claim
+              {t('Refuse Claim')}
             </Button>
           </DialogFooter>
         </DialogContent>

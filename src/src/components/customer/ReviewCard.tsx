@@ -1,6 +1,7 @@
 'use client'
 
 import type { Evaluation } from '@/types/database'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface ReviewCardProps {
   evaluation: Evaluation & {
@@ -17,6 +18,7 @@ interface ReviewCardProps {
 }
 
 export function ReviewCard({ evaluation }: ReviewCardProps) {
+  const { t } = useTranslation()
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp)
     return date.toLocaleDateString('en-US', {
@@ -48,15 +50,15 @@ export function ReviewCard({ evaluation }: ReviewCardProps) {
   const getRatingLabel = (rating: number) => {
     switch (rating) {
       case 5:
-        return 'Excellent'
+        return t('Excellent')
       case 4:
-        return 'Very Good'
+        return t('Very Good')
       case 3:
-        return 'Good'
+        return t('Good')
       case 2:
-        return 'Fair'
+        return t('Fair')
       case 1:
-        return 'Needs Improvement'
+        return t('Needs Improvement')
       default:
         return ''
     }
@@ -78,7 +80,7 @@ export function ReviewCard({ evaluation }: ReviewCardProps) {
             </h3>
             {evaluation.employee && (
               <p className="text-sm text-gray-400 mt-1">
-                Employee: {evaluation.employee.full_name}
+                {t('Employee')}: {evaluation.employee.full_name}
               </p>
             )}
           </div>
@@ -109,7 +111,7 @@ export function ReviewCard({ evaluation }: ReviewCardProps) {
         {/* Submitted Date */}
         {evaluation.submitted_at && (
           <p className="text-xs text-gray-500">
-            Submitted on {formatDate(evaluation.submitted_at)}
+            {t('Submitted on')} {formatDate(evaluation.submitted_at)}
           </p>
         )}
       </div>

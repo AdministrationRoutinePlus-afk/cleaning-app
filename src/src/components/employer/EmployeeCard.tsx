@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
 import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export interface EmployeeJob {
   id: string
@@ -56,18 +57,19 @@ export function EmployeeCard({
   onBlock,
   onViewProfile
 }: EmployeeCardProps) {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<string | null>(null)
 
   const getStatusBadge = (status: Employee['status']) => {
     switch (status) {
       case 'ACTIVE':
-        return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">ACTIVE</Badge>
+        return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">{t('ACTIVE')}</Badge>
       case 'PENDING':
-        return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">PENDING</Badge>
+        return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">{t('PENDING')}</Badge>
       case 'INACTIVE':
-        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">INACTIVE</Badge>
+        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{t('INACTIVE')}</Badge>
       case 'BLOCKED':
-        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">BLOCKED</Badge>
+        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">{t('BLOCKED')}</Badge>
       default:
         return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{status}</Badge>
     }
@@ -126,7 +128,7 @@ export function EmployeeCard({
                           : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
                       }`}
                     >
-                      {s.label}
+                      {t(s.label)}
                       {count > 0 && (
                         <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${
                           isActive ? 'bg-white/20' : 'bg-white/10'
@@ -151,7 +153,7 @@ export function EmployeeCard({
                         </div>
                         {selectedConfig && (
                           <Badge className={`${selectedConfig.badgeBg} ${selectedConfig.badgeText} border-0 text-[10px] shrink-0`}>
-                            {selectedConfig.label}
+                            {t(selectedConfig.label)}
                           </Badge>
                         )}
                       </div>
@@ -182,7 +184,7 @@ export function EmployeeCard({
               )}
             </>
           ) : (
-            <p className="text-xs text-gray-500 text-center py-3">No jobs assigned</p>
+            <p className="text-xs text-gray-500 text-center py-3">{t('No jobs assigned')}</p>
           )}
         </div>
 
@@ -194,7 +196,7 @@ export function EmployeeCard({
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               <CheckCircle className="w-3 h-3 mr-1" />
-              Activate
+              {t('Activate')}
             </Button>
           )}
           {employee.status === 'INACTIVE' && onReactivate && (
@@ -204,7 +206,7 @@ export function EmployeeCard({
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               <CheckCircle className="w-3 h-3 mr-1" />
-              Reactivate
+              {t('Reactivate')}
             </Button>
           )}
           {employee.status === 'ACTIVE' && onDeactivate && (
@@ -213,7 +215,7 @@ export function EmployeeCard({
               onClick={() => onDeactivate(employee)}
               className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
-              Deactivate
+              {t('Deactivate')}
             </Button>
           )}
           {employee.status !== 'BLOCKED' && onBlock && (
@@ -223,7 +225,7 @@ export function EmployeeCard({
               className="flex-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
             >
               <ShieldOff className="w-3 h-3 mr-1" />
-              Block
+              {t('Block')}
             </Button>
           )}
           {onViewProfile && (
@@ -233,7 +235,7 @@ export function EmployeeCard({
               className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
               <Eye className="w-3 h-3 mr-1" />
-              View Profile
+              {t('View Profile')}
             </Button>
           )}
         </div>

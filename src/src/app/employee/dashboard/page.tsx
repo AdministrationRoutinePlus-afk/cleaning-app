@@ -10,6 +10,7 @@ import { NextDepositContent } from '@/components/employee/NextDepositCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Clock, Calendar, MessageSquare, DollarSign, TrendingUp, Briefcase } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface EarningsSummary {
   monthTotal: number
@@ -20,6 +21,7 @@ interface EarningsSummary {
 type DashboardSection = 'jobs' | 'availability' | 'message' | 'deposit'
 
 export default function EmployeeDashboardPage() {
+  const { t } = useTranslation()
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<DashboardSection>('jobs')
@@ -61,7 +63,7 @@ export default function EmployeeDashboardPage() {
       }
     } catch (error) {
       console.error('Error loading employee:', error)
-      toast.error('Failed to load dashboard')
+      toast.error(t('Failed to load dashboard'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -124,7 +126,7 @@ export default function EmployeeDashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-white/10 rounded-2xl p-8 text-center border border-white/20">
-          <p className="text-gray-300">Employee profile not found</p>
+          <p className="text-gray-300">{t('Employee profile not found')}</p>
         </div>
       </div>
     )
@@ -202,24 +204,24 @@ export default function EmployeeDashboardPage() {
           <div className="bg-white/5 rounded-xl border border-white/10 p-4 mb-6">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-5 h-5 text-green-400" />
-              <h3 className="text-base font-semibold text-white">Earnings Summary</h3>
+              <h3 className="text-base font-semibold text-white">{t('Earnings Summary')}</h3>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-white/5 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-400 mb-1">This Month</p>
+                <p className="text-xs text-gray-400 mb-1">{t('This Month')}</p>
                 <p className="text-lg font-bold text-green-400">${earnings.monthTotal.toFixed(2)}</p>
               </div>
               <div className="bg-white/5 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-400 mb-1">All Time</p>
+                <p className="text-xs text-gray-400 mb-1">{t('All Time')}</p>
                 <p className="text-lg font-bold text-white">${earnings.allTimeTotal.toFixed(2)}</p>
               </div>
               <div className="bg-white/5 rounded-lg p-3 text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Briefcase className="w-3 h-3 text-gray-400" />
-                  <p className="text-xs text-gray-400">This Month</p>
+                  <p className="text-xs text-gray-400">{t('This Month')}</p>
                 </div>
                 <p className="text-lg font-bold text-blue-400">{earnings.monthJobCount}</p>
-                <p className="text-xs text-gray-500">jobs</p>
+                <p className="text-xs text-gray-500">{t('jobs')}</p>
               </div>
             </div>
           </div>
@@ -242,7 +244,7 @@ export default function EmployeeDashboardPage() {
                 }`}
               >
                 <Icon className={`w-10 h-10 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                <span className="text-center px-2">{section.label}</span>
+                <span className="text-center px-2">{t(section.label)}</span>
               </button>
             )
           })}

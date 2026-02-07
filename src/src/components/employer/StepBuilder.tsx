@@ -7,8 +7,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 function StepBuilderImage({ src, alt }: { src: string; alt: string }) {
+  const { t } = useTranslation()
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
   return (
@@ -18,7 +20,7 @@ function StepBuilderImage({ src, alt }: { src: string; alt: string }) {
       )}
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-white/5">
-          <span className="text-xs text-gray-500">Image unavailable</span>
+          <span className="text-xs text-gray-500">{t('Image unavailable')}</span>
         </div>
       ) : (
         <Image
@@ -55,6 +57,7 @@ interface StepBuilderProps {
 }
 
 export function StepBuilder({ steps, onChange }: StepBuilderProps) {
+  const { t } = useTranslation()
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
   const [uploading, setUploading] = useState<number | null>(null)
   const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({})
@@ -145,13 +148,13 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
       for (const file of Array.from(files)) {
         // Validate file type
         if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not an image file`)
+          toast.error(`${file.name} ${t('is not an image file')}`)
           continue
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} is too large. Max size is 5MB`)
+          toast.error(`${file.name} ${t('is too large. Max size is 5MB')}`)
           continue
         }
 
@@ -190,7 +193,7 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
       }
     } catch (error) {
       console.error('Error uploading images:', error)
-      toast.error('Failed to upload images')
+      toast.error(t('Failed to upload images'))
     } finally {
       setUploading(null)
       // Reset file input
@@ -230,19 +233,19 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-base font-medium text-gray-300">Step-by-Step Instructions</span>
+        <span className="text-base font-medium text-gray-300">{t('Step-by-Step Instructions')}</span>
         <button
           type="button"
           onClick={addStep}
           className="bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-lg px-3 py-1.5 text-sm"
         >
-          + Add Step
+          {t('+ Add Step')}
         </button>
       </div>
 
       {steps.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-4">
-          No steps added yet. Click &quot;Add Step&quot; to create instructions.
+          {t('No steps added yet. Click "Add Step" to create instructions.')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -308,32 +311,32 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
               {expandedStep === index && (
                 <div className="border-t border-white/10 p-4 space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-300">Step Title</label>
+                    <label className="text-sm text-gray-300">{t('Step Title')}</label>
                     <Input
                       value={step.title}
                       onChange={(e) => updateStep(index, { title: e.target.value })}
-                      placeholder="e.g., Clean kitchen counters"
+                      placeholder={t('e.g., Clean kitchen counters')}
                       className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-300">Description</label>
+                    <label className="text-sm text-gray-300">{t('Description')}</label>
                     <Textarea
                       value={step.description}
                       onChange={(e) => updateStep(index, { description: e.target.value })}
-                      placeholder="Detailed instructions for this step..."
+                      placeholder={t('Detailed instructions for this step...')}
                       rows={3}
                       className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-300">Products Needed</label>
+                    <label className="text-sm text-gray-300">{t('Products Needed')}</label>
                     <Input
                       value={step.products_needed}
                       onChange={(e) => updateStep(index, { products_needed: e.target.value })}
-                      placeholder="e.g., All-purpose cleaner, microfiber cloth"
+                      placeholder={t('e.g., All-purpose cleaner, microfiber cloth')}
                       className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
@@ -341,7 +344,7 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                   {/* Reference Images */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-300">Reference Images</label>
+                      <label className="text-sm text-gray-300">{t('Reference Images')}</label>
                       <div>
                         <input
                           type="file"
@@ -357,13 +360,13 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                           disabled={uploading === index}
                           className="bg-white/10 border border-white/20 text-gray-300 hover:bg-white/20 text-xs px-2 py-1 rounded-lg disabled:opacity-50"
                         >
-                          {uploading === index ? 'Uploading...' : '+ Add Images'}
+                          {uploading === index ? t('Uploading...') : t('+ Add Images')}
                         </button>
                       </div>
                     </div>
 
                     {step.images.length === 0 ? (
-                      <p className="text-xs text-gray-400">No images added</p>
+                      <p className="text-xs text-gray-400">{t('No images added')}</p>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
                         {step.images.map((image, imgIndex) => (
@@ -382,7 +385,7 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                             <Input
                               value={image.caption || ''}
                               onChange={(e) => updateImageCaption(index, imgIndex, e.target.value)}
-                              placeholder="Caption (optional)"
+                              placeholder={t('Caption (optional)')}
                               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-xs mt-1"
                             />
                           </div>
@@ -394,17 +397,17 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                   {/* Checklist Items */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-300">Checklist Items</label>
+                      <label className="text-sm text-gray-300">{t('Checklist Items')}</label>
                       <button
                         type="button"
                         onClick={() => addChecklistItem(index)}
                         className="text-gray-400 hover:text-white text-xs"
                       >
-                        + Add Item
+                        {t('+ Add Item')}
                       </button>
                     </div>
                     {step.checklist_items.length === 0 ? (
-                      <p className="text-xs text-gray-400">No checklist items</p>
+                      <p className="text-xs text-gray-400">{t('No checklist items')}</p>
                     ) : (
                       <div className="space-y-2">
                         {step.checklist_items.map((item, itemIndex) => (
@@ -436,7 +439,7 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                       onClick={() => removeStep(index)}
                       className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs px-3 py-1.5 rounded-lg"
                     >
-                      Remove Step
+                      {t('Remove Step')}
                     </button>
                   </div>
                 </div>

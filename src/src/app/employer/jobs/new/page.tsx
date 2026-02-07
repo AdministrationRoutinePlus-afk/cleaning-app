@@ -22,9 +22,11 @@ import {
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
 import { X, Plus, Calendar, Upload, ImageIcon, ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export default function NewJobPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -67,13 +69,13 @@ export default function NewJobPage() {
   const [newExcludeDate, setNewExcludeDate] = useState('')
 
   const DAYS_OF_WEEK = [
-    { value: 'SUN', label: 'Sunday' },
-    { value: 'MON', label: 'Monday' },
-    { value: 'TUE', label: 'Tuesday' },
-    { value: 'WED', label: 'Wednesday' },
-    { value: 'THU', label: 'Thursday' },
-    { value: 'FRI', label: 'Friday' },
-    { value: 'SAT', label: 'Saturday' },
+    { value: 'SUN', label: t('Sunday') },
+    { value: 'MON', label: t('Monday') },
+    { value: 'TUE', label: t('Tuesday') },
+    { value: 'WED', label: t('Wednesday') },
+    { value: 'THU', label: t('Thursday') },
+    { value: 'FRI', label: t('Friday') },
+    { value: 'SAT', label: t('Saturday') },
   ]
 
   const TIME_OPTIONS = [
@@ -241,18 +243,18 @@ export default function NewJobPage() {
 
       // Validate employer ID is set
       if (!employerId) {
-        toast.error('Session error. Please refresh the page.')
+        toast.error(t('Session error. Please refresh the page.'))
         return
       }
 
       // Validate required fields
       if (!formData.title || !formData.client_code) {
-        toast.error('Please fill in title and client code')
+        toast.error(t('Please fill in title and client code'))
         return
       }
 
       if (formData.client_code.length !== 3) {
-        toast.error('Client code must be exactly 3 letters')
+        toast.error(t('Client code must be exactly 3 letters'))
         return
       }
 
@@ -261,7 +263,7 @@ export default function NewJobPage() {
           formData.window_start_day === formData.window_end_day &&
           formData.time_window_start && formData.time_window_end) {
         if (formData.time_window_end <= formData.time_window_start) {
-          toast.error('End time must be after start time when start and end days are the same')
+          toast.error(t('End time must be after start time when start and end days are the same'))
           return
         }
       }
@@ -269,7 +271,7 @@ export default function NewJobPage() {
       // Generate job code
       const codeData = await generateJobCode(formData.client_code)
       if (!codeData) {
-        toast.error('Failed to generate job code')
+        toast.error(t('Failed to generate job code'))
         return
       }
 
@@ -407,7 +409,7 @@ export default function NewJobPage() {
       const errorMessage = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message || JSON.stringify(error)
-      toast.error(`Failed to create job: ${errorMessage}`)
+      toast.error(`${t('Failed to create job')}: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -440,47 +442,47 @@ export default function NewJobPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-white">Create New Job</h1>
+          <h1 className="text-2xl font-bold text-white">{t('Create New Job')}</h1>
         </div>
 
         {/* Job Details Section */}
         <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-white">Job Details</h2>
+          <h2 className="text-lg font-semibold text-white">{t('Job Details')}</h2>
 
           {/* Job Type Selection */}
           <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Job Type</Label>
+            <Label className="text-gray-300 text-sm">{t('Job Type')}</Label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, customer_id: '', client_code: 'RND', address: '' })}
                 className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.customer_id === '' && formData.client_code === 'RND' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
               >
-                Random Job
+                {t('Random Job')}
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, client_code: '' })}
                 className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.customer_id !== '' || formData.client_code !== 'RND' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
               >
-                Customer Job
+                {t('Customer Job')}
               </button>
             </div>
             <p className="text-xs text-gray-500">
-              Random jobs use code RND. Customer jobs link to a customer profile.
+              {t('Random jobs use code RND. Customer jobs link to a customer profile.')}
             </p>
           </div>
 
           {/* Customer Selector (shown only for Customer Jobs) */}
           {formData.client_code !== 'RND' && (
             <div className="space-y-2">
-              <Label htmlFor="customer" className="text-gray-300 text-sm">Customer</Label>
+              <Label htmlFor="customer" className="text-gray-300 text-sm">{t('Customer')}</Label>
               <Select
                 value={formData.customer_id}
                 onValueChange={handleCustomerChange}
               >
                 <SelectTrigger id="customer" className="bg-white/5 border-white/20 text-white">
-                  <SelectValue placeholder="Select a customer" />
+                  <SelectValue placeholder={t('Select a customer')} />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-white/20">
                   {customers.map(customer => (
@@ -491,19 +493,19 @@ export default function NewJobPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                Selecting a customer will auto-fill the client code and address
+                {t('Selecting a customer will auto-fill the client code and address')}
               </p>
             </div>
           )}
 
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-gray-300 text-sm">Job Title *</Label>
+            <Label htmlFor="title" className="text-gray-300 text-sm">{t('Job Title')} *</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., Kitchen Deep Clean"
+              placeholder={t('e.g., Kitchen Deep Clean')}
               required
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
@@ -511,7 +513,7 @@ export default function NewJobPage() {
 
           {/* Job Image */}
           <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Job Image</Label>
+            <Label className="text-gray-300 text-sm">{t('Job Image')}</Label>
             <div className="flex gap-4 items-start">
               {/* Preview */}
               <div className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5">
@@ -538,11 +540,11 @@ export default function NewJobPage() {
                   />
                   <div className="flex items-center gap-2 px-4 py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-colors w-fit text-gray-300">
                     <Upload className="h-4 w-4" />
-                    <span className="text-sm">{imageFile ? 'Change image' : 'Upload image'}</span>
+                    <span className="text-sm">{imageFile ? t('Change image') : t('Upload image')}</span>
                   </div>
                 </label>
                 <p className="text-xs text-gray-500">
-                  This image will be shown to employees in the marketplace
+                  {t('This image will be shown to employees in the marketplace')}
                 </p>
                 {imageFile && (
                   <button
@@ -550,7 +552,7 @@ export default function NewJobPage() {
                     onClick={() => { setImageFile(null); setImagePreview(null) }}
                     className="text-xs text-red-400 hover:underline"
                   >
-                    Remove image
+                    {t('Remove image')}
                   </button>
                 )}
               </div>
@@ -559,12 +561,12 @@ export default function NewJobPage() {
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-gray-300 text-sm">Description</Label>
+            <Label htmlFor="description" className="text-gray-300 text-sm">{t('Description')}</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe the job..."
+              placeholder={t('Describe the job...')}
               rows={4}
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
@@ -572,12 +574,12 @@ export default function NewJobPage() {
 
           {/* Address */}
           <div className="space-y-2">
-            <Label htmlFor="address" className="text-gray-300 text-sm">Address</Label>
+            <Label htmlFor="address" className="text-gray-300 text-sm">{t('Address')}</Label>
             <Input
               id="address"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="123 Main St, City, Province"
+              placeholder={t('123 Main St, City, Province')}
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
           </div>
@@ -585,7 +587,7 @@ export default function NewJobPage() {
           {/* Client Code (hidden for Random Jobs) */}
           {formData.client_code !== 'RND' && (
             <div className="space-y-2">
-              <Label htmlFor="client_code" className="text-gray-300 text-sm">Client Code *</Label>
+              <Label htmlFor="client_code" className="text-gray-300 text-sm">{t('Client Code')} *</Label>
               <Input
                 id="client_code"
                 value={formData.client_code}
@@ -596,7 +598,7 @@ export default function NewJobPage() {
                 required
               />
               <p className="text-xs text-gray-500">
-                3-letter code that identifies the client (e.g., ABC)
+                {t('3-letter code that identifies the client (e.g., ABC)')}
               </p>
             </div>
           )}
@@ -604,10 +606,10 @@ export default function NewJobPage() {
 
         {/* Pricing & Duration Section */}
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-white">Pricing & Duration</h2>
+          <h2 className="text-lg font-semibold text-white">{t('Pricing & Duration')}</h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="duration" className="text-gray-300 text-sm">Duration (minutes)</Label>
+              <Label htmlFor="duration" className="text-gray-300 text-sm">{t('Duration (minutes)')}</Label>
               <Input
                 id="duration"
                 type="number"
@@ -619,7 +621,7 @@ export default function NewJobPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price" className="text-gray-300 text-sm">Price per Hour ($)</Label>
+              <Label htmlFor="price" className="text-gray-300 text-sm">{t('Price per Hour ($)')}</Label>
               <Input
                 id="price"
                 type="number"
@@ -638,26 +640,26 @@ export default function NewJobPage() {
         <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 p-4 space-y-6">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Scheduling
+            {t('Scheduling')}
           </h2>
 
           {/* Job Type Toggle */}
           <div className="space-y-3">
-            <Label className="text-gray-300 text-sm">Job Type</Label>
+            <Label className="text-gray-300 text-sm">{t('Job Type')}</Label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, is_recurring: false })}
                 className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!formData.is_recurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
               >
-                One-time
+                {t('One-time')}
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, is_recurring: true })}
                 className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${formData.is_recurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
               >
-                Recurring
+                {t('Recurring')}
               </button>
             </div>
           </div>
@@ -666,21 +668,21 @@ export default function NewJobPage() {
 
           {/* Time Window */}
           <div className="space-y-4">
-            <Label className="text-gray-300 text-sm font-semibold">Job Window</Label>
+            <Label className="text-gray-300 text-sm font-semibold">{t('Job Window')}</Label>
             <p className="text-xs text-gray-500">
-              When can this job be done? Employee can complete it anytime within this window.
+              {t('When can this job be done? Employee can complete it anytime within this window.')}
             </p>
 
             <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">From Day</Label>
+                  <Label className="text-xs text-gray-500">{t('From Day')}</Label>
                   <Select
                     value={formData.window_start_day}
                     onValueChange={(value) => setFormData({ ...formData, window_start_day: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder={t('Select day')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {DAYS_OF_WEEK.map(day => (
@@ -690,13 +692,13 @@ export default function NewJobPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">From Time</Label>
+                  <Label className="text-xs text-gray-500">{t('From Time')}</Label>
                   <Select
                     value={formData.time_window_start}
                     onValueChange={(value) => setFormData({ ...formData, time_window_start: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Start time" />
+                      <SelectValue placeholder={t('Start time')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {TIME_OPTIONS.map(time => (
@@ -708,18 +710,18 @@ export default function NewJobPage() {
               </div>
 
               <div className="flex justify-center">
-                <span className="text-gray-500 text-sm">to</span>
+                <span className="text-gray-500 text-sm">{t('to')}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">To Day</Label>
+                  <Label className="text-xs text-gray-500">{t('To Day')}</Label>
                   <Select
                     value={formData.window_end_day}
                     onValueChange={(value) => setFormData({ ...formData, window_end_day: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder={t('Select day')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {DAYS_OF_WEEK.map(day => (
@@ -729,13 +731,13 @@ export default function NewJobPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">To Time</Label>
+                  <Label className="text-xs text-gray-500">{t('To Time')}</Label>
                   <Select
                     value={formData.time_window_end}
                     onValueChange={(value) => setFormData({ ...formData, time_window_end: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="End time" />
+                      <SelectValue placeholder={t('End time')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {TIME_OPTIONS.map(time => (
@@ -764,14 +766,14 @@ export default function NewJobPage() {
           {/* Date Range or Specific Dates */}
           {formData.is_recurring ? (
             <div className="space-y-4">
-              <Label className="text-gray-300 text-sm font-semibold">Recurring Period</Label>
+              <Label className="text-gray-300 text-sm font-semibold">{t('Recurring Period')}</Label>
               <p className="text-xs text-gray-500">
-                One job session will be created for each week in this period.
+                {t('One job session will be created for each week in this period.')}
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Start Date</Label>
+                  <Label className="text-xs text-gray-500">{t('Start Date')}</Label>
                   <Input
                     type="date"
                     value={formData.start_date}
@@ -780,7 +782,7 @@ export default function NewJobPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">End Date</Label>
+                  <Label className="text-xs text-gray-500">{t('End Date')}</Label>
                   <Input
                     type="date"
                     value={formData.end_date}
@@ -793,7 +795,7 @@ export default function NewJobPage() {
 
               {/* Skip Dates */}
               <div className="space-y-2 pt-2">
-                <Label className="text-gray-300 text-sm">Skip Dates (Optional)</Label>
+                <Label className="text-gray-300 text-sm">{t('Skip Dates (Optional)')}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="date"
@@ -843,9 +845,9 @@ export default function NewJobPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <Label className="text-gray-300 text-sm font-semibold">Select Date(s)</Label>
+              <Label className="text-gray-300 text-sm font-semibold">{t('Select Date(s)')}</Label>
               <p className="text-xs text-gray-500">
-                Pick the specific date(s) when this job should be done.
+                {t('Pick the specific date(s) when this job should be done.')}
               </p>
 
               <div className="flex gap-2">
@@ -872,7 +874,7 @@ export default function NewJobPage() {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Add
+                  {t('Add')}
                 </Button>
               </div>
               {formData.specific_dates.length > 0 && (
@@ -901,16 +903,16 @@ export default function NewJobPage() {
 
           {/* Preferred Employee */}
           <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Assign To (Optional)</Label>
+            <Label className="text-gray-300 text-sm">{t('Assign To (Optional)')}</Label>
             <Select
               value={formData.preferred_employee_id || 'none'}
               onValueChange={(value) => setFormData({ ...formData, preferred_employee_id: value === 'none' ? '' : value })}
             >
               <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Anyone available" />
+                <SelectValue placeholder={t('Anyone available')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="none" className="text-white hover:bg-white/10">Anyone available</SelectItem>
+                <SelectItem value="none" className="text-white hover:bg-white/10">{t('Anyone available')}</SelectItem>
                 {employees.map(employee => (
                   <SelectItem key={employee.id} value={employee.id} className="text-white hover:bg-white/10">
                     {employee.full_name}
@@ -923,18 +925,18 @@ export default function NewJobPage() {
 
         {/* Instructions Section */}
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-white">Instructions (Optional)</h2>
+          <h2 className="text-lg font-semibold text-white">{t('Instructions (Optional)')}</h2>
           <StepBuilder steps={steps} onChange={setSteps} />
         </div>
 
         {/* Internal Notes Section */}
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
-          <h2 className="text-lg font-semibold text-white">Internal Notes</h2>
+          <h2 className="text-lg font-semibold text-white">{t('Internal Notes')}</h2>
           <Textarea
             id="notes"
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder="Notes visible only to you (not shown to employees)..."
+            placeholder={t('Notes visible only to you (not shown to employees)...')}
             rows={2}
             className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
           />
@@ -948,19 +950,19 @@ export default function NewJobPage() {
             disabled={loading}
             className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
-            {loading ? 'Saving...' : 'Save as Draft'}
+            {loading ? t('Saving...') : t('Save as Draft')}
           </Button>
           <Button
             onClick={() => handleSubmit('ACTIVE')}
             disabled={loading}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loading ? 'Saving...' : 'Activate Job'}
+            {loading ? t('Saving...') : t('Activate Job')}
           </Button>
         </div>
 
         <p className="text-xs text-gray-500 text-center">
-          Draft jobs can be edited later. Active jobs appear in the employee marketplace.
+          {t('Draft jobs can be edited later. Active jobs appear in the employee marketplace.')}
         </p>
       </div>
     </div>

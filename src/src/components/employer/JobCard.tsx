@@ -11,6 +11,7 @@ import { BulkSchedulerDialog } from '@/components/employer/jobs/BulkSchedulerDia
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Edit2, Copy, Trash2, Play, Pause, Send, CalendarPlus } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobCardProps {
   job: JobTemplate
@@ -20,6 +21,7 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [quickPublishOpen, setQuickPublishOpen] = useState(false)
   const [bulkSchedulerOpen, setBulkSchedulerOpen] = useState(false)
@@ -39,14 +41,14 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
 
       if (activeErr) {
         console.error('Error checking active sessions:', activeErr)
-        toast.error('Failed to check active sessions')
+        toast.error(t('Failed to check active sessions'))
         return
       }
 
       const activeCount = activeSessions?.length ?? 0
-      let confirmMsg = 'Are you sure you want to deactivate this job template? All OFFERED sessions will be cancelled.'
+      let confirmMsg = t('Are you sure you want to deactivate this job template? All OFFERED sessions will be cancelled.')
       if (activeCount > 0) {
-        confirmMsg += `\n\n${activeCount} session${activeCount !== 1 ? 's are' : ' is'} still active (CLAIMED/APPROVED/IN_PROGRESS) and will not be cancelled.`
+        confirmMsg += `\n\n${activeCount} ${t('session')}${activeCount !== 1 ? t('s are') : t(' is')} ${t('still active (CLAIMED/APPROVED/IN_PROGRESS) and will not be cancelled.')}`
       }
 
       if (!confirm(confirmMsg)) return
@@ -74,19 +76,19 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
       if (error) throw error
 
       if (isDeactivating) {
-        toast.success('Job deactivated. OFFERED sessions have been cancelled.')
+        toast.success(t('Job deactivated. OFFERED sessions have been cancelled.'))
       }
       onUpdate()
     } catch (error) {
       console.error('Error updating job status:', error)
-      toast.error('Failed to update job status')
+      toast.error(t('Failed to update job status'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this job template? All non-completed sessions will be cancelled.')) return
+    if (!confirm(t('Are you sure you want to delete this job template? All non-completed sessions will be cancelled.'))) return
 
     setLoading(true)
     try {
@@ -105,11 +107,11 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
         .eq('id', job.id)
 
       if (error) throw error
-      toast.success('Job template deleted.')
+      toast.success(t('Job template deleted.'))
       onUpdate()
     } catch (error) {
       console.error('Error deleting job:', error)
-      toast.error('Failed to delete job. Make sure there are no active sessions.')
+      toast.error(t('Failed to delete job. Make sure there are no active sessions.'))
     } finally {
       setLoading(false)
     }
@@ -120,14 +122,14 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
     try {
       const newId = await duplicateJob(supabase, job.id)
       if (!newId) {
-        toast.error('Failed to duplicate job')
+        toast.error(t('Failed to duplicate job'))
         return
       }
-      toast.success('Job duplicated (including steps, checklist, and images)')
+      toast.success(t('Job duplicated (including steps, checklist, and images)'))
       onUpdate()
     } catch (error) {
       console.error('Error duplicating job:', error)
-      toast.error('Failed to duplicate job')
+      toast.error(t('Failed to duplicate job'))
     } finally {
       setLoading(false)
     }
@@ -138,7 +140,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
   }
 
   const formatDuration = (minutes: number | null) => {
-    if (!minutes) return 'Not set'
+    if (!minutes) return t('Not set')
     const hours = Math.floor(minutes / 60)
     const mins = minutes % 60
     if (hours === 0) return `${mins}m`
@@ -148,9 +150,9 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
 
   const getStatusBadge = () => {
     if (job.status === 'ACTIVE') {
-      return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">ACTIVE</Badge>
+      return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">{t('ACTIVE')}</Badge>
     }
-    return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">DRAFT</Badge>
+    return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{t('DRAFT')}</Badge>
   }
 
   return (
@@ -186,8 +188,8 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
                   : 'bg-green-500/20 text-green-300 border border-green-500/30'
               }`}>
                 {sessionCounts.unclaimed > 0
-                  ? `${sessionCounts.unclaimed} unclaimed / ${sessionCounts.total} total`
-                  : `${sessionCounts.total} session${sessionCounts.total !== 1 ? 's' : ''}`}
+                  ? `${sessionCounts.unclaimed} ${t('unclaimed')} / ${sessionCounts.total} ${t('total')}`
+                  : `${sessionCounts.total} ${t('session')}${sessionCounts.total !== 1 ? 's' : ''}`}
               </Badge>
             </div>
           )}
@@ -195,13 +197,13 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
           {/* Duration & Rate Grid */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-gray-800/60 rounded-xl p-3 text-center border border-white/20">
-              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Duration</p>
+              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">{t('Duration')}</p>
               <p className="text-white font-bold text-base">{formatDuration(job.duration_minutes)}</p>
             </div>
             <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 rounded-xl p-3 text-center border border-yellow-500/40">
-              <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">Rate</p>
+              <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">{t('Rate')}</p>
               <p className="text-white font-bold text-base">
-                {job.price_per_hour ? `$${job.price_per_hour}/hr` : 'Not set'}
+                {job.price_per_hour ? `$${job.price_per_hour}/${t('hr')}` : t('Not set')}
               </p>
             </div>
           </div>
@@ -209,14 +211,14 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
           {/* Time Window */}
           {(job.time_window_start || job.time_window_end) && (
             <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/30">
-              <p className="text-blue-400 text-[10px] uppercase font-bold mb-1">Time Window</p>
+              <p className="text-blue-400 text-[10px] uppercase font-bold mb-1">{t('Time Window')}</p>
               <div className="flex items-center justify-between">
                 <span className="text-white font-bold">
-                  {job.time_window_start ? job.time_window_start.substring(0, 5) : 'Not set'}
+                  {job.time_window_start ? job.time_window_start.substring(0, 5) : t('Not set')}
                 </span>
                 <span className="text-gray-500">&rarr;</span>
                 <span className="text-white font-bold">
-                  {job.time_window_end ? job.time_window_end.substring(0, 5) : 'Not set'}
+                  {job.time_window_end ? job.time_window_end.substring(0, 5) : t('Not set')}
                 </span>
               </div>
             </div>
@@ -225,7 +227,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
           {/* Address */}
           {job.address && (
             <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20">
-              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Address</p>
+              <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">{t('Address')}</p>
               <p className="text-white text-sm">{job.address}</p>
             </div>
           )}
@@ -242,7 +244,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
               className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               <Edit2 className="w-3 h-3 mr-1" />
-              Edit
+              {t('Edit')}
             </Button>
             {job.status === 'ACTIVE' && (
               <>
@@ -254,7 +256,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
                   className="flex-1 bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
                 >
                   <Send className="w-3 h-3 mr-1" />
-                  Quick Publish
+                  {t('Quick Publish')}
                 </Button>
               </>
             )}
@@ -268,7 +270,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
               className="w-full bg-purple-500/10 border-purple-500/30 text-purple-300 hover:bg-purple-500/20"
             >
               <CalendarPlus className="w-3 h-3 mr-1" />
-              Bulk Schedule
+              {t('Bulk Schedule')}
             </Button>
           )}
           <Button
@@ -282,7 +284,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
             }`}
           >
             {job.status === 'ACTIVE' ? <Pause className="w-3 h-3 mr-1" /> : <Play className="w-3 h-3 mr-1" />}
-            {loading ? '...' : job.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+            {loading ? '...' : job.status === 'ACTIVE' ? t('Deactivate') : t('Activate')}
           </Button>
           <div className="flex gap-2 w-full">
             <Button
@@ -293,7 +295,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
               className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               <Copy className="w-3 h-3 mr-1" />
-              Duplicate
+              {t('Duplicate')}
             </Button>
             <Button
               size="sm"
@@ -302,7 +304,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
               className="flex-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
             >
               <Trash2 className="w-3 h-3 mr-1" />
-              Delete
+              {t('Delete')}
             </Button>
           </div>
         </div>

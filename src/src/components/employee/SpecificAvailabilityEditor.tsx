@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Calendar, Lock, Unlock, AlertCircle, X, Clock, Copy, CalendarDays, Repeat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 import { format, addDays, startOfDay, nextMonday, getDay, addWeeks } from 'date-fns'
 
 interface SpecificAvailabilityEditorProps {
@@ -44,6 +45,7 @@ const DAYS_OF_WEEK = [
 ]
 
 export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityEditorProps) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<AvailabilityMode | null>(null)
   const [days, setDays] = useState<DayAvailability[]>([])
   const [weeklyDays, setWeeklyDays] = useState<WeeklyDayAvailability[]>([])
@@ -290,7 +292,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       closeDayEditor()
     } catch (error) {
       console.error('Error saving availability:', error)
-      toast.error('Failed to save availability')
+      toast.error(t('Failed to save availability'))
     } finally {
       setSaving(false)
     }
@@ -360,7 +362,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       closeWeeklyDayEditor()
     } catch (error) {
       console.error('Error saving weekly availability:', error)
-      toast.error('Failed to save availability')
+      toast.error(t('Failed to save availability'))
     } finally {
       setSaving(false)
     }
@@ -412,7 +414,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       setShowReminder(false)
     } catch (error) {
       console.error('Error locking availability:', error)
-      toast.error('Failed to lock availability')
+      toast.error(t('Failed to lock availability'))
     } finally {
       setSaving(false)
     }
@@ -438,7 +440,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       await initializeDays()
     } catch (error) {
       console.error('Error unlocking availability:', error)
-      toast.error('Failed to unlock availability')
+      toast.error(t('Failed to unlock availability'))
     } finally {
       setSaving(false)
     }
@@ -514,7 +516,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
               }`}
             >
               <Repeat className={`w-10 h-10 ${mode === 'fixed' ? 'text-white' : 'text-gray-400'}`} />
-              <span className="text-center px-2">Fixed Weekly</span>
+              <span className="text-center px-2">{t('Fixed Weekly')}</span>
             </button>
             <button
               onClick={() => selectMode('custom')}
@@ -525,7 +527,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
               }`}
             >
               <CalendarDays className={`w-10 h-10 ${mode === 'custom' ? 'text-white' : 'text-gray-400'}`} />
-              <span className="text-center px-2">Custom Dates</span>
+              <span className="text-center px-2">{t('Custom Dates')}</span>
             </button>
           </div>
         </div>
@@ -548,12 +550,12 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                 {isAllLocked ? (
                   <>
                     <Unlock className="w-4 h-4 mr-1" />
-                    Unlock
+                    {t('Unlock')}
                   </>
                 ) : (
                   <>
                     <Lock className="w-4 h-4 mr-1" />
-                    Lock All
+                    {t('Lock All')}
                   </>
                 )}
               </Button>
@@ -570,7 +572,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
               <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                 <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
                 <p className="text-sm text-amber-300">
-                  Set your availability and lock when ready!
+                  {t('Set your availability and lock when ready!')}
                 </p>
               </div>
             )}
@@ -672,19 +674,19 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             <div className="flex items-center justify-center gap-3 text-xs text-gray-400 flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-blue-500/40"></div>
-                <span>Not set</span>
+                <span>{t('Not set')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-green-500/40"></div>
-                <span>Available</span>
+                <span>{t('Available')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-red-500/40"></div>
-                <span>Unavailable</span>
+                <span>{t('Unavailable')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Lock className="w-3 h-3" />
-                <span>Locked</span>
+                <span>{t('Locked')}</span>
               </div>
             </div>
 
@@ -704,7 +706,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                 className="border-white/30 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500 mt-0.5"
               />
               <label htmlFor="copyToNext" className="text-sm text-gray-300 cursor-pointer leading-relaxed">
-                Copy this schedule to the following 2 weeks when locked
+                {t('Copy this schedule to the following 2 weeks when locked')}
               </label>
             </div>
           </div>
@@ -714,7 +716,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
           /* Fixed Weekly Schedule (Mon-Sun) */
           <div ref={contentRef} className="space-y-3 scroll-mt-4">
             <p className="text-sm text-gray-400 text-center">
-              Set your recurring weekly availability
+              {t('Set your recurring weekly availability')}
             </p>
 
             {/* Weekly Days Grid */}
@@ -743,7 +745,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                       <span className={`text-lg font-bold ${
                         !isConfigured ? 'text-blue-200' : day.isAvailable ? 'text-green-200' : 'text-red-200'
                       }`}>
-                        {day.dayName}
+                        {t(day.dayName)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -753,10 +755,10 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                         </span>
                       ) : isConfigured ? (
                         <span className={`text-sm ${day.isAvailable ? 'text-green-400' : 'text-red-400'}`}>
-                          {day.isAvailable ? 'Available' : 'Unavailable'}
+                          {day.isAvailable ? t('Available') : t('Unavailable')}
                         </span>
                       ) : (
-                        <span className="text-sm text-blue-400">Not set</span>
+                        <span className="text-sm text-blue-400">{t('Not set')}</span>
                       )}
                     </div>
                   </button>
@@ -768,15 +770,15 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             <div className="flex items-center justify-center gap-3 text-xs text-gray-400 flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-blue-500/40"></div>
-                <span>Not set</span>
+                <span>{t('Not set')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-green-500/40"></div>
-                <span>Available</span>
+                <span>{t('Available')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-red-500/40"></div>
-                <span>Unavailable</span>
+                <span>{t('Unavailable')}</span>
               </div>
             </div>
           </div>
@@ -802,7 +804,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             <div className="p-4 space-y-4">
               {/* Availability Toggle */}
               <div className="flex items-center justify-between">
-                <Label className="text-white">Available</Label>
+                <Label className="text-white">{t('Available')}</Label>
                 <button
                   onClick={() => setEditIsAvailable(!editIsAvailable)}
                   className={`w-14 h-8 rounded-full transition-colors ${
@@ -831,14 +833,14 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                 onClick={closeDayEditor}
                 className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
               >
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 onClick={saveDayAvailability}
                 disabled={saving}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? t('Saving...') : t('Save')}
               </Button>
             </div>
           </div>
@@ -851,7 +853,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
           <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl w-full max-w-sm border border-white/20 shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <h3 className="text-lg font-bold text-white">
-                {selectedWeeklyDay.dayName}
+                {t(selectedWeeklyDay.dayName)}
               </h3>
               <button
                 onClick={closeWeeklyDayEditor}
@@ -864,7 +866,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             <div className="p-4 space-y-4">
               {/* Availability Toggle */}
               <div className="flex items-center justify-between">
-                <Label className="text-white">Available</Label>
+                <Label className="text-white">{t('Available')}</Label>
                 <button
                   onClick={() => setEditIsAvailable(!editIsAvailable)}
                   className={`w-14 h-8 rounded-full transition-colors ${
@@ -893,14 +895,14 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
                 onClick={closeWeeklyDayEditor}
                 className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
               >
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 onClick={saveWeeklyDayAvailability}
                 disabled={saving}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? t('Saving...') : t('Save')}
               </Button>
             </div>
           </div>
@@ -922,16 +924,17 @@ function TimeWindowEditor({
   onStartTimeChange: (time: string) => void
   onEndTimeChange: (time: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3 pt-2 border-t border-white/10">
       <div className="flex items-center gap-2 text-gray-400 text-sm">
         <Clock className="w-4 h-4" />
-        <span>Time Window (optional)</span>
+        <span>{t('Time Window (optional)')}</span>
       </div>
 
       {/* Start Time */}
       <div>
-        <Label className="text-xs text-gray-400 mb-2 block">Start Time</Label>
+        <Label className="text-xs text-gray-400 mb-2 block">{t('Start Time')}</Label>
         <div className="flex gap-2">
           <select
             value={startTime ? startTime.split(':')[0] : ''}
@@ -946,7 +949,7 @@ function TimeWindowEditor({
             }}
             className="flex-1 bg-white/10 border border-white/20 text-white rounded-lg px-3 py-3 text-base"
           >
-            <option value="" className="bg-gray-800">Hour</option>
+            <option value="" className="bg-gray-800">{t('Hour')}</option>
             {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => (
               <option key={hour} value={hour.toString().padStart(2, '0')} className="bg-gray-800">
                 {hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
@@ -973,7 +976,7 @@ function TimeWindowEditor({
 
       {/* End Time */}
       <div>
-        <Label className="text-xs text-gray-400 mb-2 block">End Time</Label>
+        <Label className="text-xs text-gray-400 mb-2 block">{t('End Time')}</Label>
         <div className="flex gap-2">
           <select
             value={endTime ? endTime.split(':')[0] : ''}
@@ -988,7 +991,7 @@ function TimeWindowEditor({
             }}
             className="flex-1 bg-white/10 border border-white/20 text-white rounded-lg px-3 py-3 text-base"
           >
-            <option value="" className="bg-gray-800">Hour</option>
+            <option value="" className="bg-gray-800">{t('Hour')}</option>
             {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => (
               <option key={hour} value={hour.toString().padStart(2, '0')} className="bg-gray-800">
                 {hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
@@ -1023,12 +1026,12 @@ function TimeWindowEditor({
           }}
           className="text-xs text-gray-400 hover:text-white transition-colors"
         >
-          Clear times (available all day)
+          {t('Clear times (available all day)')}
         </button>
       )}
 
       <p className="text-xs text-gray-500">
-        Leave empty if available all day
+        {t('Leave empty if available all day')}
       </p>
     </div>
   )

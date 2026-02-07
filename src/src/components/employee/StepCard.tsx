@@ -6,8 +6,10 @@ import type { JobStep, JobStepImage, JobStepChecklist, JobSessionProgress, JobSe
 import { StepChecklist } from './StepChecklist'
 import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 function ImageWithSkeleton({ src, alt, caption }: { src: string; alt: string; caption: string | null }) {
+  const { t } = useTranslation()
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
 
@@ -18,7 +20,7 @@ function ImageWithSkeleton({ src, alt, caption }: { src: string; alt: string; ca
       )}
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center bg-white/5">
-          <span className="text-xs text-gray-500">Image unavailable</span>
+          <span className="text-xs text-gray-500">{t('Image unavailable')}</span>
         </div>
       ) : (
         <Image
@@ -68,6 +70,7 @@ export function StepCard({
   isListMode = false,
   compact = false
 }: StepCardProps) {
+  const { t } = useTranslation()
   const [updating, setUpdating] = useState(false)
   const isCompleted = stepProgress?.is_completed || false
 
@@ -108,7 +111,7 @@ export function StepCard({
               size="sm"
               className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
             >
-              {updating ? 'Updating...' : 'Complete'}
+              {updating ? t('Updating...') : t('Complete')}
             </Button>
           )}
         </div>
@@ -163,7 +166,7 @@ export function StepCard({
 
         {step.products_needed && (
           <div className="mt-3 p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
-            <p className="text-xs font-semibold text-blue-300 mb-1">Products Needed:</p>
+            <p className="text-xs font-semibold text-blue-300 mb-1">{t('Products Needed:')}</p>
             <p className="text-sm text-blue-200">{step.products_needed}</p>
           </div>
         )}
@@ -209,7 +212,7 @@ export function StepCard({
               : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
-          {updating ? 'Updating...' : isCompleted ? 'Mark Incomplete' : 'Mark Complete'}
+          {updating ? t('Updating...') : isCompleted ? t('Mark Incomplete') : t('Mark Complete')}
         </Button>
       </div>
     </div>

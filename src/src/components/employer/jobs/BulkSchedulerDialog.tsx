@@ -19,6 +19,7 @@ import { generateSessionRecords, getNextSessionNumber, createJobSessions, Sessio
 import { X, Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 const DAYS_OF_WEEK = [
   { value: 'SUN', label: 'Sunday' },
@@ -38,6 +39,7 @@ interface BulkSchedulerDialogProps {
 }
 
 export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkSchedulerDialogProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [previewCount, setPreviewCount] = useState(0)
 
@@ -93,11 +95,11 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
   const handleGenerate = async () => {
     const today = format(new Date(), 'yyyy-MM-dd')
     if (isRecurring && startDate && startDate < today) {
-      toast.error('Start date cannot be in the past')
+      toast.error(t('Start date cannot be in the past'))
       return
     }
     if (!isRecurring && specificDates.some(d => d < today)) {
-      toast.error('Specific dates cannot be in the past')
+      toast.error(t('Specific dates cannot be in the past'))
       return
     }
 
@@ -118,15 +120,15 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
 
       const count = await createJobSessions(supabase, job.id, job.job_code, input, nextNum, job.preferred_employee_id || undefined)
       if (count >= 0) {
-        toast.success(`Created ${count} session${count !== 1 ? 's' : ''}`)
+        toast.success(`${t('Created')} ${count} ${count !== 1 ? t('sessions') : t('session')}`)
         onOpenChange(false)
         onUpdate()
       } else {
-        toast.error('Failed to create sessions')
+        toast.error(t('Failed to create sessions'))
       }
     } catch (error) {
       console.error('Error generating sessions:', error)
-      toast.error('Failed to generate sessions')
+      toast.error(t('Failed to generate sessions'))
     } finally {
       setLoading(false)
     }
@@ -136,9 +138,9 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
         <DialogHeader>
-          <DialogTitle className="text-white">Bulk Schedule</DialogTitle>
+          <DialogTitle className="text-white">{t('Bulk Schedule')}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Generate multiple sessions for {job.job_code} — {job.title}
+            {t('Generate multiple sessions for')} {job.job_code} — {job.title}
           </DialogDescription>
         </DialogHeader>
 
@@ -152,7 +154,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                 !isRecurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
-              One-time
+              {t('One-time')}
             </button>
             <button
               type="button"
@@ -161,29 +163,29 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                 isRecurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
-              Recurring
+              {t('Recurring')}
             </button>
           </div>
 
           {/* Time Window */}
           <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
-            <Label className="text-xs text-gray-400 font-semibold uppercase">Job Window</Label>
+            <Label className="text-xs text-gray-400 font-semibold uppercase">{t('Job Window')}</Label>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">From Day</Label>
+                <Label className="text-xs text-gray-500">{t('From Day')}</Label>
                 <Select value={windowStartDay} onValueChange={setWindowStartDay}>
                   <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                    <SelectValue placeholder="Select day" />
+                    <SelectValue placeholder={t('Select day')} />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-white/20">
                     {DAYS_OF_WEEK.map(day => (
-                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{day.label}</SelectItem>
+                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.label)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">From Time</Label>
+                <Label className="text-xs text-gray-500">{t('From Time')}</Label>
                 <Input
                   type="time"
                   value={timeWindowStart}
@@ -193,24 +195,24 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
               </div>
             </div>
             <div className="flex justify-center">
-              <span className="text-gray-500 text-sm">to</span>
+              <span className="text-gray-500 text-sm">{t('to')}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">To Day</Label>
+                <Label className="text-xs text-gray-500">{t('To Day')}</Label>
                 <Select value={windowEndDay} onValueChange={setWindowEndDay}>
                   <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                    <SelectValue placeholder="Select day" />
+                    <SelectValue placeholder={t('Select day')} />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-white/20">
                     {DAYS_OF_WEEK.map(day => (
-                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{day.label}</SelectItem>
+                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.label)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">To Time</Label>
+                <Label className="text-xs text-gray-500">{t('To Time')}</Label>
                 <Input
                   type="time"
                   value={timeWindowEnd}
@@ -224,9 +226,9 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             {windowStartDay && windowEndDay && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2">
                 <p className="text-xs text-blue-300 font-medium">
-                  {DAYS_OF_WEEK.find(d => d.value === windowStartDay)?.label} {timeWindowStart || ''}
+                  {t(DAYS_OF_WEEK.find(d => d.value === windowStartDay)?.label || '')} {timeWindowStart || ''}
                   {' \u2192 '}
-                  {DAYS_OF_WEEK.find(d => d.value === windowEndDay)?.label} {timeWindowEnd || ''}
+                  {t(DAYS_OF_WEEK.find(d => d.value === windowEndDay)?.label || '')} {timeWindowEnd || ''}
                 </p>
               </div>
             )}
@@ -237,7 +239,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Start Date</Label>
+                  <Label className="text-xs text-gray-500">{t('Start Date')}</Label>
                   <Input
                     type="date"
                     value={startDate}
@@ -247,7 +249,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">End Date</Label>
+                  <Label className="text-xs text-gray-500">{t('End Date')}</Label>
                   <Input
                     type="date"
                     value={endDate}
@@ -260,7 +262,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
 
               {/* Skip Dates */}
               <div className="space-y-2">
-                <Label className="text-xs text-gray-500">Skip Dates</Label>
+                <Label className="text-xs text-gray-500">{t('Skip Dates')}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="date"
@@ -305,7 +307,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             </div>
           ) : (
             <div className="space-y-3">
-              <Label className="text-xs text-gray-500">Select Date(s)</Label>
+              <Label className="text-xs text-gray-500">{t('Select Date(s)')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="date"
@@ -327,7 +329,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Add
+                  {t('Add')}
                 </Button>
               </div>
               {specificDates.length > 0 && (
@@ -353,12 +355,12 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 space-y-3">
             <p className="text-sm text-blue-300 font-medium">
               {previewCount > 0
-                ? `This will create ${previewCount} session${previewCount !== 1 ? 's' : ''} as ${job.preferred_employee_id ? 'APPROVED (pre-assigned)' : 'OFFERED'}`
-                : 'Configure scheduling to preview sessions'}
+                ? `${t('This will create')} ${previewCount} ${previewCount !== 1 ? t('sessions') : t('session')} ${t('as')} ${job.preferred_employee_id ? t('APPROVED (pre-assigned)') : t('OFFERED')}`
+                : t('Configure scheduling to preview sessions')}
             </p>
             {previewCount > 0 && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400 font-medium">Scheduled dates:</p>
+                <p className="text-xs text-gray-400 font-medium">{t('Scheduled dates:')}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(() => {
                     const input: SessionGeneratorInput = {
@@ -387,7 +389,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                         ))}
                         {remaining > 0 && (
                           <span className="inline-block text-xs px-2 py-1 rounded-md bg-white/10 text-gray-400 border border-white/10">
-                            + {remaining} more
+                            + {remaining} {t('more')}
                           </span>
                         )}
                       </>
@@ -405,14 +407,14 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             onClick={() => onOpenChange(false)}
             className="bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             onClick={handleGenerate}
             disabled={loading || previewCount === 0}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loading ? 'Generating...' : `Generate ${previewCount} Session${previewCount !== 1 ? 's' : ''}`}
+            {loading ? t('Generating...') : `${t('Generate')} ${previewCount} ${previewCount !== 1 ? t('Sessions') : t('Session')}`}
           </Button>
         </div>
       </DialogContent>

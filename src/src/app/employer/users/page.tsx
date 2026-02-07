@@ -29,10 +29,13 @@ import { Label } from '@/components/ui/label'
 import { EmployeeCard } from '@/components/employer/EmployeeCard'
 import { CustomerCard } from '@/components/employer/CustomerCard'
 import { Plus, Users, Building2 } from 'lucide-react'
+import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export default function EmployerUsersPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const isMountedRef = useRef(true)
@@ -83,6 +86,9 @@ export default function EmployerUsersPage() {
   const loadData = async () => {
     setLoading(true)
     try {
+      // Cleanup stale sessions before fetching
+      await cleanupStaleSessions(supabase)
+
       // Load employees
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
@@ -133,7 +139,7 @@ export default function EmployerUsersPage() {
       setCustomers(customersData || [])
     } catch (error) {
       console.error('Error loading data:', error)
-      toast.error('Failed to load users')
+      toast.error(t('Failed to load users'))
     } finally {
       setLoading(false)
     }
@@ -177,7 +183,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error activating employee:', error)
-      toast.error('Failed to activate employee')
+      toast.error(t('Failed to activate employee'))
     }
   }
 
@@ -192,7 +198,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error deactivating employee:', error)
-      toast.error('Failed to deactivate employee')
+      toast.error(t('Failed to deactivate employee'))
     }
   }
 
@@ -207,7 +213,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error reactivating employee:', error)
-      toast.error('Failed to reactivate employee')
+      toast.error(t('Failed to reactivate employee'))
     }
   }
 
@@ -222,7 +228,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error blocking employee:', error)
-      toast.error('Failed to block employee')
+      toast.error(t('Failed to block employee'))
     }
   }
 
@@ -297,7 +303,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error creating employee:', error)
-      toast.error('Failed to create employee. Please try again.')
+      toast.error(t('Failed to create employee. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -318,7 +324,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error deactivating customer:', error)
-      toast.error('Failed to deactivate customer')
+      toast.error(t('Failed to deactivate customer'))
     }
   }
 
@@ -333,7 +339,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error blocking customer:', error)
-      toast.error('Failed to block customer')
+      toast.error(t('Failed to block customer'))
     }
   }
 
@@ -351,7 +357,7 @@ export default function EmployerUsersPage() {
       if (!user) throw new Error('Not authenticated')
 
       if (!/^[A-Z]{3}$/.test(customerForm.customer_code)) {
-        toast.error('Customer code must be exactly 3 uppercase letters')
+        toast.error(t('Customer code must be exactly 3 uppercase letters'))
         setSubmitting(false)
         return
       }
@@ -374,7 +380,7 @@ export default function EmployerUsersPage() {
         .single()
 
       if (existingCustomer) {
-        toast.error('Customer code already exists')
+        toast.error(t('Customer code already exists'))
         setSubmitting(false)
         return
       }
@@ -431,7 +437,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error creating customer:', error)
-      toast.error('Failed to create customer. Please try again.')
+      toast.error(t('Failed to create customer. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -442,16 +448,16 @@ export default function EmployerUsersPage() {
   }
 
   const employeeSubTabs: { value: typeof employeeTab; label: string }[] = [
-    { value: 'active', label: 'Active' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'inactive', label: 'Inactive' },
+    { value: 'active', label: t('Active') },
+    { value: 'pending', label: t('Pending') },
+    { value: 'inactive', label: t('Inactive') },
   ]
 
   return (
     <div className="min-h-screen p-4 pb-20">
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">Users</h1>
+          <h1 className="text-2xl font-bold text-white">{t('Users')}</h1>
         </div>
 
         {/* Main Tabs: Employees / Customers */}
@@ -465,7 +471,7 @@ export default function EmployerUsersPage() {
             }`}
           >
             <Users className="w-4 h-4" />
-            Employees
+            {t('Employees')}
           </button>
           <button
             onClick={() => setActiveMainTab('customers')}
@@ -476,7 +482,7 @@ export default function EmployerUsersPage() {
             }`}
           >
             <Building2 className="w-4 h-4" />
-            Customers
+            {t('Customers')}
           </button>
         </div>
 
@@ -488,19 +494,19 @@ export default function EmployerUsersPage() {
                 <SheetTrigger asChild>
                   <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Employee
+                    {t('Add Employee')}
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-md overflow-y-auto bg-gray-900 border-white/20">
                   <SheetHeader>
-                    <SheetTitle className="text-white">Create New Employee</SheetTitle>
+                    <SheetTitle className="text-white">{t('Create New Employee')}</SheetTitle>
                     <SheetDescription className="text-gray-400">
-                      Add a new employee to your team. Optionally create login credentials.
+                      {t('Add a new employee to your team. Optionally create login credentials.')}
                     </SheetDescription>
                   </SheetHeader>
                   <form onSubmit={handleCreateEmployee} className="space-y-4 mt-6">
                     <div className="space-y-2">
-                      <Label htmlFor="emp_full_name" className="text-gray-300">Full Name *</Label>
+                      <Label htmlFor="emp_full_name" className="text-gray-300">{t('Full Name')} *</Label>
                       <Input
                         id="emp_full_name"
                         placeholder="John Doe"
@@ -511,7 +517,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_email" className="text-gray-300">Email</Label>
+                      <Label htmlFor="emp_email" className="text-gray-300">{t('Email')}</Label>
                       <Input
                         id="emp_email"
                         type="email"
@@ -522,7 +528,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_phone" className="text-gray-300">Phone</Label>
+                      <Label htmlFor="emp_phone" className="text-gray-300">{t('Phone')}</Label>
                       <Input
                         id="emp_phone"
                         type="tel"
@@ -533,7 +539,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_address" className="text-gray-300">Address</Label>
+                      <Label htmlFor="emp_address" className="text-gray-300">{t('Address')}</Label>
                       <Input
                         id="emp_address"
                         placeholder="123 Main St, City, State"
@@ -543,7 +549,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_notes" className="text-gray-300">Notes (optional)</Label>
+                      <Label htmlFor="emp_notes" className="text-gray-300">{t('Notes (optional)')}</Label>
                       <Input
                         id="emp_notes"
                         placeholder="Internal notes..."
@@ -563,13 +569,13 @@ export default function EmployerUsersPage() {
                           onChange={(e) => setEmployeeForm({ ...employeeForm, create_account: e.target.checked })}
                           className="h-4 w-4 rounded border-white/20 bg-white/5"
                         />
-                        <Label htmlFor="emp_create_account" className="font-medium text-gray-300">Create login account</Label>
+                        <Label htmlFor="emp_create_account" className="font-medium text-gray-300">{t('Create login account')}</Label>
                       </div>
 
                       {employeeForm.create_account && (
                         <div className="space-y-4 pl-6 border-l-2 border-blue-500/30">
                           <div className="space-y-2">
-                            <Label htmlFor="emp_username" className="text-gray-300">Username *</Label>
+                            <Label htmlFor="emp_username" className="text-gray-300">{t('Username')} *</Label>
                             <Input
                               id="emp_username"
                               placeholder="johndoe"
@@ -580,7 +586,7 @@ export default function EmployerUsersPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="emp_password" className="text-gray-300">Password *</Label>
+                            <Label htmlFor="emp_password" className="text-gray-300">{t('Password')} *</Label>
                             <Input
                               id="emp_password"
                               type="password"
@@ -597,7 +603,7 @@ export default function EmployerUsersPage() {
                     </div>
 
                     <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
-                      {submitting ? 'Creating...' : 'Create Employee'}
+                      {submitting ? t('Creating...') : t('Create Employee')}
                     </Button>
                   </form>
                 </SheetContent>
@@ -624,7 +630,7 @@ export default function EmployerUsersPage() {
             {/* Employee List */}
             {filteredEmployees.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
-                No {employeeTab === 'inactive' ? 'inactive/blocked' : employeeTab} employees
+                {t('No')} {employeeTab === 'inactive' ? t('inactive/blocked') : t(employeeTab)} {t('employees')}
               </p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -653,19 +659,19 @@ export default function EmployerUsersPage() {
                 <SheetTrigger asChild>
                   <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Customer
+                    {t('Add Customer')}
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="w-full sm:max-w-md overflow-y-auto bg-gray-900 border-white/20">
                   <SheetHeader>
-                    <SheetTitle className="text-white">Create New Customer</SheetTitle>
+                    <SheetTitle className="text-white">{t('Create New Customer')}</SheetTitle>
                     <SheetDescription className="text-gray-400">
-                      Add a new customer to your system. This will create an account for them.
+                      {t('Add a new customer to your system. This will create an account for them.')}
                     </SheetDescription>
                   </SheetHeader>
                   <form onSubmit={handleCreateCustomer} className="space-y-4 mt-6">
                     <div className="space-y-2">
-                      <Label htmlFor="customer_code" className="text-gray-300">Customer Code (3 letters)</Label>
+                      <Label htmlFor="customer_code" className="text-gray-300">{t('Customer Code (3 letters)')}</Label>
                       <Input
                         id="customer_code"
                         placeholder="ABC"
@@ -677,7 +683,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="full_name" className="text-gray-300">Full Name</Label>
+                      <Label htmlFor="full_name" className="text-gray-300">{t('Full Name')}</Label>
                       <Input
                         id="full_name"
                         placeholder="John Doe"
@@ -688,7 +694,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-gray-300">Email (optional)</Label>
+                      <Label htmlFor="email" className="text-gray-300">{t('Email (optional)')}</Label>
                       <Input
                         id="email"
                         type="email"
@@ -699,7 +705,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-gray-300">Phone</Label>
+                      <Label htmlFor="phone" className="text-gray-300">{t('Phone')}</Label>
                       <Input
                         id="phone"
                         type="tel"
@@ -710,7 +716,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="address" className="text-gray-300">Address</Label>
+                      <Label htmlFor="address" className="text-gray-300">{t('Address')}</Label>
                       <Input
                         id="address"
                         placeholder="123 Main St, City, State"
@@ -720,7 +726,7 @@ export default function EmployerUsersPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="notes" className="text-gray-300">Notes (optional)</Label>
+                      <Label htmlFor="notes" className="text-gray-300">{t('Notes (optional)')}</Label>
                       <Input
                         id="notes"
                         placeholder="Internal notes about this customer..."
@@ -740,13 +746,13 @@ export default function EmployerUsersPage() {
                           onChange={(e) => setCustomerForm({ ...customerForm, create_account: e.target.checked })}
                           className="h-4 w-4 rounded border-white/20 bg-white/5"
                         />
-                        <Label htmlFor="cust_create_account" className="font-medium text-gray-300">Create login account</Label>
+                        <Label htmlFor="cust_create_account" className="font-medium text-gray-300">{t('Create login account')}</Label>
                       </div>
 
                       {customerForm.create_account && (
                         <div className="space-y-4 pl-6 border-l-2 border-blue-500/30">
                           <div className="space-y-2">
-                            <Label htmlFor="cust_username" className="text-gray-300">Username *</Label>
+                            <Label htmlFor="cust_username" className="text-gray-300">{t('Username')} *</Label>
                             <Input
                               id="cust_username"
                               placeholder="johndoe"
@@ -757,7 +763,7 @@ export default function EmployerUsersPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="cust_password" className="text-gray-300">Password *</Label>
+                            <Label htmlFor="cust_password" className="text-gray-300">{t('Password')} *</Label>
                             <Input
                               id="cust_password"
                               type="password"
@@ -774,7 +780,7 @@ export default function EmployerUsersPage() {
                     </div>
 
                     <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
-                      {submitting ? 'Creating...' : 'Create Customer'}
+                      {submitting ? t('Creating...') : t('Create Customer')}
                     </Button>
                   </form>
                 </SheetContent>
@@ -782,7 +788,7 @@ export default function EmployerUsersPage() {
             </div>
 
             {customers.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No customers yet</p>
+              <p className="text-gray-500 text-center py-8">{t('No customers yet')}</p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {customers.map((customer) => (

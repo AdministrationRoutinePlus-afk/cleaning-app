@@ -25,6 +25,7 @@ import { AnnouncementForm } from '@/components/employer/AnnouncementForm'
 import { ExchangeRequestCard } from '@/components/employer/ExchangeRequestCard'
 import { format } from 'date-fns'
 import { MessageSquare, Megaphone, Users, Briefcase, ArrowLeftRight, Plus, ArrowLeft } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 // Extended type for job exchanges with related data
 interface JobExchangeWithDetails extends JobExchange {
@@ -55,6 +56,7 @@ interface ScheduleMessageWithDetails extends ScheduleMessage {
 }
 
 export default function EmployerMessagesPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('direct')
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false)
@@ -114,7 +116,7 @@ export default function EmployerMessagesPage() {
       setExchanges((data as JobExchangeWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading exchanges:', error)
-      toast.error('Failed to load exchange requests')
+      toast.error(t('Failed to load exchange requests'))
     } finally {
       setLoadingExchanges(false)
     }
@@ -140,7 +142,7 @@ export default function EmployerMessagesPage() {
       setAnnouncements((data as ConversationWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading announcements:', error)
-      toast.error('Failed to load announcements')
+      toast.error(t('Failed to load announcements'))
     } finally {
       setLoadingAnnouncements(false)
     }
@@ -164,7 +166,7 @@ export default function EmployerMessagesPage() {
       setEmployees(data || [])
     } catch (error) {
       console.error('Error loading employees:', error)
-      toast.error('Failed to load employees')
+      toast.error(t('Failed to load employees'))
     } finally {
       setLoadingEmployees(false)
     }
@@ -196,7 +198,7 @@ export default function EmployerMessagesPage() {
       }
     } catch (error) {
       console.error('Error loading group chat:', error)
-      toast.error('Failed to load group chat')
+      toast.error(t('Failed to load group chat'))
     } finally {
       setLoadingGroup(false)
     }
@@ -222,7 +224,7 @@ export default function EmployerMessagesPage() {
       setScheduleMessages((data as ScheduleMessageWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading schedule messages:', error)
-      toast.error('Failed to load schedule messages')
+      toast.error(t('Failed to load schedule messages'))
     } finally {
       setLoadingSchedule(false)
     }
@@ -243,12 +245,12 @@ export default function EmployerMessagesPage() {
 
       if (empError) {
         console.error('Error fetching employee:', empError)
-        toast.error('Error fetching employee data')
+        toast.error(t('Error fetching employee data'))
         return
       }
 
       if (!employee?.user_id) {
-        toast.info(`${employee?.full_name || 'This employee'} does not have a user account linked yet. They need to register/login first before you can chat with them.`)
+        toast.info(`${employee?.full_name || t('This employee')} ${t('does not have a user account linked yet. They need to register/login first before you can chat with them.')}`)
         return
       }
 
@@ -331,11 +333,11 @@ export default function EmployerMessagesPage() {
   }
 
   const tabs = [
-    { value: 'direct', label: 'Chat', icon: MessageSquare },
-    { value: 'announcements', label: 'News', icon: Megaphone },
-    { value: 'group', label: 'Team', icon: Users },
-    { value: 'job-messages', label: 'Jobs', icon: Briefcase },
-    { value: 'exchanges', label: 'Swap', icon: ArrowLeftRight, badge: exchanges.length },
+    { value: 'direct', label: t('Chat'), icon: MessageSquare },
+    { value: 'announcements', label: t('News'), icon: Megaphone },
+    { value: 'group', label: t('Team'), icon: Users },
+    { value: 'job-messages', label: t('Jobs'), icon: Briefcase },
+    { value: 'exchanges', label: t('Swap'), icon: ArrowLeftRight, badge: exchanges.length },
   ]
 
   // Skeleton loader for dark theme
@@ -353,7 +355,7 @@ export default function EmployerMessagesPage() {
   return (
     <div className="min-h-screen p-4 pb-20">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">Messages</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">{t('Messages')}</h1>
 
         {/* Tab Navigation - 5 tabs */}
         <div className="flex gap-1 mb-6 bg-white/5 rounded-xl p-1 border border-white/10">
@@ -389,12 +391,12 @@ export default function EmployerMessagesPage() {
             ) : showNewConversation ? (
               /* New Conversation Form */
               <div className="bg-white/5 rounded-xl p-6 space-y-4 border border-white/10">
-                <h2 className="text-lg font-semibold text-white">Start New Conversation</h2>
+                <h2 className="text-lg font-semibold text-white">{t('Start New Conversation')}</h2>
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-400">Select Employee</label>
+                  <label className="text-sm text-gray-400">{t('Select Employee')}</label>
                   <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Choose an employee..." />
+                      <SelectValue placeholder={t('Choose an employee...')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {employees.map(emp => (
@@ -405,14 +407,14 @@ export default function EmployerMessagesPage() {
                           className="text-white hover:bg-white/10"
                         >
                           {emp.full_name} ({emp.email})
-                          {!emp.user_id && ' - No account'}
+                          {!emp.user_id && ` - ${t('No account')}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {employees.some(e => !e.user_id) && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Employees without accounts need to register before you can message them.
+                      {t('Employees without accounts need to register before you can message them.')}
                     </p>
                   )}
                 </div>
@@ -424,14 +426,14 @@ export default function EmployerMessagesPage() {
                     }}
                     className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
                   >
-                    Cancel
+                    {t('Cancel')}
                   </Button>
                   <Button
                     onClick={handleStartConversation}
                     disabled={!selectedEmployeeId}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
-                    Start Chat
+                    {t('Start Chat')}
                   </Button>
                 </div>
               </div>
@@ -439,14 +441,14 @@ export default function EmployerMessagesPage() {
               /* Conversation List */
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-white">Conversations</h2>
+                  <h2 className="text-lg font-semibold text-white">{t('Conversations')}</h2>
                   <Button
                     onClick={() => setShowNewConversation(true)}
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    New Chat
+                    {t('New Chat')}
                   </Button>
                 </div>
                 <ConversationList onSelectConversation={setSelectedConversation} />
@@ -466,13 +468,13 @@ export default function EmployerMessagesPage() {
             ) : (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-white">Past Announcements</h2>
+                  <h2 className="text-lg font-semibold text-white">{t('Past Announcements')}</h2>
                   <Button
                     onClick={() => setShowAnnouncementForm(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    New
+                    {t('New')}
                   </Button>
                 </div>
 
@@ -480,9 +482,9 @@ export default function EmployerMessagesPage() {
                   <SkeletonLoader count={2} />
                 ) : announcements.length === 0 ? (
                   <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
-                    <p className="text-gray-400">No announcements yet</p>
+                    <p className="text-gray-400">{t('No announcements yet')}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      Create your first announcement to notify all employees
+                      {t('Create your first announcement to notify all employees')}
                     </p>
                   </div>
                 ) : (
@@ -498,7 +500,7 @@ export default function EmployerMessagesPage() {
                             <p className="text-sm text-gray-500">
                               {formatAnnouncementDate(announcement.created_at)}
                             </p>
-                            <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">ANNOUNCEMENT</Badge>
+                            <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">{t('ANNOUNCEMENT')}</Badge>
                           </div>
                           {firstMessage && (
                             <p className="text-sm text-gray-300">{firstMessage.content}</p>
@@ -517,17 +519,17 @@ export default function EmployerMessagesPage() {
         {activeTab === 'group' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Employee Group Chat</h2>
-              <Badge className="bg-white/10 text-gray-300 border border-white/20">Read Only</Badge>
+              <h2 className="text-lg font-semibold text-white">{t('Employee Group Chat')}</h2>
+              <Badge className="bg-white/10 text-gray-300 border border-white/20">{t('Read Only')}</Badge>
             </div>
 
             {loadingGroup ? (
               <SkeletonLoader />
             ) : groupMessages.length === 0 ? (
               <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
-                <p className="text-gray-400">No group chat messages yet</p>
+                <p className="text-gray-400">{t('No group chat messages yet')}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Messages will appear here when employees chat with each other
+                  {t('Messages will appear here when employees chat with each other')}
                 </p>
               </div>
             ) : (
@@ -537,7 +539,7 @@ export default function EmployerMessagesPage() {
                     <div key={message.id} className="border-b border-white/5 pb-3 last:border-b-0 last:pb-0">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium text-gray-300">
-                          Employee
+                          {t('Employee')}
                         </span>
                         <span className="text-xs text-gray-500">
                           {format(new Date(message.sent_at), 'MMM d, h:mm a')}
@@ -555,18 +557,18 @@ export default function EmployerMessagesPage() {
         {/* TAB 4: Job Push Messages (from Schedule) */}
         {activeTab === 'job-messages' && (
           <div>
-            <h2 className="text-lg font-semibold text-white mb-2">Job Messages</h2>
+            <h2 className="text-lg font-semibold text-white mb-2">{t('Job Messages')}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Messages sent to employees from the Schedule tab
+              {t('Messages sent to employees from the Schedule tab')}
             </p>
 
             {loadingSchedule ? (
               <SkeletonLoader />
             ) : scheduleMessages.length === 0 ? (
               <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
-                <p className="text-gray-400">No job messages yet</p>
+                <p className="text-gray-400">{t('No job messages yet')}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Use "Push to Messages" in Schedule to send messages about jobs
+                  {t('Use "Push to Messages" in Schedule to send messages about jobs')}
                 </p>
               </div>
             ) : (
@@ -576,10 +578,10 @@ export default function EmployerMessagesPage() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <span className="font-mono text-sm text-gray-500">
-                          {msg.job_session?.job_template?.job_code || 'Unknown Job'}
+                          {msg.job_session?.job_template?.job_code || t('Unknown Job')}
                         </span>
                         <h3 className="font-medium text-white">
-                          {msg.job_session?.job_template?.title || 'Job Message'}
+                          {msg.job_session?.job_template?.title || t('Job Message')}
                         </h3>
                       </div>
                       <div className="text-right">
@@ -587,13 +589,13 @@ export default function EmployerMessagesPage() {
                           ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
                           : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                         }>
-                          {msg.read_at ? 'Read' : 'Unread'}
+                          {msg.read_at ? t('Read') : t('Unread')}
                         </Badge>
                       </div>
                     </div>
                     <p className="text-sm text-gray-400 mb-2">{msg.message}</p>
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>To: {msg.employee?.full_name || 'Unknown'}</span>
+                      <span>{t('To')}: {msg.employee?.full_name || t('Unknown')}</span>
                       <span>{format(new Date(msg.sent_at), 'MMM d, h:mm a')}</span>
                     </div>
                   </div>
@@ -606,15 +608,15 @@ export default function EmployerMessagesPage() {
         {/* TAB 5: Exchange Requests */}
         {activeTab === 'exchanges' && (
           <div>
-            <h2 className="text-lg font-semibold text-white mb-4">Pending Exchange Requests</h2>
+            <h2 className="text-lg font-semibold text-white mb-4">{t('Pending Exchange Requests')}</h2>
 
             {loadingExchanges ? (
               <SkeletonLoader count={2} />
             ) : exchanges.length === 0 ? (
               <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
-                <p className="text-gray-400">No pending exchange requests</p>
+                <p className="text-gray-400">{t('No pending exchange requests')}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Requests will appear here when employees request job exchanges
+                  {t('Requests will appear here when employees request job exchanges')}
                 </p>
               </div>
             ) : (

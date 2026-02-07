@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { JobSession, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface ReviewFormProps {
   jobSession: JobSession & {
@@ -22,6 +23,7 @@ interface ReviewFormProps {
 }
 
 export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: ReviewFormProps) {
+  const { t } = useTranslation()
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -58,7 +60,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
       onSuccess()
     } catch (error) {
       console.error('Error submitting review:', error)
-      toast.error('Failed to submit review. Please try again.')
+      toast.error(t('Failed to submit review. Please try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -67,11 +69,11 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl">
       <div className="p-6 pb-2">
-        <h3 className="text-lg font-semibold text-white">Submit Review</h3>
+        <h3 className="text-lg font-semibold text-white">{t('Submit Review')}</h3>
         <div className="text-sm text-gray-300 mt-1">
           <p className="font-medium">{jobSession.job_template?.job_code} - {jobSession.job_template?.title}</p>
           {jobSession.employee && (
-            <p className="text-gray-400">Employee: {jobSession.employee.full_name}</p>
+            <p className="text-gray-400">{t('Employee')}: {jobSession.employee.full_name}</p>
           )}
         </div>
       </div>
@@ -81,7 +83,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
           {/* Star Rating */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-3">
-              How would you rate this service?
+              {t('How would you rate this service?')}
             </label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -101,11 +103,11 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
             </div>
             {rating && (
               <p className="text-sm text-gray-400 mt-2">
-                {rating === 5 && 'Excellent!'}
-                {rating === 4 && 'Very Good'}
-                {rating === 3 && 'Good'}
-                {rating === 2 && 'Fair'}
-                {rating === 1 && 'Needs Improvement'}
+                {rating === 5 && t('Excellent!')}
+                {rating === 4 && t('Very Good')}
+                {rating === 3 && t('Good')}
+                {rating === 2 && t('Fair')}
+                {rating === 1 && t('Needs Improvement')}
               </p>
             )}
           </div>
@@ -113,18 +115,18 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
           {/* Comment */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Additional Comments (Optional)
+              {t('Additional Comments (Optional)')}
             </label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Share your experience..."
+              placeholder={t('Share your experience...')}
               rows={4}
               maxLength={500}
               className="w-full px-3 py-2 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-gray-500 mt-1">
-              {comment.length}/500 characters
+              {comment.length}/500 {t('characters')}
             </p>
           </div>
         </div>
@@ -136,14 +138,14 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
             disabled={submitting}
             className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t('Cancel')}
           </button>
           <button
             type="submit"
             disabled={!rating || submitting}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {submitting ? 'Submitting...' : 'Submit Review'}
+            {submitting ? t('Submitting...') : t('Submit Review')}
           </button>
         </div>
       </form>

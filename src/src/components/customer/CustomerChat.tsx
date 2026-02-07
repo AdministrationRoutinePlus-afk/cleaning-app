@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import type { Message, Customer, Employer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface CustomerChatProps {
   customer: Customer
@@ -11,6 +12,7 @@ interface CustomerChatProps {
 }
 
 export function CustomerChat({ customer, employer }: CustomerChatProps) {
+  const { t } = useTranslation()
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -123,7 +125,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
       setConversationId(newConversation.id)
     } catch (error) {
       console.error('Error initializing chat:', error)
-      toast.error('Failed to initialize chat')
+      toast.error(t('Failed to initialize chat'))
     } finally {
       setLoading(false)
     }
@@ -181,7 +183,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
       setNewMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
-      toast.error('Failed to send message')
+      toast.error(t('Failed to send message'))
     } finally {
       setSending(false)
     }
@@ -202,8 +204,8 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (date.toDateString() === today.toDateString()) return 'Today'
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+    if (date.toDateString() === today.toDateString()) return t('Today')
+    if (date.toDateString() === yesterday.toDateString()) return t('Yesterday')
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
@@ -233,14 +235,14 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
     <div className="bg-white/5 border border-white/10 rounded-xl flex flex-col h-[calc(100vh-12rem)]">
       <div className="border-b border-white/10 p-4">
         <h3 className="text-lg font-semibold text-white">
-          Chat with {employer.full_name || 'Employer'}
+          {t('Chat with')} {employer.full_name || t('Employer')}
         </h3>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-gray-400 py-8">
-            No messages yet. Start the conversation!
+            {t('No messages yet. Start the conversation!')}
           </div>
         ) : (
           messages.map((message, index) => (
@@ -264,7 +266,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
                   }`}
                 >
                   {message.is_system && (
-                    <p className="text-xs opacity-75 mb-1">System Message</p>
+                    <p className="text-xs opacity-75 mb-1">{t('System Message')}</p>
                   )}
                   <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                   <p
@@ -287,7 +289,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
           <input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder={t('Type a message...')}
             disabled={sending}
             className="flex-1 px-3 py-2 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
@@ -296,7 +298,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
             disabled={sending || !newMessage.trim()}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
-            {sending ? 'Sending...' : 'Send'}
+            {sending ? t('Sending...') : t('Send')}
           </button>
         </form>
       </div>

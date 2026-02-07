@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface AppearanceSettingsProps {
   theme: ThemeType
@@ -34,6 +35,7 @@ const LANGUAGES = [
 ]
 
 export function AppearanceSettings({ theme, primaryColor, language, logoUrl, employerId, onSave }: AppearanceSettingsProps) {
+  const { t } = useTranslation()
   const [selectedTheme, setSelectedTheme] = useState<ThemeType>(theme)
   const [selectedColor, setSelectedColor] = useState(primaryColor)
   const [selectedLanguage, setSelectedLanguage] = useState(language)
@@ -48,12 +50,12 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file')
+      toast.error(t('Please select an image file'))
       return
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image must be less than 2MB')
+      toast.error(t('Image must be less than 2MB'))
       return
     }
 
@@ -75,7 +77,7 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
       setCurrentLogoUrl(publicUrl)
     } catch (error) {
       console.error('Error uploading logo:', error)
-      toast.error('Failed to upload logo')
+      toast.error(t('Failed to upload logo'))
     } finally {
       setUploading(false)
     }
@@ -115,7 +117,7 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
     <div className="space-y-6">
       {/* Logo Upload */}
       <div className="space-y-2">
-        <Label className="text-gray-300">Company Logo</Label>
+        <Label className="text-gray-300">{t('Company Logo')}</Label>
         <div className="flex items-center gap-4">
           {currentLogoUrl ? (
             <div className="relative">
@@ -153,16 +155,16 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
               size="sm"
               className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
-              {uploading ? 'Uploading...' : currentLogoUrl ? 'Change Logo' : 'Upload Logo'}
+              {uploading ? t('Uploading...') : currentLogoUrl ? t('Change Logo') : t('Upload Logo')}
             </Button>
-            <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 2MB</p>
+            <p className="text-xs text-gray-500 mt-1">{t('PNG, JPG up to 2MB')}</p>
           </div>
         </div>
       </div>
 
       {/* Primary Color Picker */}
       <div className="space-y-2">
-        <Label className="text-gray-300">Primary Color</Label>
+        <Label className="text-gray-300">{t('Primary Color')}</Label>
         <div className="grid grid-cols-3 gap-2">
           {PRESET_COLORS.map((color) => (
             <button
@@ -179,7 +181,7 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
                 className="w-6 h-6 rounded-full"
                 style={{ backgroundColor: color.value }}
               />
-              <span className="text-sm font-medium text-gray-300">{color.name}</span>
+              <span className="text-sm font-medium text-gray-300">{t(color.name)}</span>
             </button>
           ))}
         </div>
@@ -187,7 +189,7 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
 
       {/* Language Selector */}
       <div className="space-y-2">
-        <Label className="text-gray-300">Language</Label>
+        <Label className="text-gray-300">{t('Language')}</Label>
         <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
           <SelectTrigger className="bg-white/5 border-white/20 text-white">
             <SelectValue />
@@ -204,7 +206,7 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
 
       {/* Save Button */}
       <Button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-        {saving ? 'Saving...' : 'Save Appearance Settings'}
+        {saving ? t('Saving...') : t('Save Appearance Settings')}
       </Button>
     </div>
   )

@@ -10,6 +10,7 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import { parseISO, startOfDay } from 'date-fns'
 import { ShoppingBag, Users, ArrowRightLeft, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
 import Image from 'next/image'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type JobSessionWithDetails = JobSession & {
   job_template: JobTemplate & {
@@ -29,6 +30,7 @@ type SwipeAction = {
 }
 
 export default function EmployeeMarketplacePage() {
+  const { t } = useTranslation()
   const [mainTab, setMainTab] = useState<'marketplace' | 'swap'>('marketplace')
   const [marketplaceJobs, setMarketplaceJobs] = useState<JobSessionWithDetails[]>([])
   const [interestedJobs, setInterestedJobs] = useState<JobSessionWithDetails[]>([])
@@ -160,7 +162,7 @@ export default function EmployeeMarketplacePage() {
 
     } catch (error) {
       console.error('Error loading jobs:', error)
-      toast.error('Failed to load marketplace jobs')
+      toast.error(t('Failed to load marketplace jobs'))
     } finally {
       setLoading(false)
     }
@@ -199,7 +201,7 @@ export default function EmployeeMarketplacePage() {
       setSwapJobs(validExchanges)
     } catch (error) {
       console.error('Error loading swap jobs:', error)
-      toast.error('Failed to load swap jobs')
+      toast.error(t('Failed to load swap jobs'))
     } finally {
       setSwapLoading(false)
     }
@@ -313,9 +315,9 @@ export default function EmployeeMarketplacePage() {
     tomorrow.setDate(tomorrow.getDate() + 1)
 
     if (date.getTime() === today.getTime()) {
-      return 'Today'
+      return t('Today')
     } else if (date.getTime() === tomorrow.getTime()) {
-      return 'Tomorrow'
+      return t('Tomorrow')
     }
 
     return date.toLocaleDateString('en-US', {
@@ -335,7 +337,7 @@ export default function EmployeeMarketplacePage() {
     try {
       // Check employee status is ACTIVE before allowing claim
       if (employeeStatus !== 'ACTIVE') {
-        toast.error('Your account must be active to claim jobs.')
+        toast.error(t('Your account must be active to claim jobs.'))
         return
       }
 
@@ -347,13 +349,13 @@ export default function EmployeeMarketplacePage() {
         .maybeSingle()
 
       if (!employee) {
-        toast.error('Employee record not found.')
+        toast.error(t('Employee record not found.'))
         return
       }
 
       // Double-check employee status from DB
       if (employee.status !== 'ACTIVE') {
-        toast.error('Your account must be active to claim jobs.')
+        toast.error(t('Your account must be active to claim jobs.'))
         return
       }
 
@@ -373,7 +375,7 @@ export default function EmployeeMarketplacePage() {
 
       // Verify the update actually affected a row (another employee may have claimed it first)
       if (!updated || updated.length === 0) {
-        toast.error('This job has already been claimed by another employee.')
+        toast.error(t('This job has already been claimed by another employee.'))
         setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
         return
       }
@@ -388,7 +390,7 @@ export default function EmployeeMarketplacePage() {
 
     } catch (error) {
       console.error('Error claiming job:', error)
-      toast.error('Failed to claim job. Please try again.')
+      toast.error(t('Failed to claim job. Please try again.'))
     }
   }
 
@@ -475,10 +477,10 @@ export default function EmployeeMarketplacePage() {
       // Remove from swap list
       setSwapJobs(prev => prev.filter(s => s.id !== exchange.id))
 
-      toast.success('Swap request sent! Waiting for employer approval.')
+      toast.success(t('Swap request sent! Waiting for employer approval.'))
     } catch (error) {
       console.error('Error claiming swap:', error)
-      toast.error('Failed to claim swap')
+      toast.error(t('Failed to claim swap'))
     }
   }
 
@@ -499,7 +501,7 @@ export default function EmployeeMarketplacePage() {
             }`}
           >
             <ShoppingBag className={`w-10 h-10 mb-2 ${mainTab === 'marketplace' ? 'text-white' : 'text-gray-400'}`} />
-            <span>Job Marketplace</span>
+            <span>{t('Job Marketplace')}</span>
           </button>
 
           <button
@@ -511,7 +513,7 @@ export default function EmployeeMarketplacePage() {
             }`}
           >
             <ArrowRightLeft className={`w-10 h-10 mb-2 ${mainTab === 'swap' ? 'text-white' : 'text-gray-400'}`} />
-            <span>Swap with Team</span>
+            <span>{t('Swap with Team')}</span>
             <span className={`text-xs rounded-full px-3 py-1 mt-2 min-h-[24px] ${
               swapJobs.length > 0
                 ? mainTab === 'swap'
@@ -540,7 +542,7 @@ export default function EmployeeMarketplacePage() {
                     }`}
                   >
                     <ShoppingBag className={`w-8 h-8 ${activeTab === 'marketplace' ? 'text-white' : 'text-gray-500'}`} />
-                    <span className="text-center px-2 text-sm">Available</span>
+                    <span className="text-center px-2 text-sm">{t('Available')}</span>
                     {marketplaceJobs.length > 0 && (
                       <span className={`text-xs rounded-full px-2 py-0.5 ${
                         activeTab === 'marketplace' ? 'bg-white/20' : 'bg-white/10'
@@ -559,7 +561,7 @@ export default function EmployeeMarketplacePage() {
                     }`}
                   >
                     <Users className={`w-8 h-8 ${activeTab === 'interested' ? 'text-white' : 'text-gray-500'}`} />
-                    <span className="text-center px-2 text-sm">Interested</span>
+                    <span className="text-center px-2 text-sm">{t('Interested')}</span>
                     {interestedJobs.length > 0 && (
                       <span className={`text-xs rounded-full px-2 py-0.5 ${
                         activeTab === 'interested' ? 'bg-white/20' : 'bg-white/10'
@@ -580,30 +582,30 @@ export default function EmployeeMarketplacePage() {
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-8 text-center">
                   <div className="text-4xl mb-4">⏳</div>
                   <h3 className="text-lg font-semibold text-yellow-300 mb-2">
-                    Account Pending Activation
+                    {t('Account Pending Activation')}
                   </h3>
                   <p className="text-yellow-200/80 mb-2">
-                    Your account is waiting for employer approval.
+                    {t('Your account is waiting for employer approval.')}
                   </p>
                   <p className="text-sm text-yellow-200/60">
-                    Once your account is activated, you&apos;ll be able to see and claim jobs here.
+                    {t('Once your account is activated, you\'ll be able to see and claim jobs here.')}
                   </p>
                 </div>
               ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 text-center">
                   <div className="text-4xl mb-4">🚫</div>
                   <h3 className="text-lg font-semibold text-red-300 mb-2">
-                    Account {employeeStatus === 'BLOCKED' ? 'Blocked' : 'Inactive'}
+                    {t('Account')} {employeeStatus === 'BLOCKED' ? t('Blocked') : t('Inactive')}
                   </h3>
                   <p className="text-red-200/80">
-                    Please contact your employer to restore access.
+                    {t('Please contact your employer to restore access.')}
                   </p>
                 </div>
               ) : groupedJobs.length > 0 ? (
                 <div className="space-y-6">
                   {/* Instructions */}
                   <p className="text-center text-gray-400 text-sm">
-                    Tap a job to view details and claim
+                    {t('Tap a job to view details and claim')}
                   </p>
 
                   {/* Date-grouped jobs list */}
@@ -637,10 +639,10 @@ export default function EmployeeMarketplacePage() {
                 <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
                   <div className="text-4xl mb-4">🎉</div>
                   <h3 className="text-lg font-semibold text-white mb-2">
-                    All caught up!
+                    {t('All caught up!')}
                   </h3>
                   <p className="text-gray-300 mb-4">
-                    No jobs available right now. Check back later!
+                    {t('No jobs available right now. Check back later!')}
                   </p>
                   {(skippedJobs.length > 0 || interestedJobs.length > 0) && (
                     <Button
@@ -648,7 +650,7 @@ export default function EmployeeMarketplacePage() {
                       onClick={handleResetAll}
                       className="bg-white/10 text-white border border-white/20 hover:bg-white/20"
                     >
-                      Reset & Show All Jobs
+                      {t('Reset & Show All Jobs')}
                     </Button>
                   )}
                 </div>
@@ -661,10 +663,10 @@ export default function EmployeeMarketplacePage() {
                 <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
                   <div className="text-4xl mb-4">👀</div>
                   <h3 className="text-lg font-semibold text-white mb-2">
-                    No interested jobs yet
+                    {t('No interested jobs yet')}
                   </h3>
                   <p className="text-gray-300">
-                    Claim jobs from the marketplace to see them here!
+                    {t('Claim jobs from the marketplace to see them here!')}
                   </p>
                 </div>
               ) : (
@@ -680,7 +682,7 @@ export default function EmployeeMarketplacePage() {
           /* SWAP WITH TEAM SECTION */
           <div>
             <p className="text-center text-gray-400 text-sm mb-6">
-              Jobs your teammates want to swap
+              {t('Jobs your teammates want to swap')}
             </p>
 
             {swapLoading ? (
@@ -689,10 +691,10 @@ export default function EmployeeMarketplacePage() {
               <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <ArrowRightLeft className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
-                  No swaps available
+                  {t('No swaps available')}
                 </h3>
                 <p className="text-gray-300">
-                  When teammates put jobs up for swap, they&apos;ll appear here.
+                  {t('When teammates put jobs up for swap, they\'ll appear here.')}
                 </p>
               </div>
             ) : (
@@ -723,6 +725,7 @@ function JobListCard({
   status: 'pending' | 'skipped'
   onRestore?: () => void
 }) {
+  const { t } = useTranslation()
   const { job_template } = job
   const customerName = job_template.customer?.full_name || job_template.customer?.customer_code || ''
 
@@ -743,7 +746,7 @@ function JobListCard({
   const formatTimeWindow = () => {
     const start = job_template.time_window_start
     const end = job_template.time_window_end
-    if (!start && !end) return 'Flexible'
+    if (!start && !end) return t('Flexible')
     return `${start?.slice(0, 5) || '—'} - ${end?.slice(0, 5) || '—'}`
   }
 
@@ -755,17 +758,17 @@ function JobListCard({
           <p className="text-white font-bold text-base">{customerName}</p>
           {status === 'pending' && job.status === 'CLAIMED' && (
             <span className="bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-2 py-1 rounded-full">
-              Pending
+              {t('Pending')}
             </span>
           )}
           {job.status === 'APPROVED' && (
             <span className="bg-green-500/20 text-green-300 text-xs font-semibold px-2 py-1 rounded-full">
-              Approved
+              {t('Approved')}
             </span>
           )}
           {job.status === 'REFUSED' && (
             <span className="bg-red-500/20 text-red-300 text-xs font-semibold px-2 py-1 rounded-full">
-              Refused
+              {t('Refused')}
             </span>
           )}
         </div>
@@ -775,14 +778,14 @@ function JobListCard({
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Job</p>
+              <p className="text-gray-300 text-xs">{t('Job')}</p>
               <p className="text-white font-semibold text-sm">{job_template.title}</p>
             </div>
           </div>
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Duration</p>
+              <p className="text-gray-300 text-xs">{t('Duration')}</p>
               <p className="text-white font-semibold text-sm">{formatDuration(job_template.duration_minutes)}</p>
             </div>
           </div>
@@ -793,14 +796,14 @@ function JobListCard({
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-green-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Time Window</p>
+              <p className="text-gray-300 text-xs">{t('Time Window')}</p>
               <p className="text-white font-semibold text-sm">{formatTimeWindow()}</p>
             </div>
           </div>
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-yellow-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Hourly Rate</p>
+              <p className="text-gray-300 text-xs">{t('Hourly Rate')}</p>
               <p className="text-white font-semibold text-sm">{formatPrice(job_template.price_per_hour)}</p>
             </div>
           </div>
@@ -811,7 +814,7 @@ function JobListCard({
             onClick={onRestore}
             className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
           >
-            Restore
+            {t('Restore')}
           </Button>
         )}
       </div>
@@ -827,6 +830,7 @@ function SwapCard({
   exchange: ExchangeWithDetails
   onClaim: () => void
 }) {
+  const { t } = useTranslation()
   const { job_session, from_employee } = exchange
   const { job_template } = job_session
   const customerName = job_template.customer?.full_name || job_template.customer?.customer_code || ''
@@ -848,7 +852,7 @@ function SwapCard({
   const formatTimeWindow = () => {
     const start = job_template.time_window_start
     const end = job_template.time_window_end
-    if (!start && !end) return 'Flexible'
+    if (!start && !end) return t('Flexible')
     return `${start?.slice(0, 5) || '—'} - ${end?.slice(0, 5) || '—'}`
   }
 
@@ -869,14 +873,14 @@ function SwapCard({
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Job</p>
+              <p className="text-gray-300 text-xs">{t('Job')}</p>
               <p className="text-white font-semibold text-sm">{job_template.title}</p>
             </div>
           </div>
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Duration</p>
+              <p className="text-gray-300 text-xs">{t('Duration')}</p>
               <p className="text-white font-semibold text-sm">{formatDuration(job_template.duration_minutes)}</p>
             </div>
           </div>
@@ -887,14 +891,14 @@ function SwapCard({
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-green-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Time Window</p>
+              <p className="text-gray-300 text-xs">{t('Time Window')}</p>
               <p className="text-white font-semibold text-sm">{formatTimeWindow()}</p>
             </div>
           </div>
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-yellow-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">Hourly Rate</p>
+              <p className="text-gray-300 text-xs">{t('Hourly Rate')}</p>
               <p className="text-white font-semibold text-sm">{formatPrice(job_template.price_per_hour)}</p>
             </div>
           </div>
@@ -903,7 +907,7 @@ function SwapCard({
         {/* Reason */}
         {exchange.reason && (
           <div className="bg-white/5 rounded-lg p-2">
-            <p className="text-xs text-gray-400">Reason:</p>
+            <p className="text-xs text-gray-400">{t('Reason:')}</p>
             <p className="text-sm text-gray-300">{exchange.reason}</p>
           </div>
         )}
@@ -913,7 +917,7 @@ function SwapCard({
           onClick={onClaim}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
         >
-          Take This Job
+          {t('Take This Job')}
         </Button>
       </div>
     </div>

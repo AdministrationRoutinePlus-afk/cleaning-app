@@ -36,6 +36,7 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface ScheduleMessage {
   id: string
@@ -75,6 +76,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function JobExecutionPage() {
+  const { t } = useTranslation()
   const params = useParams()
   const router = useRouter()
   const sessionId = params.id as string
@@ -221,7 +223,7 @@ export default function JobExecutionPage() {
       }
     } catch (error) {
       console.error('Error loading job data:', error)
-      toast.error('Failed to load job details')
+      toast.error(t('Failed to load job details'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -240,11 +242,11 @@ export default function JobExecutionPage() {
 
       if (error) throw error
 
-      toast.success('Job started!')
+      toast.success(t('Job started!'))
       await loadJobData()
     } catch (error) {
       console.error('Error starting job:', error)
-      toast.error('Failed to start job')
+      toast.error(t('Failed to start job'))
     } finally {
       setStarting(false)
       setShowStartDialog(false)
@@ -286,7 +288,7 @@ export default function JobExecutionPage() {
       await loadJobData()
     } catch (error) {
       console.error('Error toggling step:', error)
-      toast.error('Failed to update step')
+      toast.error(t('Failed to update step'))
     }
   }
 
@@ -325,7 +327,7 @@ export default function JobExecutionPage() {
       await loadJobData()
     } catch (error) {
       console.error('Error toggling checklist item:', error)
-      toast.error('Failed to update checklist')
+      toast.error(t('Failed to update checklist'))
     }
   }
 
@@ -357,7 +359,7 @@ export default function JobExecutionPage() {
       router.push('/employee/jobs')
     } catch (error) {
       console.error('Error completing job:', error)
-      toast.error('Failed to complete job')
+      toast.error(t('Failed to complete job'))
     } finally {
       setCompleting(false)
       setShowCompleteDialog(false)
@@ -374,10 +376,10 @@ export default function JobExecutionPage() {
         .eq('id', sessionId)
 
       if (error) throw error
-      toast.success('Notes saved')
+      toast.success(t('Notes saved'))
     } catch (error) {
       console.error('Error saving notes:', error)
-      toast.error('Failed to save notes')
+      toast.error(t('Failed to save notes'))
     } finally {
       setSavingNotes(false)
     }
@@ -430,13 +432,13 @@ export default function JobExecutionPage() {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
         <div className="p-8 text-center bg-white/10 rounded-xl border border-white/20">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">Job not found</h2>
-          <p className="text-gray-300 mb-4">This job does not exist or you don&apos;t have access to it.</p>
+          <h2 className="text-xl font-semibold text-white mb-2">{t('Job not found')}</h2>
+          <p className="text-gray-300 mb-4">{t('This job does not exist or you don\'t have access to it.')}</p>
           <Button
             onClick={() => router.push('/employee/jobs')}
             className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
           >
-            Back to Jobs
+            {t('Back to Jobs')}
           </Button>
         </div>
       </div>
@@ -461,7 +463,7 @@ export default function JobExecutionPage() {
               className="text-white hover:bg-white/10"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
+              {t('Back')}
             </Button>
 
             <div className="flex items-center gap-2">
@@ -480,9 +482,9 @@ export default function JobExecutionPage() {
                 isCompleted ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
                 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
               }>
-                {isInProgress ? 'In Progress' :
-                 isApproved ? 'Approved' :
-                 isCompleted ? 'Completed' :
+                {isInProgress ? t('In Progress') :
+                 isApproved ? t('Approved') :
+                 isCompleted ? t('Completed') :
                  jobData.session.status}
               </Badge>
             </div>
@@ -495,7 +497,7 @@ export default function JobExecutionPage() {
           <div className="flex flex-wrap gap-3 text-sm text-gray-300 mb-4">
             {jobData.session.job_template.customer && (
               <div className="flex items-center gap-1">
-                <span className="font-medium">Customer:</span>
+                <span className="font-medium">{t('Customer')}:</span>
                 <span>{jobData.session.job_template.customer.full_name}</span>
               </div>
             )}
@@ -517,7 +519,7 @@ export default function JobExecutionPage() {
           {isCompleted && completionDuration !== null && (
             <div className="flex items-center gap-2 text-sm text-blue-300 mb-4">
               <Timer className="w-4 h-4" />
-              <span>Duration: {formatDuration(completionDuration)}</span>
+              <span>{t('Duration')}: {formatDuration(completionDuration)}</span>
             </div>
           )}
 
@@ -525,7 +527,7 @@ export default function JobExecutionPage() {
             <ProgressBar
               current={completedStepsCount}
               total={totalSteps}
-              label="Overall Progress"
+              label={t('Overall Progress')}
             />
           )}
         </div>
@@ -538,16 +540,16 @@ export default function JobExecutionPage() {
             <div className="flex items-start gap-3">
               <XCircle className="w-8 h-8 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="font-semibold text-red-300 text-lg mb-2">Claim Refused</h3>
+                <h3 className="font-semibold text-red-300 text-lg mb-2">{t('Claim Refused')}</h3>
                 {jobData.refuseMessage ? (
                   <div>
-                    <p className="text-red-300 font-medium mb-1">Reason from employer:</p>
+                    <p className="text-red-300 font-medium mb-1">{t('Reason from employer')}:</p>
                     <p className="text-red-200 bg-red-500/20 p-3 rounded-lg border border-red-500/30">
                       {jobData.refuseMessage.message.replace('Your claim was refused: ', '')}
                     </p>
                   </div>
                 ) : (
-                  <p className="text-red-300">Your claim for this job was refused by the employer.</p>
+                  <p className="text-red-300">{t('Your claim for this job was refused by the employer.')}</p>
                 )}
               </div>
             </div>
@@ -563,10 +565,10 @@ export default function JobExecutionPage() {
             <div className="bg-white/5 rounded-xl border border-white/10 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Package className="w-5 h-5 text-blue-400" />
-                <h3 className="text-lg font-semibold text-white">Supplies Needed</h3>
+                <h3 className="text-lg font-semibold text-white">{t('Supplies Needed')}</h3>
               </div>
               <p className="text-sm text-gray-400 mb-3">
-                Make sure you have the following before heading to the job site:
+                {t('Make sure you have the following before heading to the job site:')}
               </p>
               <ul className="space-y-2">
                 {suppliesNeeded.map((supply, index) => (
@@ -584,9 +586,9 @@ export default function JobExecutionPage() {
             <div className="flex items-center gap-3 mb-4">
               <Play className="w-8 h-8 text-green-400" />
               <div>
-                <h3 className="font-semibold text-green-300">Ready to start?</h3>
+                <h3 className="font-semibold text-green-300">{t('Ready to start?')}</h3>
                 <p className="text-sm text-green-400">
-                  This job is approved and ready to begin.
+                  {t('This job is approved and ready to begin.')}
                 </p>
               </div>
             </div>
@@ -596,13 +598,13 @@ export default function JobExecutionPage() {
               size="lg"
             >
               <Play className="w-5 h-5 mr-2" />
-              Start Job
+              {t('Start Job')}
             </Button>
           </div>
 
           {/* Job Steps Preview (read-only when APPROVED) */}
           <div className="bg-white/5 rounded-xl border border-white/10 p-5">
-            <h3 className="text-lg font-semibold text-white mb-3">Job Steps Preview</h3>
+            <h3 className="text-lg font-semibold text-white mb-3">{t('Job Steps Preview')}</h3>
             <div className="space-y-2">
               {jobData.steps.map((step, index) => (
                 <div key={step.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
@@ -631,7 +633,7 @@ export default function JobExecutionPage() {
             }`}
           >
             <ClipboardList className="w-4 h-4" />
-            Checklist
+            {t('Checklist')}
           </button>
           <button
             onClick={() => setViewMode('detailed')}
@@ -642,7 +644,7 @@ export default function JobExecutionPage() {
             }`}
           >
             <List className="w-4 h-4" />
-            Detailed
+            {t('Detailed')}
           </button>
         </div>
 
@@ -676,7 +678,7 @@ export default function JobExecutionPage() {
                     {/* Step number + title */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">Step {index + 1}</span>
+                        <span className="text-xs text-gray-500">{t('Step')} {index + 1}</span>
                         <span className={`text-sm font-medium ${
                           isStepCompleted ? 'text-gray-500 line-through' : 'text-white'
                         }`}>
@@ -751,7 +753,7 @@ export default function JobExecutionPage() {
                 className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
-                Previous
+                {t('Previous')}
               </Button>
               <span className="text-sm text-gray-300 whitespace-nowrap">
                 {currentStepIndex + 1} of {totalSteps}
@@ -761,7 +763,7 @@ export default function JobExecutionPage() {
                 disabled={currentStepIndex === totalSteps - 1}
                 className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
               >
-                Next
+                {t('Next')}
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -774,8 +776,8 @@ export default function JobExecutionPage() {
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
-                <h3 className="font-semibold text-green-300">All steps completed!</h3>
-                <p className="text-sm text-green-400">Ready to mark this job as complete.</p>
+                <h3 className="font-semibold text-green-300">{t('All steps completed!')}</h3>
+                <p className="text-sm text-green-400">{t('Ready to mark this job as complete.')}</p>
               </div>
             </div>
             <Button
@@ -783,7 +785,7 @@ export default function JobExecutionPage() {
               className="w-full bg-green-600 hover:bg-green-700 text-white"
               size="lg"
             >
-              Complete Job
+              {t('Complete Job')}
             </Button>
           </div>
         )}
@@ -791,7 +793,7 @@ export default function JobExecutionPage() {
         {!allStepsComplete && totalSteps > 0 && (
           <div className="p-4 mt-6 bg-blue-500/10 rounded-xl border border-blue-500/30">
             <p className="text-sm text-blue-300 text-center">
-              Complete all steps to finish this job ({completedStepsCount}/{totalSteps} done)
+              {t('Complete all steps to finish this job')} ({completedStepsCount}/{totalSteps} {t('done')})
             </p>
           </div>
         )}
@@ -800,18 +802,18 @@ export default function JobExecutionPage() {
         <div className="mt-6 bg-white/5 rounded-xl border border-white/10 p-5">
           <div className="flex items-center gap-2 mb-3">
             <StickyNote className="w-5 h-5 text-purple-400" />
-            <h3 className="text-lg font-semibold text-white">Notes</h3>
+            <h3 className="text-lg font-semibold text-white">{t('Notes')}</h3>
           </div>
           <textarea
             value={employeeNotes}
             onChange={(e) => setEmployeeNotes(e.target.value)}
             onBlur={handleSaveNotes}
-            placeholder="Add any notes about this job..."
+            placeholder={t('Add any notes about this job...')}
             rows={4}
             className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-gray-500 text-sm resize-none focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30"
           />
           <div className="flex items-center justify-between mt-2">
-            <p className="text-xs text-gray-500">Notes auto-save when you tap away</p>
+            <p className="text-xs text-gray-500">{t('Notes auto-save when you tap away')}</p>
             <Button
               onClick={handleSaveNotes}
               disabled={savingNotes}
@@ -819,7 +821,7 @@ export default function JobExecutionPage() {
               size="sm"
               className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
             >
-              {savingNotes ? 'Saving...' : 'Save Notes'}
+              {savingNotes ? t('Saving...') : t('Save Notes')}
             </Button>
           </div>
         </div>
@@ -834,7 +836,7 @@ export default function JobExecutionPage() {
             <div className="mb-4 p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
               <div className="flex items-center gap-2 text-blue-300">
                 <Timer className="w-5 h-5" />
-                <span className="font-medium">Duration: {formatDuration(completionDuration)}</span>
+                <span className="font-medium">{t('Duration')}: {formatDuration(completionDuration)}</span>
               </div>
             </div>
           )}
@@ -844,7 +846,7 @@ export default function JobExecutionPage() {
             <div className="bg-white/5 rounded-xl border border-white/10 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <StickyNote className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-semibold text-white">Notes</h3>
+                <h3 className="text-lg font-semibold text-white">{t('Notes')}</h3>
               </div>
               <p className="text-gray-300 text-sm whitespace-pre-wrap">{employeeNotes}</p>
             </div>
@@ -856,19 +858,19 @@ export default function JobExecutionPage() {
       <AlertDialog open={showStartDialog} onOpenChange={setShowStartDialog}>
         <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Start Job?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">{t('Start Job?')}</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-300">
-              Are you ready to start this job? The timer will begin tracking your work duration.
+              {t('Are you ready to start this job? The timer will begin tracking your work duration.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={starting} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={starting} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleStartJob}
               disabled={starting}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {starting ? 'Starting...' : 'Start Job'}
+              {starting ? t('Starting...') : t('Start Job')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -878,25 +880,24 @@ export default function JobExecutionPage() {
       <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
         <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Complete Job?</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">{t('Complete Job?')}</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-300">
-              Are you sure you want to mark this job as complete? This action will notify the customer
-              and allow them to submit a review.
+              {t('Are you sure you want to mark this job as complete? This action will notify the customer and allow them to submit a review.')}
               {elapsedSeconds > 0 && (
                 <span className="block mt-2 text-blue-300">
-                  Total duration: {formatDuration(elapsedSeconds)}
+                  {t('Total duration')}: {formatDuration(elapsedSeconds)}
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={completing} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={completing} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">{t('Cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCompleteJob}
               disabled={completing}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {completing ? 'Completing...' : 'Complete Job'}
+              {completing ? t('Completing...') : t('Complete Job')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

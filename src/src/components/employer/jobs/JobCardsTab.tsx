@@ -8,6 +8,7 @@ import { ChevronDown, ChevronRight, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type FilterStatus = 'all' | 'DRAFT' | 'ACTIVE'
 
@@ -26,6 +27,7 @@ interface JobCardsTabProps {
 }
 
 export function JobCardsTab({ employerId }: JobCardsTabProps) {
+  const { t } = useTranslation()
   const [jobs, setJobs] = useState<JobWithCustomer[]>([])
   const [sessionCounts, setSessionCounts] = useState<Record<string, { unclaimed: number; total: number }>>({})
   const [loading, setLoading] = useState(true)
@@ -78,7 +80,7 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
       }
     } catch (error) {
       console.error('Error fetching jobs:', error)
-      if (isMountedRef.current) toast.error('Failed to load jobs')
+      if (isMountedRef.current) toast.error(t('Failed to load jobs'))
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
@@ -145,9 +147,9 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
       {/* Filter Toggles */}
       <div className="flex gap-2">
         {([
-          { key: 'all' as FilterStatus, label: 'All', count: jobs.length },
-          { key: 'DRAFT' as FilterStatus, label: 'Draft', count: draftCount },
-          { key: 'ACTIVE' as FilterStatus, label: 'Active', count: activeCount },
+          { key: 'all' as FilterStatus, label: t('All'), count: jobs.length },
+          { key: 'DRAFT' as FilterStatus, label: t('Draft'), count: draftCount },
+          { key: 'ACTIVE' as FilterStatus, label: t('Active'), count: activeCount },
         ]).map(({ key, label, count }) => (
           <button
             key={key}
@@ -167,10 +169,10 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
       {filteredJobs.length === 0 ? (
         <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
           <p className="text-gray-400">
-            {filter === 'all' ? 'No job cards yet' : `No ${filter.toLowerCase()} jobs`}
+            {filter === 'all' ? t('No job cards yet') : `${t('No')} ${filter.toLowerCase()} ${t('jobs')}`}
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            Create a new job template to get started
+            {t('Create a new job template to get started')}
           </p>
         </div>
       ) : (
@@ -213,7 +215,7 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
                     )}
                   </div>
                   <span className="text-sm text-gray-500">
-                    {group.jobs.length} job{group.jobs.length !== 1 ? 's' : ''}
+                    {group.jobs.length} {group.jobs.length !== 1 ? t('jobs') : t('job')}
                   </span>
                 </button>
 

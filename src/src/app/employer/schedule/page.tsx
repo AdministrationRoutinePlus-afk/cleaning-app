@@ -16,10 +16,12 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInDays, parseISO, startOfDay, isWithinInterval } from 'date-fns'
 import type { JobSession, JobTemplate, Employee, Customer, JobSessionStatus } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
+import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
 import { ChevronLeft, ChevronRight, AlertTriangle, Clock, Users, Briefcase, Eye, EyeOff, Calendar } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate & { customer: Customer | null }
@@ -52,6 +54,7 @@ const EMPLOYEE_COLORS = [
 ]
 
 export default function EmployerSchedulePage() {
+  const { t } = useTranslation()
   const [jobSessions, setJobSessions] = useState<JobSessionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedJob, setSelectedJob] = useState<JobSessionWithDetails | null>(null)
@@ -80,6 +83,9 @@ export default function EmployerSchedulePage() {
   const fetchJobSessions = useCallback(async () => {
     setLoading(true)
     try {
+      // Cleanup stale sessions before fetching
+      await cleanupStaleSessions(supabase)
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !isMountedRef.current) return
 
@@ -104,7 +110,7 @@ export default function EmployerSchedulePage() {
 
       if (error) {
         console.error('Error fetching job sessions:', error)
-        toast.error('Failed to load job sessions')
+        toast.error(t('Failed to load job sessions'))
         return
       }
 
@@ -113,7 +119,7 @@ export default function EmployerSchedulePage() {
       }
     } catch (error) {
       console.error('Error:', error)
-      toast.error('Failed to load schedule')
+      toast.error(t('Failed to load schedule'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -294,7 +300,7 @@ export default function EmployerSchedulePage() {
     // Unassigned jobs first
     const unassigned = selectedDayJobs.filter(s => !s.employee)
     if (unassigned.length > 0) {
-      groups.push({ employee: null, label: 'Unassigned', jobs: unassigned })
+      groups.push({ employee: null, label: t('Unassigned'), jobs: unassigned })
     }
 
     // Group by employee
@@ -365,21 +371,21 @@ export default function EmployerSchedulePage() {
             onClick={switchToWeek}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
               viewMode === 'week'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/20'
-                : 'bg-white/10 text-gray-400 border border-white/20 hover:bg-white/15'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
             }`}
           >
-            Week
+            {t('Week')}
           </button>
           <button
             onClick={switchToMonth}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
               viewMode === 'month'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/20'
-                : 'bg-white/10 text-gray-400 border border-white/20 hover:bg-white/15'
+                ? 'bg-white/20 text-white border border-white/30'
+                : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
             }`}
           >
-            Month
+            {t('Month')}
           </button>
         </div>
 
@@ -388,52 +394,52 @@ export default function EmployerSchedulePage() {
           <div className="bg-white/5 rounded-xl p-2 text-center border border-white/10">
             <Briefcase className="w-4 h-4 text-blue-400 mx-auto mb-1" />
             <div className="text-lg font-bold text-white">{activeStats.totalJobs}</div>
-            <div className="text-[10px] text-gray-500 uppercase">{viewMode === 'week' ? 'This Week' : 'This Month'}</div>
+            <div className="text-[10px] text-gray-500 uppercase">{viewMode === 'week' ? t('This Week') : t('This Month')}</div>
           </div>
           <div className={`rounded-xl p-2 text-center border ${activeStats.unclaimed > 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-white/5 border-white/10'}`}>
             <Eye className="w-4 h-4 text-orange-400 mx-auto mb-1" />
             <div className={`text-lg font-bold ${activeStats.unclaimed > 0 ? 'text-orange-400' : 'text-white'}`}>{activeStats.unclaimed}</div>
-            <div className="text-[10px] text-gray-500 uppercase">Unclaimed</div>
+            <div className="text-[10px] text-gray-500 uppercase">{t('Unclaimed')}</div>
           </div>
           <div className="bg-white/5 rounded-xl p-2 text-center border border-white/10">
             <Clock className="w-4 h-4 text-purple-400 mx-auto mb-1" />
             <div className="text-lg font-bold text-white">{activeStats.inProgress}</div>
-            <div className="text-[10px] text-gray-500 uppercase">Active</div>
+            <div className="text-[10px] text-gray-500 uppercase">{t('Active')}</div>
           </div>
           <div className={`rounded-xl p-2 text-center border ${activeStats.issues > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-white/5 border-white/10'}`}>
             <AlertTriangle className="w-4 h-4 text-red-400 mx-auto mb-1" />
             <div className={`text-lg font-bold ${activeStats.issues > 0 ? 'text-red-400' : 'text-white'}`}>{activeStats.issues}</div>
-            <div className="text-[10px] text-gray-500 uppercase">Issues</div>
+            <div className="text-[10px] text-gray-500 uppercase">{t('Issues')}</div>
           </div>
         </div>
 
         {/* Week View */}
         {viewMode === 'week' && (
-        <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
+        <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden mb-6">
           {/* Week Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
+          <div className="bg-white/5 border-b border-white/10 p-4">
             <div className="flex items-center justify-between">
               <button
                 onClick={goToPreviousWeek}
-                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+                className="p-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
               >
-                <ChevronLeft className="w-5 h-5 text-white" />
+                <ChevronLeft className="w-5 h-5 text-gray-300" />
               </button>
 
               <button onClick={goToThisWeek} className="flex flex-col items-center">
                 <span className="text-xl font-bold text-white">{weekRangeText}</span>
                 {isCurrentWeek ? (
-                  <span className="text-xs text-blue-200 font-medium">This Week</span>
+                  <span className="text-xs text-blue-400 font-medium">{t('This Week')}</span>
                 ) : (
-                  <span className="text-xs text-white/70 hover:text-white">Tap for this week</span>
+                  <span className="text-xs text-gray-500 hover:text-gray-300">{t('Tap for this week')}</span>
                 )}
               </button>
 
               <button
                 onClick={goToNextWeek}
-                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+                className="p-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
               >
-                <ChevronRight className="w-5 h-5 text-white" />
+                <ChevronRight className="w-5 h-5 text-gray-300" />
               </button>
             </div>
           </div>
@@ -457,10 +463,10 @@ export default function EmployerSchedulePage() {
                     className={`flex flex-col items-center justify-center rounded-xl py-2 transition-all relative ${
                       hasJobs
                         ? isSelected
-                          ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
-                          : 'bg-gradient-to-br from-purple-600/30 to-purple-800/30 text-purple-300 border-2 border-purple-500/30 hover:border-purple-400/50'
+                          ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/40'
+                          : 'bg-white/10 text-gray-300 border-2 border-white/15 hover:border-white/30'
                         : isSelected
-                          ? 'bg-white/20 text-white border-2 border-white/40'
+                          ? 'bg-white/15 text-white border-2 border-white/30'
                           : 'bg-white/5 text-gray-500 border-2 border-white/10 hover:border-white/20'
                     } ${isToday ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900' : ''}`}
                   >
@@ -480,7 +486,7 @@ export default function EmployerSchedulePage() {
                     </span>
                     {hasJobs && (
                       <span className={`text-[10px] rounded-full px-1.5 mt-0.5 ${
-                        isSelected ? 'bg-white/20' : 'bg-purple-500/30'
+                        isSelected ? 'bg-white/20' : 'bg-white/15'
                       }`}>
                         {activeCount}
                       </span>
@@ -495,31 +501,31 @@ export default function EmployerSchedulePage() {
 
         {/* Month View */}
         {viewMode === 'month' && (
-        <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
+        <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden mb-6">
           {/* Month Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
+          <div className="bg-white/5 border-b border-white/10 p-4">
             <div className="flex items-center justify-between">
               <button
                 onClick={goToPreviousMonth}
-                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+                className="p-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
               >
-                <ChevronLeft className="w-5 h-5 text-white" />
+                <ChevronLeft className="w-5 h-5 text-gray-300" />
               </button>
 
               <button onClick={goToThisMonth} className="flex flex-col items-center">
                 <span className="text-xl font-bold text-white">{format(currentMonth, 'MMMM yyyy')}</span>
                 {isCurrentMonth ? (
-                  <span className="text-xs text-blue-200 font-medium">This Month</span>
+                  <span className="text-xs text-blue-400 font-medium">{t('This Month')}</span>
                 ) : (
-                  <span className="text-xs text-white/70 hover:text-white">Tap for this month</span>
+                  <span className="text-xs text-gray-500 hover:text-gray-300">{t('Tap for this month')}</span>
                 )}
               </button>
 
               <button
                 onClick={goToNextMonth}
-                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+                className="p-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
               >
-                <ChevronRight className="w-5 h-5 text-white" />
+                <ChevronRight className="w-5 h-5 text-gray-300" />
               </button>
             </div>
           </div>
@@ -564,7 +570,7 @@ export default function EmployerSchedulePage() {
                     onClick={() => setMonthSelectedDay(day)}
                     className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[52px] transition-all relative ${
                       isSelected
-                        ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border border-purple-400'
+                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
                         : isInMonth
                           ? 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:border-white/20'
                           : 'text-gray-700 border border-transparent'
@@ -607,36 +613,32 @@ export default function EmployerSchedulePage() {
         )}
 
         {/* Selected Day Content */}
-        <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
+        <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden mb-6">
           {/* Day Header */}
-          <div className={`p-4 ${
-            selectedDayJobs.length > 0
-              ? 'bg-gradient-to-r from-purple-600 to-pink-600'
-              : 'bg-gradient-to-r from-gray-600 to-gray-700'
-          }`}>
+          <div className="bg-white/5 border-b border-white/10 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-white">
                   {format(selectedDay, 'EEEE, MMMM d')}
                   {isSameDay(selectedDay, new Date()) && (
-                    <span className="ml-2 text-sm text-white/70 font-normal">(Today)</span>
+                    <span className="ml-2 text-sm text-gray-500 font-normal">({t('Today')})</span>
                   )}
                 </h3>
                 {selectedDayJobs.length > 0 && (
-                  <p className="text-white/80 text-sm mt-0.5">
-                    {selectedDayJobs.length} job{selectedDayJobs.length !== 1 ? 's' : ''}
+                  <p className="text-gray-400 text-sm mt-0.5">
+                    {selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')}
                   </p>
                 )}
               </div>
               <button
                 onClick={() => setShowCompleted(!showCompleted)}
-                className="p-2 rounded-lg bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
-                title={showCompleted ? 'Hide completed' : 'Show completed'}
+                className="p-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
+                title={showCompleted ? t('Hide completed') : t('Show completed')}
               >
                 {showCompleted ? (
-                  <EyeOff className="w-4 h-4 text-white" />
+                  <EyeOff className="w-4 h-4 text-gray-300" />
                 ) : (
-                  <Eye className="w-4 h-4 text-white" />
+                  <Eye className="w-4 h-4 text-gray-300" />
                 )}
               </button>
             </div>
@@ -647,14 +649,14 @@ export default function EmployerSchedulePage() {
               <div className="py-8 text-center">
                 <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-400">
-                  {showCompleted ? 'No jobs scheduled' : 'No active jobs'}
+                  {showCompleted ? t('No jobs scheduled') : t('No active jobs')}
                 </p>
                 {!showCompleted && (
                   <button
                     onClick={() => setShowCompleted(true)}
-                    className="text-sm text-purple-400 hover:text-purple-300 mt-2"
+                    className="text-sm text-blue-400 hover:text-blue-300 mt-2"
                   >
-                    Show completed jobs
+                    {t('Show completed jobs')}
                   </button>
                 )}
               </div>
@@ -686,7 +688,7 @@ export default function EmployerSchedulePage() {
                             {group.label}
                           </span>
                           <span className="text-xs text-gray-500 ml-2">
-                            {group.jobs.length} job{group.jobs.length !== 1 ? 's' : ''}
+                            {group.jobs.length} {group.jobs.length !== 1 ? t('jobs') : t('job')}
                           </span>
                         </div>
                       </div>
@@ -777,12 +779,12 @@ export default function EmployerSchedulePage() {
         <div className="bg-white/5 rounded-xl p-3 border border-white/10">
           <div className="flex flex-wrap gap-3 justify-center">
             {[
-              { dot: 'bg-gray-500', label: 'Open' },
-              { dot: 'bg-yellow-500', label: 'Claimed' },
-              { dot: 'bg-blue-500', label: 'Approved' },
-              { dot: 'bg-purple-500', label: 'In Progress' },
-              { dot: 'bg-green-500', label: 'Completed' },
-              { dot: 'bg-red-500', label: 'Issue' },
+              { dot: 'bg-gray-500', label: t('Open') },
+              { dot: 'bg-yellow-500', label: t('Claimed') },
+              { dot: 'bg-blue-500', label: t('Approved') },
+              { dot: 'bg-purple-500', label: t('In Progress') },
+              { dot: 'bg-green-500', label: t('Completed') },
+              { dot: 'bg-red-500', label: t('Issue') },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-1.5">
                 <div className={`w-2.5 h-2.5 rounded-full ${item.dot}`} />

@@ -44,7 +44,9 @@ import {
 } from '@/components/ui/select'
 import { format } from 'date-fns'
 import { ArrowLeft, AlertTriangle, MapPin, Edit2 } from 'lucide-react'
+import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 // Extended JobSession type with joined job_template data
 interface JobWithTemplate extends JobSession {
@@ -57,6 +59,7 @@ interface JobWithTemplate extends JobSession {
 
 export default function EmployeeProfilePage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const params = useParams()
   const employeeId = params.id as string
   const supabaseRef = useRef(createClient())
@@ -114,6 +117,9 @@ export default function EmployeeProfilePage() {
   const loadData = async () => {
     setLoading(true)
     try {
+      // Cleanup stale sessions before fetching
+      await cleanupStaleSessions(supabase)
+
       // Get current user and employer for authorization
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -254,7 +260,7 @@ export default function EmployeeProfilePage() {
   const handleUpdatePassword = async () => {
     if (!employee?.user_id || !newPassword) return
     if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters')
+      toast.error(t('Password must be at least 6 characters'))
       return
     }
 
@@ -268,7 +274,7 @@ export default function EmployeeProfilePage() {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Failed to update password')
 
-      toast.success('Password updated successfully')
+      toast.success(t('Password updated successfully'))
       setShowPasswordForm(false)
       setNewPassword('')
     } catch (error) {
@@ -284,11 +290,11 @@ export default function EmployeeProfilePage() {
    */
   const handleCreateAccount = async () => {
     if (!newAccountForm.username || !newAccountForm.password) {
-      toast.error('Username and password are required')
+      toast.error(t('Username and password are required'))
       return
     }
     if (newAccountForm.password.length < 6) {
-      toast.error('Password must be at least 6 characters')
+      toast.error(t('Password must be at least 6 characters'))
       return
     }
 
@@ -315,13 +321,13 @@ export default function EmployeeProfilePage() {
 
       if (updateError) throw updateError
 
-      toast.success('Account created successfully')
+      toast.success(t('Account created successfully'))
       setShowCreateAccount(false)
       setNewAccountForm({ username: '', password: '' })
       await loadData()
     } catch (error) {
       console.error('Error creating account:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to create account')
+      toast.error(error instanceof Error ? error.message : t('Failed to create account'))
     } finally {
       setAccountCreating(false)
     }
@@ -334,7 +340,7 @@ export default function EmployeeProfilePage() {
    */
   const handleAddStrike = async () => {
     if (!strikeForm.description) {
-      toast.error('Please enter a description')
+      toast.error(t('Please enter a description'))
       return
     }
 
@@ -360,7 +366,7 @@ export default function EmployeeProfilePage() {
       await loadData()
     } catch (error) {
       console.error('Error adding strike:', error)
-      toast.error('Failed to add strike')
+      toast.error(t('Failed to add strike'))
     } finally {
       setSubmitting(false)
     }
@@ -395,7 +401,7 @@ export default function EmployeeProfilePage() {
       await loadData()
     } catch (error) {
       console.error('Error saving notes:', error)
-      toast.error('Failed to save notes')
+      toast.error(t('Failed to save notes'))
     }
   }
 
@@ -439,7 +445,7 @@ export default function EmployeeProfilePage() {
   if (!employee) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
-        <p className="text-gray-400">Employee not found</p>
+        <p className="text-gray-400">{t('Employee not found')}</p>
       </div>
     )
   }
@@ -454,9 +460,9 @@ export default function EmployeeProfilePage() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            {t('Back')}
           </button>
-          <h1 className="text-2xl font-bold text-white">Employee Profile</h1>
+          <h1 className="text-2xl font-bold text-white">{t('Employee Profile')}</h1>
         </div>
 
         {/* Employee Info Card */}
@@ -477,20 +483,20 @@ export default function EmployeeProfilePage() {
             <div className="mt-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Phone</p>
-                  <p className="text-sm text-gray-200">{employee.phone || 'Not provided'}</p>
+                  <p className="text-xs text-gray-500 mb-0.5">{t('Phone')}</p>
+                  <p className="text-sm text-gray-200">{employee.phone || t('Not provided')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Created</p>
+                  <p className="text-xs text-gray-500 mb-0.5">{t('Created')}</p>
                   <p className="text-sm text-gray-200">{format(new Date(employee.created_at), 'MMM d, yyyy')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Address</p>
-                  <p className="text-sm text-gray-200">{employee.address || 'Not provided'}</p>
+                  <p className="text-xs text-gray-500 mb-0.5">{t('Address')}</p>
+                  <p className="text-sm text-gray-200">{employee.address || t('Not provided')}</p>
                 </div>
                 {employee.activated_at && (
                   <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Activated</p>
+                    <p className="text-xs text-gray-500 mb-0.5">{t('Activated')}</p>
                     <p className="text-sm text-gray-200">{format(new Date(employee.activated_at), 'MMM d, yyyy')}</p>
                   </div>
                 )}
@@ -498,7 +504,7 @@ export default function EmployeeProfilePage() {
 
               {/* Void Cheque */}
               <div>
-                <p className="text-xs text-gray-500 mb-0.5">Void Cheque</p>
+                <p className="text-xs text-gray-500 mb-0.5">{t('Void Cheque')}</p>
                 {employee.void_cheque_url ? (
                   <a
                     href={employee.void_cheque_url}
@@ -506,17 +512,17 @@ export default function EmployeeProfilePage() {
                     rel="noopener noreferrer"
                     className="text-blue-400 hover:underline text-sm"
                   >
-                    View Document
+                    {t('View Document')}
                   </a>
                 ) : (
-                  <p className="text-sm text-gray-400">Not uploaded</p>
+                  <p className="text-sm text-gray-400">{t('Not uploaded')}</p>
                 )}
               </div>
 
               {/* Registration Information */}
               {employee.notes && !employee.notes.startsWith('--- EMPLOYER NOTES ---') && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-2 font-semibold">Registration Information</p>
+                  <p className="text-xs text-gray-500 mb-2 font-semibold">{t('Registration Information')}</p>
                   <div className="space-y-2 p-4 bg-white/5 rounded-lg border border-white/10">
                     {(() => {
                       const employerNotesMarker = '\n--- EMPLOYER NOTES ---\n'
@@ -544,14 +550,14 @@ export default function EmployeeProfilePage() {
               {/* Employer Notes */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-gray-500 font-semibold">Employer Notes</p>
+                  <p className="text-xs text-gray-500 font-semibold">{t('Employer Notes')}</p>
                   {!editingNotes && (
                     <button
                       onClick={() => setEditingNotes(true)}
                       className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs text-gray-300 hover:bg-white/10 transition-colors"
                     >
                       <Edit2 className="w-3 h-3" />
-                      {employerNotesValue ? 'Edit' : 'Add Notes'}
+                      {employerNotesValue ? t('Edit') : t('Add Notes')}
                     </button>
                   )}
                 </div>
@@ -560,7 +566,7 @@ export default function EmployeeProfilePage() {
                     <Textarea
                       value={employerNotesValue}
                       onChange={(e) => setEmployerNotesValue(e.target.value)}
-                      placeholder="Add private notes about this employee (only visible to employer)..."
+                      placeholder={t('Add private notes about this employee (only visible to employer)...')}
                       rows={4}
                       className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                     />
@@ -569,7 +575,7 @@ export default function EmployeeProfilePage() {
                         onClick={handleSaveNotes}
                         className="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                       >
-                        Save
+                        {t('Save')}
                       </button>
                       <button
                         onClick={() => {
@@ -586,13 +592,13 @@ export default function EmployeeProfilePage() {
                         }}
                         className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
                       >
-                        Cancel
+                        {t('Cancel')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <p className="text-sm text-gray-300 p-3 bg-white/5 rounded-lg border border-white/10 min-h-[60px]">
-                    {employerNotesValue || <span className="italic text-gray-500">No employer notes added yet</span>}
+                    {employerNotesValue || <span className="italic text-gray-500">{t('No employer notes added yet')}</span>}
                   </p>
                 )}
               </div>
@@ -603,27 +609,27 @@ export default function EmployeeProfilePage() {
         {/* Performance Metrics Card */}
         <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
           <div className="p-5">
-            <h3 className="text-lg font-semibold text-white mb-4">Performance</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('Performance')}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
                 <p className="text-2xl font-bold text-white">{perfMetrics.totalCompleted}</p>
-                <p className="text-xs text-gray-400 mt-1">Jobs Completed</p>
+                <p className="text-xs text-gray-400 mt-1">{t('Jobs Completed')}</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
                 <p className="text-2xl font-bold text-yellow-400">
                   {perfMetrics.avgRating !== null ? perfMetrics.avgRating.toFixed(1) : '-'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Avg Rating</p>
+                <p className="text-xs text-gray-400 mt-1">{t('Avg Rating')}</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
                 <p className="text-2xl font-bold text-green-400">
                   {perfMetrics.onTimeRate !== null ? `${Math.round(perfMetrics.onTimeRate)}%` : '-'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">On-time Rate</p>
+                <p className="text-xs text-gray-400 mt-1">{t('On-time Rate')}</p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
                 <p className="text-2xl font-bold text-blue-400">{perfMetrics.jobsThisMonth}</p>
-                <p className="text-xs text-gray-400 mt-1">This Month</p>
+                <p className="text-xs text-gray-400 mt-1">{t('This Month')}</p>
               </div>
             </div>
           </div>
@@ -632,7 +638,7 @@ export default function EmployeeProfilePage() {
         {/* Login Credentials Card */}
         <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
           <div className="p-5">
-            <h3 className="text-lg font-semibold text-white mb-4">Login Credentials</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">{t('Login Credentials')}</h3>
 
             {credentialsLoading ? (
               <LoadingSpinner size="sm" />
@@ -640,11 +646,11 @@ export default function EmployeeProfilePage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Username</p>
+                    <p className="text-xs text-gray-500 mb-0.5">{t('Username')}</p>
                     <p className="text-sm font-mono text-gray-200">{credentials.username}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Password</p>
+                    <p className="text-xs text-gray-500 mb-0.5">{t('Password')}</p>
                     <p className="text-sm text-gray-400">••••••••</p>
                   </div>
                 </div>
@@ -652,12 +658,12 @@ export default function EmployeeProfilePage() {
                 {showPasswordForm ? (
                   <div className="space-y-3 p-3 bg-white/5 rounded-lg border border-white/10">
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-400">New Password</Label>
+                      <Label className="text-xs text-gray-400">{t('New Password')}</Label>
                       <Input
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password (min 6 chars)"
+                        placeholder={t('Enter new password (min 6 chars)')}
                         className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                       />
                     </div>
@@ -667,13 +673,13 @@ export default function EmployeeProfilePage() {
                         disabled={passwordSaving}
                         className="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
                       >
-                        {passwordSaving ? 'Saving...' : 'Update Password'}
+                        {passwordSaving ? t('Saving...') : t('Update Password')}
                       </button>
                       <button
                         onClick={() => { setShowPasswordForm(false); setNewPassword('') }}
                         className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
                       >
-                        Cancel
+                        {t('Cancel')}
                       </button>
                     </div>
                   </div>
@@ -682,32 +688,32 @@ export default function EmployeeProfilePage() {
                     onClick={() => setShowPasswordForm(true)}
                     className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
                   >
-                    Change Password
+                    {t('Change Password')}
                   </button>
                 )}
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-400">No login account linked to this employee.</p>
+                <p className="text-sm text-gray-400">{t('No login account linked to this employee.')}</p>
 
                 {showCreateAccount ? (
                   <div className="space-y-3 p-3 bg-white/5 rounded-lg border border-white/10">
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-400">Username</Label>
+                      <Label className="text-xs text-gray-400">{t('Username')}</Label>
                       <Input
                         value={newAccountForm.username}
                         onChange={(e) => setNewAccountForm({ ...newAccountForm, username: e.target.value })}
-                        placeholder="Enter username"
+                        placeholder={t('Enter username')}
                         className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-400">Password</Label>
+                      <Label className="text-xs text-gray-400">{t('Password')}</Label>
                       <Input
                         type="password"
                         value={newAccountForm.password}
                         onChange={(e) => setNewAccountForm({ ...newAccountForm, password: e.target.value })}
-                        placeholder="Enter password (min 6 chars)"
+                        placeholder={t('Enter password (min 6 chars)')}
                         className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                       />
                     </div>
@@ -717,13 +723,13 @@ export default function EmployeeProfilePage() {
                         disabled={accountCreating}
                         className="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
                       >
-                        {accountCreating ? 'Creating...' : 'Create Account'}
+                        {accountCreating ? t('Creating...') : t('Create Account')}
                       </button>
                       <button
                         onClick={() => { setShowCreateAccount(false); setNewAccountForm({ username: '', password: '' }) }}
                         className="px-3 py-1.5 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
                       >
-                        Cancel
+                        {t('Cancel')}
                       </button>
                     </div>
                   </div>
@@ -732,7 +738,7 @@ export default function EmployeeProfilePage() {
                     onClick={() => setShowCreateAccount(true)}
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                   >
-                    Create Login Account
+                    {t('Create Login Account')}
                   </button>
                 )}
               </div>
@@ -745,9 +751,9 @@ export default function EmployeeProfilePage() {
           {/* Tab Headers */}
           <div className="flex border-b border-white/10">
             {([
-              { key: 'history' as const, label: 'Job History', count: jobHistory.length },
-              { key: 'evaluations' as const, label: 'Evaluations', count: evaluations.length },
-              { key: 'strikes' as const, label: 'Strikes', count: strikes.length },
+              { key: 'history' as const, label: t('Job History'), count: jobHistory.length },
+              { key: 'evaluations' as const, label: t('Evaluations'), count: evaluations.length },
+              { key: 'strikes' as const, label: t('Strikes'), count: strikes.length },
             ]).map(({ key, label, count }) => (
               <button
                 key={key}
@@ -767,7 +773,7 @@ export default function EmployeeProfilePage() {
           {activeTab === 'history' && (
             <div className="mt-4 space-y-3">
               {jobHistory.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No job history</p>
+                <p className="text-gray-500 text-center py-8">{t('No job history')}</p>
               ) : (
                 jobHistory.map((job) => (
                   <div key={job.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -781,7 +787,7 @@ export default function EmployeeProfilePage() {
                             {job.status}
                           </Badge>
                         </div>
-                        <p className="font-medium text-white">{job.job_template?.title || 'Unknown Job'}</p>
+                        <p className="font-medium text-white">{job.job_template?.title || t('Unknown Job')}</p>
                         {job.job_template?.address && (
                           <p className="text-xs text-gray-400 flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
@@ -806,7 +812,7 @@ export default function EmployeeProfilePage() {
           {activeTab === 'evaluations' && (
             <div className="mt-4 space-y-3">
               {evaluations.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No evaluations yet</p>
+                <p className="text-gray-500 text-center py-8">{t('No evaluations yet')}</p>
               ) : (
                 evaluations.map((evaluation) => (
                   <div key={evaluation.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -836,19 +842,19 @@ export default function EmployeeProfilePage() {
                   <DialogTrigger asChild>
                     <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors">
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      Add Strike
+                      {t('Add Strike')}
                     </button>
                   </DialogTrigger>
                   <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
                     <DialogHeader>
-                      <DialogTitle className="text-white">Add Strike</DialogTitle>
+                      <DialogTitle className="text-white">{t('Add Strike')}</DialogTitle>
                       <DialogDescription className="text-gray-400">
-                        Record a strike for {employee.full_name}
+                        {t('Record a strike for')} {employee.full_name}
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-400">Severity</Label>
+                        <Label className="text-xs text-gray-400">{t('Severity')}</Label>
                         <Select
                           value={strikeForm.severity}
                           onValueChange={(v) => setStrikeForm({ ...strikeForm, severity: v as typeof strikeForm.severity })}
@@ -857,27 +863,27 @@ export default function EmployeeProfilePage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-gray-800 border-white/20">
-                            <SelectItem value="MINOR" className="text-yellow-300 hover:bg-white/10">Minor</SelectItem>
-                            <SelectItem value="MAJOR" className="text-orange-300 hover:bg-white/10">Major</SelectItem>
-                            <SelectItem value="CRITICAL" className="text-red-300 hover:bg-white/10">Critical</SelectItem>
+                            <SelectItem value="MINOR" className="text-yellow-300 hover:bg-white/10">{t('Minor')}</SelectItem>
+                            <SelectItem value="MAJOR" className="text-orange-300 hover:bg-white/10">{t('Major')}</SelectItem>
+                            <SelectItem value="CRITICAL" className="text-red-300 hover:bg-white/10">{t('Critical')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-400">Description *</Label>
+                        <Label className="text-xs text-gray-400">{t('Description')} *</Label>
                         <Input
                           value={strikeForm.description}
                           onChange={(e) => setStrikeForm({ ...strikeForm, description: e.target.value })}
-                          placeholder="What happened?"
+                          placeholder={t('What happened?')}
                           className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-400">Notes (optional)</Label>
+                        <Label className="text-xs text-gray-400">{t('Notes (optional)')}</Label>
                         <Textarea
                           value={strikeForm.notes}
                           onChange={(e) => setStrikeForm({ ...strikeForm, notes: e.target.value })}
-                          placeholder="Additional details..."
+                          placeholder={t('Additional details...')}
                           rows={3}
                           className="bg-white/5 border-white/20 text-white placeholder:text-gray-600"
                         />
@@ -888,14 +894,14 @@ export default function EmployeeProfilePage() {
                         onClick={() => setStrikeDialogOpen(false)}
                         className="px-4 py-2 rounded-lg text-sm bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
                       >
-                        Cancel
+                        {t('Cancel')}
                       </button>
                       <button
                         onClick={handleAddStrike}
                         disabled={submitting}
                         className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
                       >
-                        {submitting ? 'Adding...' : 'Add Strike'}
+                        {submitting ? t('Adding...') : t('Add Strike')}
                       </button>
                     </div>
                   </DialogContent>
@@ -903,7 +909,7 @@ export default function EmployeeProfilePage() {
               </div>
 
               {strikes.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No strikes recorded</p>
+                <p className="text-gray-500 text-center py-8">{t('No strikes recorded')}</p>
               ) : (
                 strikes.map((strike) => (
                   <div key={strike.id} className="bg-white/5 border border-white/10 rounded-xl p-4">

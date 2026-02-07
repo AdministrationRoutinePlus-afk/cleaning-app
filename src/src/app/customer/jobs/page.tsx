@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react'
 import type { JobTemplate, JobStep, Customer, JobSession } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { JobDetailCard } from '@/components/customer/JobDetailCard'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobTemplateWithSteps extends JobTemplate {
   job_steps: JobStep[]
@@ -22,6 +23,7 @@ interface SessionCount {
 }
 
 export default function CustomerJobsPage() {
+  const { t } = useTranslation()
   const [jobTemplates, setJobTemplates] = useState<JobTemplateWithSteps[]>([])
   const [sessionCounts, setSessionCounts] = useState<Record<string, SessionCount>>({})
   const [upcomingSessions, setUpcomingSessions] = useState<Record<string, UpcomingSession[]>>({})
@@ -47,7 +49,7 @@ export default function CustomerJobsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !isMountedRef.current) {
-        if (user === null) toast.error('Please log in to view jobs')
+        if (user === null) toast.error(t('Please log in to view jobs'))
         return
       }
 
@@ -64,7 +66,7 @@ export default function CustomerJobsPage() {
       }
     } catch (error) {
       console.error('Error loading customer data:', error)
-      if (isMountedRef.current) toast.error('Failed to load customer profile')
+      if (isMountedRef.current) toast.error(t('Failed to load customer profile'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -150,7 +152,7 @@ export default function CustomerJobsPage() {
       }
     } catch (error) {
       console.error('Error loading job templates:', error)
-      toast.error('Failed to load your jobs')
+      toast.error(t('Failed to load your jobs'))
     }
   }
 
@@ -177,7 +179,7 @@ export default function CustomerJobsPage() {
         <div className="max-w-4xl mx-auto">
           <div className="bg-white/5 border border-white/10 rounded-xl p-6">
             <p className="text-center text-gray-400">
-              Customer profile not found. Please contact support.
+              {t('Customer profile not found. Please contact support.')}
             </p>
           </div>
         </div>
@@ -188,13 +190,13 @@ export default function CustomerJobsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">My Jobs</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">{t('My Jobs')}</h1>
 
         {jobTemplates.length === 0 ? (
           <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
-            <p className="text-gray-400">No jobs found</p>
+            <p className="text-gray-400">{t('No jobs found')}</p>
             <p className="text-sm text-gray-500 mt-1">
-              Jobs assigned to you will appear here
+              {t('Jobs assigned to you will appear here')}
             </p>
           </div>
         ) : (

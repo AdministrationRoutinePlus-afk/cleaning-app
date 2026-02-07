@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { UserX, UserCheck, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export function AccountManagement() {
+  const { t } = useTranslation()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,7 +58,7 @@ export function AccountManagement() {
       await loadData()
     } catch (error) {
       console.error('Error updating employee:', error)
-      toast.error('Failed to update employee status')
+      toast.error(t('Failed to update employee status'))
     } finally {
       setUpdating(null)
     }
@@ -75,7 +77,7 @@ export function AccountManagement() {
       await loadData()
     } catch (error) {
       console.error('Error updating customer:', error)
-      toast.error('Failed to update customer status')
+      toast.error(t('Failed to update customer status'))
     } finally {
       setUpdating(null)
     }
@@ -107,7 +109,7 @@ export function AccountManagement() {
               : 'bg-white/5 text-gray-400 hover:bg-white/10'
           }`}
         >
-          Employees
+          {t('Employees')}
           {blockedEmployees.length > 0 && (
             <Badge className="ml-2 bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
               {blockedEmployees.length}
@@ -122,7 +124,7 @@ export function AccountManagement() {
               : 'bg-white/5 text-gray-400 hover:bg-white/10'
           }`}
         >
-          Customers
+          {t('Customers')}
           {blockedCustomers.length > 0 && (
             <Badge className="ml-2 bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
               {blockedCustomers.length}
@@ -138,7 +140,7 @@ export function AccountManagement() {
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-red-400">
                 <AlertTriangle className="w-4 h-4" />
-                Blocked Employees ({blockedEmployees.length})
+                {t('Blocked Employees')} ({blockedEmployees.length})
               </Label>
               <div className="space-y-2">
                 {blockedEmployees.map(emp => (
@@ -158,7 +160,7 @@ export function AccountManagement() {
                       className="text-green-400 border-green-500/30 hover:bg-green-500/10"
                     >
                       <UserCheck className="w-4 h-4 mr-1" />
-                      {updating === emp.id ? 'Unblocking...' : 'Unblock'}
+                      {updating === emp.id ? t('Unblocking...') : t('Unblock')}
                     </Button>
                   </div>
                 ))}
@@ -167,9 +169,9 @@ export function AccountManagement() {
           )}
 
           <div className="space-y-2">
-            <Label className="text-gray-300">Active Employees ({activeEmployees.length})</Label>
+            <Label className="text-gray-300">{t('Active Employees')} ({activeEmployees.length})</Label>
             {activeEmployees.length === 0 ? (
-              <p className="text-sm text-gray-500 py-2">No active employees</p>
+              <p className="text-sm text-gray-500 py-2">{t('No active employees')}</p>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {activeEmployees.map(emp => (
@@ -189,7 +191,7 @@ export function AccountManagement() {
                       className="text-red-400 border-red-500/30 hover:bg-red-500/10"
                     >
                       <UserX className="w-4 h-4 mr-1" />
-                      {updating === emp.id ? 'Blocking...' : 'Block'}
+                      {updating === emp.id ? t('Blocking...') : t('Block')}
                     </Button>
                   </div>
                 ))}
@@ -206,7 +208,7 @@ export function AccountManagement() {
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-red-400">
                 <AlertTriangle className="w-4 h-4" />
-                Blocked Customers ({blockedCustomers.length})
+                {t('Blocked Customers')} ({blockedCustomers.length})
               </Label>
               <div className="space-y-2">
                 {blockedCustomers.map(cust => (
@@ -226,7 +228,7 @@ export function AccountManagement() {
                       className="text-green-400 border-green-500/30 hover:bg-green-500/10"
                     >
                       <UserCheck className="w-4 h-4 mr-1" />
-                      {updating === cust.id ? 'Unblocking...' : 'Unblock'}
+                      {updating === cust.id ? t('Unblocking...') : t('Unblock')}
                     </Button>
                   </div>
                 ))}
@@ -235,9 +237,9 @@ export function AccountManagement() {
           )}
 
           <div className="space-y-2">
-            <Label className="text-gray-300">Active Customers ({activeCustomers.length})</Label>
+            <Label className="text-gray-300">{t('Active Customers')} ({activeCustomers.length})</Label>
             {activeCustomers.length === 0 ? (
-              <p className="text-sm text-gray-500 py-2">No active customers</p>
+              <p className="text-sm text-gray-500 py-2">{t('No active customers')}</p>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {activeCustomers.map(cust => (
@@ -257,7 +259,7 @@ export function AccountManagement() {
                       className="text-red-400 border-red-500/30 hover:bg-red-500/10"
                     >
                       <UserX className="w-4 h-4 mr-1" />
-                      {updating === cust.id ? 'Blocking...' : 'Block'}
+                      {updating === cust.id ? t('Blocking...') : t('Block')}
                     </Button>
                   </div>
                 ))}

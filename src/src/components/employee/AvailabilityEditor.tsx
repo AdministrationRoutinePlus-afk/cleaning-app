@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Calendar } from '@/components/ui/calendar'
 import { CalendarDays, Clock } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface AvailabilityEditorProps {
   employeeId: string
@@ -29,6 +30,7 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
 }
 
 export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
+  const { t } = useTranslation()
   const [weeklyAvailability, setWeeklyAvailability] = useState<Record<DayOfWeek, EmployeeAvailability | null>>({
     MON: null,
     TUE: null,
@@ -137,7 +139,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       }
     } catch (error) {
       console.error('Error updating availability:', error)
-      toast.error('Failed to update availability')
+      toast.error(t('Failed to update availability'))
     } finally {
       setSaving(false)
     }
@@ -162,7 +164,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       }))
     } catch (error) {
       console.error('Error updating time:', error)
-      toast.error('Failed to update time')
+      toast.error(t('Failed to update time'))
     } finally {
       setSaving(false)
     }
@@ -247,7 +249,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       setNewDateNote('')
     } catch (error) {
       console.error('Error saving date:', error)
-      toast.error('Failed to save date availability')
+      toast.error(t('Failed to save date availability'))
     } finally {
       setSaving(false)
     }
@@ -276,7 +278,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       }
     } catch (error) {
       console.error('Error removing date:', error)
-      toast.error('Failed to remove date')
+      toast.error(t('Failed to remove date'))
     } finally {
       setSaving(false)
     }
@@ -331,9 +333,9 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       <TabsContent value="weekly">
         <Card className="bg-white/10 border-white/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base">Weekly Schedule</CardTitle>
+            <CardTitle className="text-white text-base">{t('Weekly Schedule')}</CardTitle>
             <p className="text-xs text-gray-300">
-              Set your default weekly availability
+              {t('Set your default weekly availability')}
             </p>
           </CardHeader>
           <CardContent className="space-y-2 px-3">
@@ -359,7 +361,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                       }`}>
                         {day}
                       </div>
-                      <span className="font-semibold text-white text-sm">{DAY_LABELS[day]}</span>
+                      <span className="font-semibold text-white text-sm">{t(DAY_LABELS[day])}</span>
                     </div>
                     <Switch
                       id={`${day}-toggle`}
@@ -375,7 +377,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label htmlFor={`${day}-start`} className="text-[10px] font-semibold text-gray-300 uppercase">
-                            From
+                            {t('From')}
                           </Label>
                           <Input
                             id={`${day}-start`}
@@ -388,7 +390,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor={`${day}-end`} className="text-[10px] font-semibold text-gray-300 uppercase">
-                            To
+                            {t('To')}
                           </Label>
                           <Input
                             id={`${day}-end`}
@@ -418,9 +420,9 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       <TabsContent value="calendar">
         <Card className="bg-white/10 border-white/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-white text-base">Monthly Calendar</CardTitle>
+            <CardTitle className="text-white text-base">{t('Monthly Calendar')}</CardTitle>
             <p className="text-xs text-gray-300">
-              Tap a date to set your availability
+              {t('Tap a date to set your availability')}
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -485,15 +487,15 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
             <div className="flex gap-2 text-[10px] justify-center flex-wrap px-2">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-green-500"></div>
-                <span className="text-gray-300">Available</span>
+                <span className="text-gray-300">{t('Available')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-red-500"></div>
-                <span className="text-gray-300">Unavailable</span>
+                <span className="text-gray-300">{t('Unavailable')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 rounded bg-blue-500/30 border border-blue-400"></div>
-                <span className="text-gray-300">Today</span>
+                <span className="text-gray-300">{t('Today')}</span>
               </div>
             </div>
 
@@ -512,7 +514,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                       disabled={saving}
                       className="text-red-400 hover:text-red-300 hover:bg-red-500/10 -mr-2 h-7 text-xs"
                     >
-                      Clear
+                      {t('Clear')}
                     </Button>
                   )}
                 </div>
@@ -525,7 +527,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                 }`}>
                   <div className="flex items-center justify-between mb-3">
                     <Label htmlFor="date-available" className="text-sm font-semibold text-white">
-                      {newDateAvailable ? 'Available' : 'Unavailable'}
+                      {newDateAvailable ? t('Available') : t('Unavailable')}
                     </Label>
                     <Switch
                       id="date-available"
@@ -541,7 +543,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label htmlFor="date-start" className="text-[10px] font-semibold text-gray-300 uppercase">
-                            From
+                            {t('From')}
                           </Label>
                           <Input
                             id="date-start"
@@ -554,7 +556,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="date-end" className="text-[10px] font-semibold text-gray-300 uppercase">
-                            To
+                            {t('To')}
                           </Label>
                           <Input
                             id="date-end"
@@ -577,7 +579,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                   {/* Note */}
                   <div className="space-y-1 mt-3">
                     <Label htmlFor="date-note" className="text-[10px] font-semibold text-gray-300 uppercase">
-                      Note (Optional)
+                      {t('Note (Optional)')}
                     </Label>
                     <Input
                       id="date-note"
@@ -598,7 +600,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                     disabled={saving}
                     className="w-full h-11 text-sm font-semibold bg-blue-600 hover:bg-blue-700"
                   >
-                    {saving ? 'Saving...' : editingDate ? 'Update Date' : 'Save Date'}
+                    {saving ? t('Saving...') : editingDate ? t('Update Date') : t('Save Date')}
                   </Button>
                 </div>
               </div>

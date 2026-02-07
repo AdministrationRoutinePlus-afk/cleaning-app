@@ -4,6 +4,7 @@ import { parseISO } from 'date-fns'
 import { ChevronDown, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface MarketplaceJobCardProps {
   jobSession: JobSession & {
@@ -24,13 +25,14 @@ export function MarketplaceJobCard({
   isExpanded,
   onToggleExpand
 }: MarketplaceJobCardProps) {
+  const { t } = useTranslation()
   const { job_template } = jobSession
 
   // Guard against null job_template
   if (!job_template) {
     return (
       <div className="bg-white/10 rounded-xl p-4 text-center text-gray-500 border border-white/20">
-        Job data unavailable
+        {t('Job data unavailable')}
       </div>
     )
   }
@@ -55,7 +57,7 @@ export function MarketplaceJobCard({
   const formatTimeWindow = () => {
     const start = job_template.time_window_start
     const end = job_template.time_window_end
-    if (!start && !end) return 'Flexible'
+    if (!start && !end) return t('Flexible')
     return `${start?.slice(0, 5) || '—'} - ${end?.slice(0, 5) || '—'}`
   }
 
@@ -81,14 +83,14 @@ export function MarketplaceJobCard({
             <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
               <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
               <div>
-                <p className="text-gray-300 text-xs">Job</p>
+                <p className="text-gray-300 text-xs">{t('Job')}</p>
                 <p className="text-white font-semibold text-sm">{job_template.title}</p>
               </div>
             </div>
             <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
               <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
               <div>
-                <p className="text-gray-300 text-xs">Duration</p>
+                <p className="text-gray-300 text-xs">{t('Duration')}</p>
                 <p className="text-white font-semibold text-sm">{formatDuration(job_template.duration_minutes)}</p>
               </div>
             </div>
@@ -99,14 +101,14 @@ export function MarketplaceJobCard({
             <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-green-400 flex-shrink-0" />
               <div>
-                <p className="text-gray-300 text-xs">Time Window</p>
+                <p className="text-gray-300 text-xs">{t('Time Window')}</p>
                 <p className="text-white font-semibold text-sm">{formatTimeWindow()}</p>
               </div>
             </div>
             <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-yellow-400 flex-shrink-0" />
               <div>
-                <p className="text-gray-300 text-xs">Hourly Rate</p>
+                <p className="text-gray-300 text-xs">{t('Hourly Rate')}</p>
                 <p className="text-white font-semibold text-sm">{formatPrice(job_template.price_per_hour)}</p>
               </div>
             </div>
@@ -120,13 +122,13 @@ export function MarketplaceJobCard({
               className="bg-white/5 bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               <ChevronDown className={`w-4 h-4 mr-1 ${isExpanded ? 'rotate-180' : ''}`} />
-              {isExpanded ? 'Less' : 'More'}
+              {isExpanded ? t('Less') : t('More')}
             </Button>
             <Button
               onClick={onClaim}
               className="bg-green-600 hover:bg-green-700 text-white font-bold"
             >
-              Claim Job
+              {t('Claim Job')}
             </Button>
           </div>
         </div>
@@ -137,7 +139,7 @@ export function MarketplaceJobCard({
         <div className="px-4 pb-4 space-y-2 border-t border-white/10 pt-3">
           {/* Schedule Info */}
           <div className="bg-white/5 rounded-lg p-3">
-            <p className="text-gray-400 text-xs mb-1">Scheduled</p>
+            <p className="text-gray-400 text-xs mb-1">{t('Scheduled')}</p>
             <p className="text-white font-semibold text-sm">
               {jobSession.scheduled_date
                 ? parseISO(jobSession.scheduled_date).toLocaleDateString('en-US', {
@@ -145,14 +147,14 @@ export function MarketplaceJobCard({
                     month: 'long',
                     day: 'numeric'
                   })
-                : 'Flexible'}
+                : t('Flexible')}
             </p>
           </div>
 
           {/* Description */}
           {job_template.description && (
             <div className="bg-white/5 rounded-lg p-3">
-              <p className="text-gray-400 text-xs mb-1">Description</p>
+              <p className="text-gray-400 text-xs mb-1">{t('Description')}</p>
               <p className="text-white text-sm">{job_template.description}</p>
             </div>
           )}
@@ -160,7 +162,7 @@ export function MarketplaceJobCard({
           {/* Address */}
           {job_template.address && (
             <div className="bg-white/5 rounded-lg p-3">
-              <p className="text-gray-400 text-xs mb-1">Location</p>
+              <p className="text-gray-400 text-xs mb-1">{t('Location')}</p>
               <p className="text-white text-sm">{job_template.address}</p>
             </div>
           )}
@@ -171,7 +173,7 @@ export function MarketplaceJobCard({
             onClick={onSkip}
             className="w-full bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
           >
-            Not Interested
+            {t('Not Interested')}
           </Button>
         </div>
       )}

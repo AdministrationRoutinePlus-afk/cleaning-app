@@ -21,9 +21,11 @@ import {
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
 import { X, Plus, Calendar, ArrowLeft, Trash2, Briefcase, DollarSign, ListChecks, FileText } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export default function EditJobPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const params = useParams()
   const jobId = params.id as string
   const supabaseRef = useRef(createClient())
@@ -65,13 +67,13 @@ export default function EditJobPage() {
   })
 
   const DAYS_OF_WEEK = [
-    { value: 'SUN', label: 'Sunday' },
-    { value: 'MON', label: 'Monday' },
-    { value: 'TUE', label: 'Tuesday' },
-    { value: 'WED', label: 'Wednesday' },
-    { value: 'THU', label: 'Thursday' },
-    { value: 'FRI', label: 'Friday' },
-    { value: 'SAT', label: 'Saturday' },
+    { value: 'SUN', label: t('Sunday') },
+    { value: 'MON', label: t('Monday') },
+    { value: 'TUE', label: t('Tuesday') },
+    { value: 'WED', label: t('Wednesday') },
+    { value: 'THU', label: t('Thursday') },
+    { value: 'FRI', label: t('Friday') },
+    { value: 'SAT', label: t('Saturday') },
   ]
 
   const TIME_OPTIONS = [
@@ -305,13 +307,13 @@ export default function EditJobPage() {
       setLoading(true)
 
       if (!job) {
-        toast.error('Job data not loaded')
+        toast.error(t('Job data not loaded'))
         return
       }
 
       // Validate required fields
       if (!formData.title) {
-        toast.error('Please fill in the job title')
+        toast.error(t('Please fill in the job title'))
         return
       }
 
@@ -320,7 +322,7 @@ export default function EditJobPage() {
           formData.window_start_day === formData.window_end_day &&
           formData.time_window_start && formData.time_window_end) {
         if (formData.time_window_end <= formData.time_window_start) {
-          toast.error('End time must be after start time when start and end days are the same')
+          toast.error(t('End time must be after start time when start and end days are the same'))
           return
         }
       }
@@ -456,14 +458,14 @@ export default function EditJobPage() {
       const errorMessage = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message || JSON.stringify(error)
-      toast.error(`Failed to update job template: ${errorMessage}`)
+      toast.error(`${t('Failed to update job template')}: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+    if (!confirm(t('Are you sure you want to delete this job? This action cannot be undone.'))) {
       return
     }
 
@@ -483,7 +485,7 @@ export default function EditJobPage() {
       const errorMessage = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message || JSON.stringify(error)
-      toast.error(`Failed to delete job: ${errorMessage}`)
+      toast.error(`${t('Failed to delete job')}: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -496,7 +498,7 @@ export default function EditJobPage() {
   if (!job) {
     return (
       <div className="min-h-screen p-4 flex items-center justify-center">
-        <p className="text-gray-400">Job not found</p>
+        <p className="text-gray-400">{t('Job not found')}</p>
       </div>
     )
   }
@@ -513,7 +515,7 @@ export default function EditJobPage() {
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-2xl font-bold text-white">Edit Job</h1>
+          <h1 className="text-2xl font-bold text-white">{t('Edit Job')}</h1>
         </div>
 
         {/* Job Code + Status Header */}
@@ -538,18 +540,18 @@ export default function EditJobPage() {
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <Briefcase className="h-5 w-5 text-white" />
-            <h2 className="text-lg font-semibold text-white">Job Details</h2>
+            <h2 className="text-lg font-semibold text-white">{t('Job Details')}</h2>
           </div>
 
           {/* Customer Selector */}
           <div className="space-y-2">
-            <Label htmlFor="customer" className="text-gray-300 text-sm">Customer</Label>
+            <Label htmlFor="customer" className="text-gray-300 text-sm">{t('Customer')}</Label>
             <Select
               value={formData.customer_id}
               onValueChange={(value) => setFormData({ ...formData, customer_id: value })}
             >
               <SelectTrigger id="customer" className="bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Select a customer" />
+                <SelectValue placeholder={t('Select a customer')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
                 {customers.map(customer => (
@@ -563,12 +565,12 @@ export default function EditJobPage() {
 
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title" className="text-gray-300 text-sm">Job Title *</Label>
+            <Label htmlFor="title" className="text-gray-300 text-sm">{t('Job Title')} *</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., Kitchen Deep Clean"
+              placeholder={t('e.g., Kitchen Deep Clean')}
               required
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
@@ -576,12 +578,12 @@ export default function EditJobPage() {
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-gray-300 text-sm">Description</Label>
+            <Label htmlFor="description" className="text-gray-300 text-sm">{t('Description')}</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Describe the job..."
+              placeholder={t('Describe the job...')}
               rows={4}
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
@@ -589,12 +591,12 @@ export default function EditJobPage() {
 
           {/* Address */}
           <div className="space-y-2">
-            <Label htmlFor="address" className="text-gray-300 text-sm">Address</Label>
+            <Label htmlFor="address" className="text-gray-300 text-sm">{t('Address')}</Label>
             <Input
               id="address"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="123 Main St, City, Province"
+              placeholder={t('123 Main St, City, Province')}
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
           </div>
@@ -604,12 +606,12 @@ export default function EditJobPage() {
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <DollarSign className="h-5 w-5 text-white" />
-            <h2 className="text-lg font-semibold text-white">Pricing & Duration</h2>
+            <h2 className="text-lg font-semibold text-white">{t('Pricing & Duration')}</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="duration" className="text-gray-300 text-sm">Duration (minutes)</Label>
+              <Label htmlFor="duration" className="text-gray-300 text-sm">{t('Duration (minutes)')}</Label>
               <Input
                 id="duration"
                 type="number"
@@ -621,7 +623,7 @@ export default function EditJobPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price" className="text-gray-300 text-sm">Price per Hour ($)</Label>
+              <Label htmlFor="price" className="text-gray-300 text-sm">{t('Price per Hour ($)')}</Label>
               <Input
                 id="price"
                 type="number"
@@ -640,12 +642,12 @@ export default function EditJobPage() {
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-6">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="h-5 w-5 text-white" />
-            <h2 className="text-lg font-semibold text-white">Scheduling</h2>
+            <h2 className="text-lg font-semibold text-white">{t('Scheduling')}</h2>
           </div>
 
           {/* Job Type Toggle */}
           <div className="space-y-3">
-            <Label className="text-gray-300 text-sm">Job Type</Label>
+            <Label className="text-gray-300 text-sm">{t('Job Type')}</Label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -656,7 +658,7 @@ export default function EditJobPage() {
                     : 'bg-white/5 text-gray-400 hover:bg-white/10'
                 }`}
               >
-                One-time
+                {t('One-time')}
               </button>
               <button
                 type="button"
@@ -667,7 +669,7 @@ export default function EditJobPage() {
                     : 'bg-white/5 text-gray-400 hover:bg-white/10'
                 }`}
               >
-                Recurring
+                {t('Recurring')}
               </button>
             </div>
           </div>
@@ -676,21 +678,21 @@ export default function EditJobPage() {
 
           {/* Time Window */}
           <div className="space-y-4">
-            <Label className="text-gray-300 text-sm">Job Window</Label>
+            <Label className="text-gray-300 text-sm">{t('Job Window')}</Label>
             <p className="text-xs text-gray-500">
-              When can this job be done? Employee can complete it anytime within this window.
+              {t('When can this job be done? Employee can complete it anytime within this window.')}
             </p>
 
             <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">From Day</Label>
+                  <Label className="text-xs text-gray-500">{t('From Day')}</Label>
                   <Select
                     value={formData.window_start_day}
                     onValueChange={(value) => setFormData({ ...formData, window_start_day: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder={t('Select day')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {DAYS_OF_WEEK.map(day => (
@@ -700,13 +702,13 @@ export default function EditJobPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">From Time</Label>
+                  <Label className="text-xs text-gray-500">{t('From Time')}</Label>
                   <Select
                     value={formData.time_window_start}
                     onValueChange={(value) => setFormData({ ...formData, time_window_start: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Start time" />
+                      <SelectValue placeholder={t('Start time')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {TIME_OPTIONS.map(time => (
@@ -718,18 +720,18 @@ export default function EditJobPage() {
               </div>
 
               <div className="flex justify-center">
-                <span className="text-gray-500 text-sm">to</span>
+                <span className="text-gray-500 text-sm">{t('to')}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">To Day</Label>
+                  <Label className="text-xs text-gray-500">{t('To Day')}</Label>
                   <Select
                     value={formData.window_end_day}
                     onValueChange={(value) => setFormData({ ...formData, window_end_day: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="Select day" />
+                      <SelectValue placeholder={t('Select day')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {DAYS_OF_WEEK.map(day => (
@@ -739,13 +741,13 @@ export default function EditJobPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">To Time</Label>
+                  <Label className="text-xs text-gray-500">{t('To Time')}</Label>
                   <Select
                     value={formData.time_window_end}
                     onValueChange={(value) => setFormData({ ...formData, time_window_end: value })}
                   >
                     <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                      <SelectValue placeholder="End time" />
+                      <SelectValue placeholder={t('End time')} />
                     </SelectTrigger>
                     <SelectContent className="bg-gray-800 border-white/20">
                       {TIME_OPTIONS.map(time => (
@@ -774,14 +776,14 @@ export default function EditJobPage() {
           {/* Date Range or Specific Dates */}
           {formData.is_recurring ? (
             <div className="space-y-4">
-              <Label className="text-gray-300 text-sm">Recurring Period</Label>
+              <Label className="text-gray-300 text-sm">{t('Recurring Period')}</Label>
               <p className="text-xs text-gray-500">
-                One job session will be created for each week in this period.
+                {t('One job session will be created for each week in this period.')}
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Start Date</Label>
+                  <Label className="text-xs text-gray-500">{t('Start Date')}</Label>
                   <Input
                     type="date"
                     value={formData.start_date}
@@ -790,7 +792,7 @@ export default function EditJobPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">End Date</Label>
+                  <Label className="text-xs text-gray-500">{t('End Date')}</Label>
                   <Input
                     type="date"
                     value={formData.end_date}
@@ -803,7 +805,7 @@ export default function EditJobPage() {
 
               {/* Skip Dates */}
               <div className="space-y-2 pt-2">
-                <Label className="text-gray-300 text-sm">Skip Dates (Optional)</Label>
+                <Label className="text-gray-300 text-sm">{t('Skip Dates (Optional)')}</Label>
                 <div className="flex gap-2">
                   <Input
                     type="date"
@@ -853,9 +855,9 @@ export default function EditJobPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <Label className="text-gray-300 text-sm">Select Date(s)</Label>
+              <Label className="text-gray-300 text-sm">{t('Select Date(s)')}</Label>
               <p className="text-xs text-gray-500">
-                Pick the specific date(s) when this job should be done.
+                {t('Pick the specific date(s) when this job should be done.')}
               </p>
 
               <div className="flex gap-2">
@@ -882,7 +884,7 @@ export default function EditJobPage() {
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Add
+                  {t('Add')}
                 </Button>
               </div>
               {formData.specific_dates.length > 0 && (
@@ -911,16 +913,16 @@ export default function EditJobPage() {
 
           {/* Preferred Employee */}
           <div className="space-y-2">
-            <Label className="text-gray-300 text-sm">Assign To (Optional)</Label>
+            <Label className="text-gray-300 text-sm">{t('Assign To (Optional)')}</Label>
             <Select
               value={formData.preferred_employee_id || 'none'}
               onValueChange={(value) => setFormData({ ...formData, preferred_employee_id: value === 'none' ? '' : value })}
             >
               <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Anyone available" />
+                <SelectValue placeholder={t('Anyone available')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
-                <SelectItem value="none" className="text-white hover:bg-white/10">Anyone available</SelectItem>
+                <SelectItem value="none" className="text-white hover:bg-white/10">{t('Anyone available')}</SelectItem>
                 {employees.map(employee => (
                   <SelectItem key={employee.id} value={employee.id} className="text-white hover:bg-white/10">
                     {employee.full_name}
@@ -935,8 +937,8 @@ export default function EditJobPage() {
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <ListChecks className="h-5 w-5 text-white" />
-            <h2 className="text-lg font-semibold text-white">Instructions</h2>
-            <span className="text-xs text-gray-500">(Optional)</span>
+            <h2 className="text-lg font-semibold text-white">{t('Instructions')}</h2>
+            <span className="text-xs text-gray-500">({t('Optional')})</span>
           </div>
           <StepBuilder steps={steps} onChange={setSteps} />
         </div>
@@ -945,13 +947,13 @@ export default function EditJobPage() {
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <FileText className="h-5 w-5 text-white" />
-            <h2 className="text-lg font-semibold text-white">Internal Notes</h2>
+            <h2 className="text-lg font-semibold text-white">{t('Internal Notes')}</h2>
           </div>
           <Textarea
             id="notes"
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder="Notes visible only to you..."
+            placeholder={t('Notes visible only to you...')}
             rows={2}
             className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
           />
@@ -965,14 +967,14 @@ export default function EditJobPage() {
             disabled={loading}
             className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
-            {loading ? 'Saving...' : 'Save as Draft'}
+            {loading ? t('Saving...') : t('Save as Draft')}
           </Button>
           <Button
             onClick={() => handleSubmit('ACTIVE')}
             disabled={loading}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loading ? 'Saving...' : 'Save & Activate'}
+            {loading ? t('Saving...') : t('Save & Activate')}
           </Button>
         </div>
 
@@ -983,7 +985,7 @@ export default function EditJobPage() {
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50"
         >
           <Trash2 className="w-4 h-4" />
-          Delete Job
+          {t('Delete Job')}
         </button>
       </div>
     </div>

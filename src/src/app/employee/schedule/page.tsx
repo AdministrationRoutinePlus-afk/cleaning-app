@@ -5,12 +5,14 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
+import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { format, addDays, startOfDay, startOfWeek, isWithinInterval, parseISO, isSameDay } from 'date-fns'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate & {
@@ -19,6 +21,7 @@ interface JobSessionWithDetails extends JobSession {
 }
 
 export default function EmployeeSchedulePage() {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState<JobSessionWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [startDate, setStartDate] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
@@ -39,6 +42,9 @@ export default function EmployeeSchedulePage() {
   const loadScheduledJobs = async () => {
     setLoading(true)
     try {
+      // Cleanup stale sessions before fetching
+      await cleanupStaleSessions(supabase)
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
@@ -71,7 +77,7 @@ export default function EmployeeSchedulePage() {
       setSessions((data as JobSessionWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading scheduled jobs:', error)
-      toast.error('Failed to load your schedule')
+      toast.error(t('Failed to load your schedule'))
     } finally {
       setLoading(false)
     }
@@ -98,7 +104,7 @@ export default function EmployeeSchedulePage() {
     const isToday = isSameDay(day, now)
 
     if (session.status === 'IN_PROGRESS') {
-      return { label: 'IN PROGRESS', color: 'bg-green-500', pulse: true }
+      return { label: t('IN PROGRESS'), color: 'bg-green-500', pulse: true }
     }
 
     // Check if within time window
@@ -117,19 +123,19 @@ export default function EmployeeSchedulePage() {
       const isPastWindow = now > windowEnd
 
       if (isPastWindow && session.status === 'APPROVED') {
-        return { label: 'MISSED', color: 'bg-red-500', pulse: false }
+        return { label: t('MISSED'), color: 'bg-red-500', pulse: false }
       }
 
       if (isWithinWindow && session.status === 'APPROVED') {
-        return { label: 'START NOW', color: 'bg-green-500', pulse: false }
+        return { label: t('START NOW'), color: 'bg-green-500', pulse: false }
       }
     }
 
     if (isToday) {
-      return { label: 'TODAY', color: 'bg-blue-500', pulse: false }
+      return { label: t('TODAY'), color: 'bg-blue-500', pulse: false }
     }
 
-    return { label: 'SCHEDULED', color: 'bg-blue-500/50', pulse: false }
+    return { label: t('SCHEDULED'), color: 'bg-blue-500/50', pulse: false }
   }
 
   // Navigation handlers
@@ -254,9 +260,9 @@ export default function EmployeeSchedulePage() {
               >
                 <span className="text-xl font-bold text-white">{weekRangeText}</span>
                 {isCurrentWeek ? (
-                  <span className="text-xs text-blue-200 font-medium">This Week</span>
+                  <span className="text-xs text-blue-200 font-medium">{t('This Week')}</span>
                 ) : (
-                  <span className="text-xs text-white/70 hover:text-white">Tap for this week</span>
+                  <span className="text-xs text-white/70 hover:text-white">{t('Tap for this week')}</span>
                 )}
               </button>
 
@@ -325,7 +331,7 @@ export default function EmployeeSchedulePage() {
             <h3 className="text-lg font-bold text-white text-center">
               {format(selectedDay, 'EEEE, MMMM d')}
               {isSameDay(selectedDay, new Date()) && (
-                <span className="ml-2 text-sm text-white/70 font-normal">(Today)</span>
+                <span className="ml-2 text-sm text-white/70 font-normal">({t('Today')})</span>
               )}
             </h3>
             {selectedDayJobs.length > 0 && (
@@ -339,7 +345,7 @@ export default function EmployeeSchedulePage() {
             {selectedDayJobs.length === 0 ? (
               <div className="py-8 text-center">
                 <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400">No jobs scheduled</p>
+                <p className="text-gray-400">{t('No jobs scheduled')}</p>
               </div>
             ) : (
             <div className="space-y-3">
@@ -385,7 +391,7 @@ export default function EmployeeSchedulePage() {
                         </div>
 
                         <p className="text-gray-400 text-sm truncate mb-1">
-                          {session.job_template.customer?.full_name || 'No customer'}
+                          {session.job_template.customer?.full_name || t('No customer')}
                         </p>
 
                         {/* Time Window */}
@@ -411,7 +417,7 @@ export default function EmployeeSchedulePage() {
                     <div className="flex gap-2 mt-3">
                       {session.job_template.duration_minutes && (
                         <div className="flex-1 bg-white/5 rounded-lg px-3 py-2 text-center">
-                          <p className="text-[10px] text-gray-500 uppercase">Duration</p>
+                          <p className="text-[10px] text-gray-500 uppercase">{t('Duration')}</p>
                           <p className="text-sm font-semibold text-white">
                             {Math.floor(session.job_template.duration_minutes / 60)}h {session.job_template.duration_minutes % 60}m
                           </p>
@@ -419,7 +425,7 @@ export default function EmployeeSchedulePage() {
                       )}
                       {session.job_template.price_per_hour && (
                         <div className="flex-1 bg-yellow-500/10 rounded-lg px-3 py-2 text-center border border-yellow-500/20">
-                          <p className="text-[10px] text-yellow-400 uppercase">Pay Rate</p>
+                          <p className="text-[10px] text-yellow-400 uppercase">{t('Pay Rate')}</p>
                           <p className="text-sm font-semibold text-white">
                             ${session.job_template.price_per_hour.toFixed(2)}/hr
                           </p>
@@ -441,7 +447,7 @@ export default function EmployeeSchedulePage() {
             className="aspect-square w-32 flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-sm transition-all bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400 hover:from-blue-500 hover:to-blue-700"
           >
             <Download className="w-8 h-8" />
-            <span>Export PDF</span>
+            <span>{t('Export PDF')}</span>
           </button>
         </div>
 
@@ -449,8 +455,8 @@ export default function EmployeeSchedulePage() {
         {sessions.length === 0 && (
           <div className="mt-8 text-center py-12 bg-white/5 rounded-2xl border border-white/10">
             <Calendar className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No scheduled jobs</h3>
-            <p className="text-gray-400 text-sm">Check the marketplace for available jobs.</p>
+            <h3 className="text-lg font-semibold text-white mb-2">{t('No scheduled jobs')}</h3>
+            <p className="text-gray-400 text-sm">{t('Check the marketplace for available jobs.')}</p>
           </div>
         )}
       </div>
@@ -462,12 +468,12 @@ export default function EmployeeSchedulePage() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-white text-center text-xl mb-2">
-                  Export 7-Day Schedule
+                  {t('Export 7-Day Schedule')}
                 </DialogTitle>
               </DialogHeader>
 
               <div className="flex flex-col items-center gap-6 py-6">
-                <p className="text-gray-300 text-sm">Choose your preferred theme:</p>
+                <p className="text-gray-300 text-sm">{t('Choose your preferred theme:')}</p>
 
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                   <button
@@ -480,10 +486,10 @@ export default function EmployeeSchedulePage() {
                   >
                     <div className="flex items-center justify-center gap-2">
                       <span className="text-xl">🌙</span>
-                      <span>Dark Theme</span>
+                      <span>{t('Dark Theme')}</span>
                     </div>
                     <p className={`text-xs mt-1 ${printTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                      Better for screens
+                      {t('Better for screens')}
                     </p>
                   </button>
 
@@ -497,10 +503,10 @@ export default function EmployeeSchedulePage() {
                   >
                     <div className="flex items-center justify-center gap-2">
                       <span className="text-xl">☀️</span>
-                      <span>Light Theme</span>
+                      <span>{t('Light Theme')}</span>
                     </div>
                     <p className={`text-xs mt-1 ${printTheme === 'light' ? 'text-gray-600' : 'text-gray-500'}`}>
-                      Saves ink when printing
+                      {t('Saves ink when printing')}
                     </p>
                   </button>
                 </div>
@@ -514,13 +520,13 @@ export default function EmployeeSchedulePage() {
                     className="px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 transition-all flex items-center gap-2"
                   >
                     <Download className="w-4 h-4" />
-                    Generate PDF
+                    {t('Generate PDF')}
                   </button>
                   <button
                     onClick={() => setShowExportDialog(false)}
                     className="px-6 py-3 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all"
                   >
-                    Cancel
+                    {t('Cancel')}
                   </button>
                 </div>
               </div>
@@ -529,7 +535,7 @@ export default function EmployeeSchedulePage() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-white text-center text-xl mb-4">
-                  Generating PDF...
+                  {t('Generating PDF...')}
                 </DialogTitle>
               </DialogHeader>
 
@@ -551,7 +557,7 @@ export default function EmployeeSchedulePage() {
                   marginBottom: '4px',
                   textAlign: 'center'
                 }}>
-                  Weekly Schedule
+                  {t('Weekly Schedule')}
                 </h2>
                 <p style={{
                   color: printTheme === 'dark' ? '#9ca3af' : '#6b7280',
@@ -594,7 +600,7 @@ export default function EmployeeSchedulePage() {
                           color: printTheme === 'dark' ? '#9ca3af' : '#6b7280',
                           borderRight: printTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb'
                         }}>
-                          JOB
+                          {t('JOB')}
                         </div>
                         {days.map((day, i) => {
                           const isWeekend = [0, 6].includes(day.getDay())
@@ -647,7 +653,7 @@ export default function EmployeeSchedulePage() {
                           color: printTheme === 'dark' ? '#6b7280' : '#9ca3af',
                           fontSize: '12px'
                         }}>
-                          No jobs scheduled for this week
+                          {t('No jobs scheduled for this week')}
                         </div>
                       ) : (
                         jobsWithDates.map((session, jobIndex) => {
@@ -795,7 +801,7 @@ export default function EmployeeSchedulePage() {
                       borderRadius: '2px'
                     }}></div>
                     <span style={{ fontSize: '9px', color: printTheme === 'dark' ? '#9ca3af' : '#6b7280' }}>
-                      Job spans these days
+                      {t('Job spans these days')}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -806,7 +812,7 @@ export default function EmployeeSchedulePage() {
                       borderRadius: '2px'
                     }}></div>
                     <span style={{ fontSize: '9px', color: printTheme === 'dark' ? '#f87171' : '#dc2626' }}>
-                      Weekend
+                      {t('Weekend')}
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -818,7 +824,7 @@ export default function EmployeeSchedulePage() {
                       borderRadius: '2px'
                     }}></div>
                     <span style={{ fontSize: '9px', color: printTheme === 'dark' ? '#60a5fa' : '#2563eb' }}>
-                      Today
+                      {t('Today')}
                     </span>
                   </div>
                 </div>
@@ -835,7 +841,7 @@ export default function EmployeeSchedulePage() {
                   onClick={() => setShowExportDialog(false)}
                   className="px-6 py-3 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all"
                 >
-                  Close
+                  {t('Close')}
                 </button>
               </div>
             </>

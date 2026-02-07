@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: {
@@ -28,6 +29,7 @@ interface ExchangeBoardProps {
 }
 
 export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
+  const { t } = useTranslation()
   const [myApprovedJobs, setMyApprovedJobs] = useState<JobSessionWithDetails[]>([])
   const [availableExchanges, setAvailableExchanges] = useState<JobExchangeWithDetails[]>([])
   const [myRequests, setMyRequests] = useState<JobExchangeWithDetails[]>([])
@@ -134,12 +136,12 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
       if (error) throw error
 
-      toast.success('Job posted for exchange successfully!')
+      toast.success(t('Job posted for exchange successfully!'))
       await loadData()
       setActiveTab('my-requests')
     } catch (error) {
       console.error('Error posting job for exchange:', error)
-      toast.error('Failed to post job for exchange')
+      toast.error(t('Failed to post job for exchange'))
     }
   }
 
@@ -153,12 +155,12 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
         .single()
 
       if (existingRequest?.to_employee_id === employeeId) {
-        toast.info('You have already requested this job exchange.')
+        toast.info(t('You have already requested this job exchange.'))
         return
       }
 
       if (existingRequest?.to_employee_id) {
-        toast.info('Another employee has already requested this job exchange.')
+        toast.info(t('Another employee has already requested this job exchange.'))
         await loadData()
         return
       }
@@ -171,16 +173,16 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
       if (error) throw error
 
-      toast.success('Request sent! Waiting for the employee to choose and employer to approve.')
+      toast.success(t('Request sent! Waiting for the employee to choose and employer to approve.'))
       await loadData()
     } catch (error) {
       console.error('Error requesting job:', error)
-      toast.error('Failed to request job')
+      toast.error(t('Failed to request job'))
     }
   }
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Not scheduled'
+    if (!dateStr) return t('Not scheduled')
     return new Date(dateStr).toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -205,9 +207,9 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { className: string; label: string }> = {
-      PENDING: { className: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 font-bold', label: 'Pending' },
-      APPROVED: { className: 'bg-green-500/20 text-green-300 border border-green-500/50 font-bold', label: 'Approved' },
-      DENIED: { className: 'bg-red-500/20 text-red-300 border border-red-500/50 font-bold', label: 'Denied' }
+      PENDING: { className: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 font-bold', label: t('Pending') },
+      APPROVED: { className: 'bg-green-500/20 text-green-300 border border-green-500/50 font-bold', label: t('Approved') },
+      DENIED: { className: 'bg-red-500/20 text-red-300 border border-red-500/50 font-bold', label: t('Denied') }
     }
     const config = variants[status] || { className: 'bg-white/20 text-white border border-white/50 font-bold', label: status }
     return <Badge className={config.className}>{config.label}</Badge>
@@ -240,7 +242,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
               : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
           }`}
         >
-          Post Job
+          {t('Post Job')}
         </button>
         <button
           onClick={() => setActiveTab('available')}
@@ -250,7 +252,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
               : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
           }`}
         >
-          Available ({availableExchanges.length})
+          {t('Available')} ({availableExchanges.length})
         </button>
         <button
           onClick={() => setActiveTab('my-requests')}
@@ -260,7 +262,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
               : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:bg-white/10'
           }`}
         >
-          My Requests
+          {t('My Requests')}
         </button>
       </div>
 
@@ -268,13 +270,13 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
       {activeTab === 'post' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-400">
-            Post your approved jobs for exchange with other employees
+            {t('Post your approved jobs for exchange with other employees')}
           </p>
 
           {myApprovedJobs.length === 0 ? (
             <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="p-6 text-center">
-                <p className="text-gray-300">No approved jobs to post</p>
+                <p className="text-gray-300">{t('No approved jobs to post')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -292,14 +294,14 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                 <CardContent className="pb-3">
                   <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Window Start:</span>
+                      <span className="text-gray-400">{t('Window Start:')}</span>
                       <span className="text-white font-medium">
                         {formatDate(job.scheduled_date)}
                         {job.job_template.time_window_start && ` at ${formatTime(job.job_template.time_window_start)}`}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Window End:</span>
+                      <span className="text-gray-400">{t('Window End:')}</span>
                       <span className="text-white font-medium">
                         {formatDate(job.scheduled_end_date || job.scheduled_date)}
                         {job.job_template.time_window_end && ` at ${formatTime(job.job_template.time_window_end)}`}
@@ -312,7 +314,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                     onClick={() => handlePostForExchange(job.id)}
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                   >
-                    Post for Exchange
+                    {t('Post for Exchange')}
                   </button>
                 </CardFooter>
               </Card>
@@ -325,13 +327,13 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
       {activeTab === 'available' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-400">
-            Jobs posted by other employees for exchange
+            {t('Jobs posted by other employees for exchange')}
           </p>
 
           {availableExchanges.length === 0 ? (
             <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="p-6 text-center">
-                <p className="text-gray-300">No jobs available for exchange</p>
+                <p className="text-gray-300">{t('No jobs available for exchange')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -354,14 +356,14 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                   <div className="space-y-2 text-sm">
                     <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-400">Window Start:</span>
+                        <span className="text-gray-400">{t('Window Start:')}</span>
                         <span className="text-white font-medium">
                           {formatDate(exchange.job_session.scheduled_date)}
                           {exchange.job_session.job_template.time_window_start && ` at ${formatTime(exchange.job_session.job_template.time_window_start)}`}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-400">Window End:</span>
+                        <span className="text-gray-400">{t('Window End:')}</span>
                         <span className="text-white font-medium">
                           {formatDate(exchange.job_session.scheduled_end_date || exchange.job_session.scheduled_date)}
                           {exchange.job_session.job_template.time_window_end && ` at ${formatTime(exchange.job_session.job_template.time_window_end)}`}
@@ -370,13 +372,13 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                     </div>
                     <div>
                       <p className="text-gray-300">
-                        <span className="font-medium text-white">Posted by:</span>{' '}
+                        <span className="font-medium text-white">{t('Posted by:')}</span>{' '}
                         {exchange.from_employee.full_name}
                       </p>
                     </div>
                     {exchange.reason && (
                       <div>
-                        <p className="font-medium text-white">Reason:</p>
+                        <p className="font-medium text-white">{t('Reason:')}</p>
                         <p className="text-gray-400 text-xs italic">{exchange.reason}</p>
                       </div>
                     )}
@@ -387,7 +389,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                     onClick={() => handleAskForJob(exchange.id)}
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                   >
-                    Ask for it
+                    {t('Ask for it')}
                   </button>
                 </CardFooter>
               </Card>
@@ -400,13 +402,13 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
       {activeTab === 'my-requests' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-400">
-            Track your exchange requests and status
+            {t('Track your exchange requests and status')}
           </p>
 
           {myRequests.length === 0 ? (
             <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardContent className="p-6 text-center">
-                <p className="text-gray-300">No exchange requests</p>
+                <p className="text-gray-300">{t('No exchange requests')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -431,14 +433,14 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                     <div className="space-y-2 text-sm">
                       <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-400">Window Start:</span>
+                          <span className="text-gray-400">{t('Window Start:')}</span>
                           <span className="text-white font-medium">
                             {formatDate(exchange.job_session.scheduled_date)}
                             {exchange.job_session.job_template.time_window_start && ` at ${formatTime(exchange.job_session.job_template.time_window_start)}`}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-400">Window End:</span>
+                          <span className="text-gray-400">{t('Window End:')}</span>
                           <span className="text-white font-medium">
                             {formatDate(exchange.job_session.scheduled_end_date || exchange.job_session.scheduled_date)}
                             {exchange.job_session.job_template.time_window_end && ` at ${formatTime(exchange.job_session.job_template.time_window_end)}`}
@@ -447,25 +449,25 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
                       </div>
                       <div>
                         <p className="text-gray-300">
-                          <span className="font-medium text-white">Type:</span>{' '}
-                          {isMyPost ? 'Posted by me' : 'Requested by me'}
+                          <span className="font-medium text-white">{t('Type:')}</span>{' '}
+                          {isMyPost ? t('Posted by me') : t('Requested by me')}
                         </p>
                       </div>
                       {exchange.reason && (
                         <div>
-                          <p className="font-medium text-white">Reason:</p>
+                          <p className="font-medium text-white">{t('Reason:')}</p>
                           <p className="text-gray-400 text-xs italic">{exchange.reason}</p>
                         </div>
                       )}
                       {exchange.to_employee_id && (
                         <div>
                           <p className="text-gray-300">
-                            <span className="font-medium text-white">Status:</span>{' '}
+                            <span className="font-medium text-white">{t('Status:')}</span>{' '}
                             {exchange.status === 'PENDING'
-                              ? 'Waiting for employer approval'
+                              ? t('Waiting for employer approval')
                               : exchange.status === 'APPROVED'
-                              ? 'Exchange approved!'
-                              : 'Exchange denied'}
+                              ? t('Exchange approved!')
+                              : t('Exchange denied')}
                           </p>
                         </div>
                       )}

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 import {
   Briefcase,
   Users,
@@ -54,6 +55,7 @@ const navigationConfig: Record<UserProfile, NavItem[]> = {
 
 export function BottomNav({ profile }: BottomNavProps) {
   const pathname = usePathname()
+  const { t } = useTranslation()
   const navItems = navigationConfig[profile]
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false)
   const supabase = createClient()
@@ -192,7 +194,7 @@ export function BottomNav({ profile }: BottomNavProps) {
                 text-[10px] tracking-wide transition-all duration-300
                 ${isActive ? 'font-bold' : 'font-medium'}
               `}>
-                {item.label}
+                {t(item.label)}
               </span>
             </Link>
           )

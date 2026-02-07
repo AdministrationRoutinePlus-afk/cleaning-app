@@ -5,6 +5,7 @@ import type { Conversation, ConversationParticipant, Message } from '@/types/dat
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { MessageSquare } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface ConversationWithDetails extends Conversation {
   conversation_participants: ConversationParticipant[]
@@ -16,6 +17,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ onSelectConversation }: ConversationListProps) {
+  const { t } = useTranslation()
   const [conversations, setConversations] = useState<ConversationWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -91,10 +93,10 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
+    if (diffMins < 1) return t('Just now')
+    if (diffMins < 60) return `${diffMins}m ${t('ago')}`
+    if (diffHours < 24) return `${diffHours}h ${t('ago')}`
+    if (diffDays < 7) return `${diffDays}d ${t('ago')}`
     return date.toLocaleDateString()
   }
 
@@ -119,8 +121,8 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
   if (conversations.length === 0) {
     return (
       <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
-        <p className="text-gray-400">No conversations yet</p>
-        <p className="text-sm text-gray-500 mt-1">Messages will appear here when you start chatting</p>
+        <p className="text-gray-400">{t('No conversations yet')}</p>
+        <p className="text-sm text-gray-500 mt-1">{t('Messages will appear here when you start chatting')}</p>
       </div>
     )
   }
@@ -146,11 +148,11 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-medium text-white truncate">
                       {conv.conversation_participants.length > 0
-                        ? 'Employee Chat'
-                        : 'Direct Message'}
+                        ? t('Employee Chat')
+                        : t('Direct Message')}
                     </h3>
                     {unread && (
-                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">New</Badge>
+                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">{t('New')}</Badge>
                     )}
                   </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { JobStepChecklist, JobSessionChecklistProgress } from '@/types/database'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface StepChecklistProps {
   items: JobStepChecklist[]
@@ -12,6 +13,7 @@ interface StepChecklistProps {
 }
 
 export function StepChecklist({ items, sessionId, progress, onToggle, disabled = false }: StepChecklistProps) {
+  const { t } = useTranslation()
   const [updating, setUpdating] = useState<string | null>(null)
 
   const handleToggle = async (itemId: string, currentState: boolean) => {
@@ -35,7 +37,7 @@ export function StepChecklist({ items, sessionId, progress, onToggle, disabled =
 
   return (
     <div className="space-y-2">
-      <h4 className="text-sm font-semibold text-gray-300 mb-3">Checklist</h4>
+      <h4 className="text-sm font-semibold text-gray-300 mb-3">{t('Checklist')}</h4>
       {items
         .sort((a, b) => a.item_order - b.item_order)
         .map((item) => {

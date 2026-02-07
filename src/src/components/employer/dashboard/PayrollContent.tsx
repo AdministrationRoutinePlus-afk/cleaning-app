@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { DollarSign, Clock, Briefcase, User, ChevronDown, ChevronUp } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO, isWithinInterval } from 'date-fns'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate
@@ -28,6 +29,7 @@ interface PayrollContentProps {
 }
 
 export function PayrollContent({ employerId }: PayrollContentProps) {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState<JobSessionWithDetails[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,7 +79,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
       return {
         periodStart: startOfWeek(now, { weekStartsOn: 1 }),
         periodEnd: endOfWeek(now, { weekStartsOn: 1 }),
-        periodLabel: `Week of ${format(startOfWeek(now, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
+        periodLabel: `${t('Week of')} ${format(startOfWeek(now, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
       }
     } else {
       return {
@@ -148,7 +150,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
               : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
           }`}
         >
-          Weekly
+          {t('Weekly')}
         </button>
         <button
           onClick={() => setPeriod('monthly')}
@@ -158,7 +160,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
               : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
           }`}
         >
-          Monthly
+          {t('Monthly')}
         </button>
       </div>
 
@@ -169,7 +171,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
 
       {/* Totals Summary */}
       <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-        <h3 className="font-semibold text-green-400 mb-3">Period Summary</h3>
+        <h3 className="font-semibold text-green-400 mb-3">{t('Period Summary')}</h3>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-green-500 mb-1">
@@ -178,7 +180,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
             <div className="text-xl font-bold text-green-400">
               ${totals.earnings.toFixed(2)}
             </div>
-            <div className="text-xs text-green-500/70">Total</div>
+            <div className="text-xs text-green-500/70">{t('Total')}</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-green-500 mb-1">
@@ -187,7 +189,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
             <div className="text-xl font-bold text-green-400">
               {totals.hours.toFixed(1)}h
             </div>
-            <div className="text-xs text-green-500/70">Hours</div>
+            <div className="text-xs text-green-500/70">{t('Hours')}</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-green-500 mb-1">
@@ -196,7 +198,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
             <div className="text-xl font-bold text-green-400">
               {totals.jobs}
             </div>
-            <div className="text-xs text-green-500/70">Jobs</div>
+            <div className="text-xs text-green-500/70">{t('Jobs')}</div>
           </div>
         </div>
       </div>
@@ -205,7 +207,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
       <div className="space-y-3">
         {employeePayrolls.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            No completed jobs in this period
+            {t('No completed jobs in this period')}
           </div>
         ) : (
           employeePayrolls.map((payroll) => (
@@ -229,7 +231,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
                       {payroll.employee.full_name}
                     </h4>
                     <p className="text-sm text-gray-400">
-                      {payroll.jobsCompleted} jobs | {payroll.totalHours.toFixed(1)} hours
+                      {payroll.jobsCompleted} {t('jobs')} | {payroll.totalHours.toFixed(1)} {t('hours')}
                     </p>
                   </div>
                 </div>

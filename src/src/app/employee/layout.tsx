@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export default function EmployeeLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<string | null>(null)
   const [employeeName, setEmployeeName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -50,13 +52,13 @@ export default function EmployeeLayout({
         <div className="bg-white/10  rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">⏳</div>
           <h1 className="text-xl font-bold text-white mb-2">
-            Account Being Validated
+            {t('Account Being Validated')}
           </h1>
           <p className="text-gray-300 mb-6">
-            Your account is being reviewed by the administrator. Please come back later.
+            {t('Your account is being reviewed by the administrator. Please come back later.')}
           </p>
           <Button onClick={checkStatus} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">
-            Check Again
+            {t('Check Again')}
           </Button>
         </div>
       </div>
@@ -70,10 +72,10 @@ export default function EmployeeLayout({
         <div className="bg-white/10  rounded-2xl shadow-2xl p-8 max-w-md text-center border border-white/20">
           <div className="text-6xl mb-4">🚫</div>
           <h1 className="text-xl font-bold text-white mb-2">
-            Account {status === 'BLOCKED' ? 'Blocked' : 'Inactive'}
+            {t('Account')} {status === 'BLOCKED' ? t('Blocked') : t('Inactive')}
           </h1>
           <p className="text-gray-300">
-            Please contact your administrator for assistance.
+            {t('Please contact your administrator for assistance.')}
           </p>
         </div>
       </div>

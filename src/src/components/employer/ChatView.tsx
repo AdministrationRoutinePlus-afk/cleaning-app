@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface ChatViewProps {
   conversationId: string
@@ -14,6 +15,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ conversationId, onBack }: ChatViewProps) {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -123,7 +125,7 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      toast.error('Failed to send message')
+      toast.error(t('Failed to send message'))
     } finally {
       setSending(false)
     }
@@ -144,8 +146,8 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (date.toDateString() === today.toDateString()) return 'Today'
-    if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+    if (date.toDateString() === today.toDateString()) return t('Today')
+    if (date.toDateString() === yesterday.toDateString()) return t('Yesterday')
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
@@ -183,9 +185,9 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
             className="text-gray-400 hover:text-white hover:bg-white/10"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
+            {t('Back')}
           </Button>
-          <h3 className="text-lg font-semibold text-white">Chat</h3>
+          <h3 className="text-lg font-semibold text-white">{t('Chat')}</h3>
         </div>
       </div>
 
@@ -193,7 +195,7 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
-            No messages yet. Start the conversation!
+            {t('No messages yet. Start the conversation!')}
           </div>
         ) : (
           messages.map((message, index) => (
@@ -217,7 +219,7 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
                   }`}
                 >
                   {message.is_system && (
-                    <p className="text-xs opacity-75 mb-1">System Message</p>
+                    <p className="text-xs opacity-75 mb-1">{t('System Message')}</p>
                   )}
                   <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                   <p
@@ -241,7 +243,7 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder={t('Type a message...')}
             disabled={sending}
             className="flex-1 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
           />

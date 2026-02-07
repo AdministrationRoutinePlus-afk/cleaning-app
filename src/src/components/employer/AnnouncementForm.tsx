@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface AnnouncementFormProps {
   onSuccess?: () => void
@@ -14,6 +15,7 @@ interface AnnouncementFormProps {
 }
 
 export function AnnouncementForm({ onSuccess, onCancel }: AnnouncementFormProps) {
+  const { t } = useTranslation()
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
   const supabase = createClient()
@@ -94,7 +96,7 @@ export function AnnouncementForm({ onSuccess, onCancel }: AnnouncementFormProps)
       if (onSuccess) onSuccess()
     } catch (error) {
       console.error('Error sending announcement:', error)
-      toast.error('Failed to send announcement')
+      toast.error(t('Failed to send announcement'))
     } finally {
       setSending(false)
     }
@@ -103,24 +105,24 @@ export function AnnouncementForm({ onSuccess, onCancel }: AnnouncementFormProps)
   return (
     <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
       <div className="p-4 border-b border-white/10">
-        <h3 className="text-lg font-semibold text-white">New Announcement</h3>
+        <h3 className="text-lg font-semibold text-white">{t('New Announcement')}</h3>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="announcement" className="text-gray-300">Message</Label>
+            <Label htmlFor="announcement" className="text-gray-300">{t('Message')}</Label>
             <Textarea
               id="announcement"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Enter your announcement message..."
+              placeholder={t('Enter your announcement message...')}
               rows={6}
               disabled={sending}
               className="resize-none bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
             <p className="text-xs text-gray-500">
-              This will be sent to all active employees
+              {t('This will be sent to all active employees')}
             </p>
           </div>
         </div>
@@ -134,7 +136,7 @@ export function AnnouncementForm({ onSuccess, onCancel }: AnnouncementFormProps)
               disabled={sending}
               className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
           )}
           <Button
@@ -143,7 +145,7 @@ export function AnnouncementForm({ onSuccess, onCancel }: AnnouncementFormProps)
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Send className="w-4 h-4 mr-1" />
-            {sending ? 'Sending...' : 'Send Announcement'}
+            {sending ? t('Sending...') : t('Send Announcement')}
           </Button>
         </div>
       </form>

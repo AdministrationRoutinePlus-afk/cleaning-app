@@ -7,11 +7,13 @@ import { MyJobCard } from '@/components/employee/MyJobCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type MainTab = 'current' | 'history'
 type SubTab = 'active' | 'upcoming' | 'pending' | 'completed' | 'refused' | 'issues'
 
 export default function EmployeeJobsPage() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobSessionFull[]>([])
   const [mainTab, setMainTab] = useState<MainTab>('current')
@@ -69,7 +71,7 @@ export default function EmployeeJobsPage() {
       setJobs(typedData || [])
     } catch (error) {
       console.error('Error in fetchJobs:', error)
-      toast.error('Failed to load your jobs')
+      toast.error(t('Failed to load your jobs'))
     } finally {
       if (isMountedRef.current) {
         setLoading(false)
@@ -175,13 +177,13 @@ export default function EmployeeJobsPage() {
 
   const getEmptyMessage = () => {
     switch (subTab) {
-      case 'active': return 'No jobs in progress'
-      case 'upcoming': return 'No upcoming jobs'
-      case 'pending': return 'No pending approvals'
-      case 'completed': return 'No completed jobs yet'
-      case 'refused': return 'No refused jobs'
-      case 'issues': return 'No issues'
-      default: return 'No jobs'
+      case 'active': return t('No jobs in progress')
+      case 'upcoming': return t('No upcoming jobs')
+      case 'pending': return t('No pending approvals')
+      case 'completed': return t('No completed jobs yet')
+      case 'refused': return t('No refused jobs')
+      case 'issues': return t('No issues')
+      default: return t('No jobs')
     }
   }
 
@@ -227,7 +229,7 @@ export default function EmployeeJobsPage() {
             }`}
           >
             <Briefcase className={`w-10 h-10 mb-2 ${mainTab === 'current' ? 'text-white' : 'text-gray-400'}`} />
-            <span>My Jobs</span>
+            <span>{t('My Jobs')}</span>
           </button>
 
           <button
@@ -239,7 +241,7 @@ export default function EmployeeJobsPage() {
             }`}
           >
             <History className={`w-10 h-10 mb-2 ${mainTab === 'history' ? 'text-white' : 'text-gray-400'}`} />
-            <span>History</span>
+            <span>{t('History')}</span>
           </button>
         </div>
 
@@ -261,7 +263,7 @@ export default function EmployeeJobsPage() {
                     }`}
                   >
                     <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                    <span className="text-center px-2 text-sm">{tab.label}</span>
+                    <span className="text-center px-2 text-sm">{t(tab.label)}</span>
                     {tab.count > 0 && (
                       <span className={`text-xs rounded-full px-2 py-0.5 ${
                         isActive ? 'bg-white/20' : 'bg-white/10'

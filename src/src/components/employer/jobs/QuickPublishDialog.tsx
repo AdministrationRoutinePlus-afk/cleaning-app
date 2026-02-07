@@ -17,6 +17,7 @@ import {
 import { getNextSessionNumber } from '@/lib/jobs/sessionGenerator'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface QuickPublishDialogProps {
   job: JobTemplate
@@ -26,6 +27,7 @@ interface QuickPublishDialogProps {
 }
 
 export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickPublishDialogProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [scheduledDate, setScheduledDate] = useState('')
@@ -55,13 +57,13 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
 
   const handlePublish = async () => {
     if (!scheduledDate) {
-      toast.error('Please select a date')
+      toast.error(t('Please select a date'))
       return
     }
 
     const today = format(new Date(), 'yyyy-MM-dd')
     if (scheduledDate < today) {
-      toast.error('Scheduled date cannot be in the past')
+      toast.error(t('Scheduled date cannot be in the past'))
       return
     }
 
@@ -108,12 +110,12 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
 
       if (error) throw error
 
-      toast.success(isAssigned ? 'Job assigned successfully' : 'Job published to marketplace')
+      toast.success(isAssigned ? t('Job assigned successfully') : t('Job published to marketplace'))
       onOpenChange(false)
       onUpdate()
     } catch (error) {
       console.error('Error publishing job:', error)
-      toast.error('Failed to publish job')
+      toast.error(t('Failed to publish job'))
     } finally {
       setLoading(false)
     }
@@ -123,14 +125,14 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
         <DialogHeader>
-          <DialogTitle className="text-white">Quick Publish</DialogTitle>
+          <DialogTitle className="text-white">{t('Quick Publish')}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Create a single session for {job.job_code} — {job.title}
+            {t('Create a single session for')} {job.job_code} — {job.title}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label className="text-gray-300">Date *</Label>
+            <Label className="text-gray-300">{t('Date')} *</Label>
             <Input
               type="date"
               value={scheduledDate}
@@ -140,7 +142,7 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Time (optional)</Label>
+            <Label className="text-gray-300">{t('Time (optional)')}</Label>
             <Input
               type="time"
               value={scheduledTime}
@@ -149,14 +151,14 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">Assign to</Label>
+            <Label className="text-gray-300">{t('Assign to')}</Label>
             <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
               <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                <SelectValue placeholder="Anyone (marketplace)" />
+                <SelectValue placeholder={t('Anyone (marketplace)')} />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-white/20">
                 <SelectItem value="anyone" className="text-white hover:bg-white/10">
-                  Anyone (marketplace)
+                  {t('Anyone (marketplace)')}
                 </SelectItem>
                 {employees.map(emp => (
                   <SelectItem key={emp.id} value={emp.id} className="text-white hover:bg-white/10">
@@ -167,8 +169,8 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
             </Select>
             <p className="text-xs text-gray-500">
               {selectedEmployee === 'anyone'
-                ? 'Session will be OFFERED on the marketplace'
-                : 'Session will be directly APPROVED for this employee'}
+                ? t('Session will be OFFERED on the marketplace')
+                : t('Session will be directly APPROVED for this employee')}
             </p>
           </div>
         </div>
@@ -178,14 +180,14 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
             onClick={() => onOpenChange(false)}
             className="bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button
             onClick={handlePublish}
             disabled={loading || !scheduledDate}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loading ? 'Publishing...' : 'Publish'}
+            {loading ? t('Publishing...') : t('Publish')}
           </Button>
         </div>
       </DialogContent>

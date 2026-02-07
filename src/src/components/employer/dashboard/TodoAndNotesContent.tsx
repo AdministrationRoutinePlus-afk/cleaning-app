@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/utils/dateFormatters'
 import { Plus, CheckCircle, Circle, AlertTriangle, Calendar, Trash2, Edit2, MessageSquare, Briefcase } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { format, isPast, parseISO } from 'date-fns'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate & { customer: Customer | null }
@@ -30,6 +31,7 @@ interface TodoAndNotesContentProps {
 }
 
 export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
+  const { t } = useTranslation()
   const [todos, setTodos] = useState<EmployerTodo[]>([])
   const [jobNotes, setJobNotes] = useState<JobSessionNoteWithSession[]>([])
   const [completedSessions, setCompletedSessions] = useState<JobSessionWithDetails[]>([])
@@ -184,7 +186,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
   }
 
   const handleDeleteTodo = async (todoId: string) => {
-    if (!confirm('Delete this to-do?')) return
+    if (!confirm(t('Delete this to-do?'))) return
 
     setActionLoading(true)
     try {
@@ -241,7 +243,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
   }
 
   const handleDeleteNote = async (noteId: string) => {
-    if (!confirm('Delete this note?')) return
+    if (!confirm(t('Delete this note?'))) return
 
     setActionLoading(true)
     try {
@@ -262,22 +264,22 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
   const getPriorityBadge = (priority: TodoPriority) => {
     switch (priority) {
       case 'HIGH':
-        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">High</Badge>
+        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30">{t('High')}</Badge>
       case 'MEDIUM':
-        return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Medium</Badge>
+        return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">{t('Medium')}</Badge>
       case 'LOW':
-        return <Badge className="bg-gray-500/20 text-gray-400 border border-gray-500/30">Low</Badge>
+        return <Badge className="bg-gray-500/20 text-gray-400 border border-gray-500/30">{t('Low')}</Badge>
     }
   }
 
   const getNoteTypeBadge = (type: JobSessionNoteType) => {
     switch (type) {
       case 'CLIENT_FEEDBACK':
-        return <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">Client Feedback</Badge>
+        return <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">{t('Client Feedback')}</Badge>
       case 'INTERNAL':
-        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">Internal</Badge>
+        return <Badge className="bg-gray-500/20 text-gray-300 border border-gray-500/30">{t('Internal')}</Badge>
       case 'FOLLOW_UP':
-        return <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">Follow Up</Badge>
+        return <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">{t('Follow Up')}</Badge>
     }
   }
 
@@ -310,7 +312,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
               : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
           }`}
         >
-          My To-Do
+          {t('My To-Do')}
           {todos.filter(t => !t.is_completed).length > 0 && (
             <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
               activeTab === 'todos' ? 'bg-white/20' : 'bg-white/10'
@@ -327,7 +329,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
               : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
           }`}
         >
-          Client Notes
+          {t('Client Notes')}
         </button>
       </div>
 
@@ -339,12 +341,12 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
             className="w-full bg-amber-600 hover:bg-amber-700 text-white"
           >
             <Plus className="w-4 h-4 mr-1" />
-            Add To-Do
+            {t('Add To-Do')}
           </Button>
 
           {sortedTodos.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No to-do items
+              {t('No to-do items')}
             </div>
           ) : (
             sortedTodos.map((todo) => {
@@ -395,7 +397,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
                         }`}>
                           {isOverdue && <AlertTriangle className="w-3 h-3" />}
                           <Calendar className="w-3 h-3" />
-                          <span>Due {formatDate(todo.due_date)}</span>
+                          <span>{t('Due')} {formatDate(todo.due_date)}</span>
                         </div>
                       )}
 
@@ -407,7 +409,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
                           className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
                         >
                           <Edit2 className="w-3 h-3 mr-1" />
-                          Edit
+                          {t('Edit')}
                         </Button>
                         <Button
                           size="sm"
@@ -433,7 +435,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
           {/* Recent completed jobs to add notes to */}
           <div className="bg-amber-500/10 rounded-xl p-3 border border-amber-500/20">
             <h4 className="font-medium text-amber-400 mb-2 text-sm">
-              Recent Completed Jobs
+              {t('Recent Completed Jobs')}
             </h4>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {completedSessions.slice(0, 5).map((session) => (
@@ -460,7 +462,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
           {/* Existing notes */}
           {jobNotes.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No client notes yet
+              {t('No client notes yet')}
             </div>
           ) : (
             jobNotes.map((note) => (
@@ -515,17 +517,17 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
         <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <DialogHeader>
             <DialogTitle className="text-white">
-              {editingTodo ? 'Edit To-Do' : 'Add To-Do'}
+              {editingTodo ? t('Edit To-Do') : t('Add To-Do')}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Title
+                {t('Title')}
               </label>
               <Input
-                placeholder="What needs to be done?"
+                placeholder={t('What needs to be done?')}
                 value={todoTitle}
                 onChange={(e) => setTodoTitle(e.target.value)}
                 className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
@@ -534,10 +536,10 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Description (optional)
+                {t('Description (optional)')}
               </label>
               <Textarea
-                placeholder="Additional details..."
+                placeholder={t('Additional details...')}
                 value={todoDescription}
                 onChange={(e) => setTodoDescription(e.target.value)}
                 rows={2}
@@ -548,7 +550,7 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-1 block">
-                  Due Date
+                  {t('Due Date')}
                 </label>
                 <Input
                   type="date"
@@ -560,16 +562,16 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
 
               <div>
                 <label className="text-sm font-medium text-gray-300 mb-1 block">
-                  Priority
+                  {t('Priority')}
                 </label>
                 <Select value={todoPriority} onValueChange={(v) => setTodoPriority(v as TodoPriority)}>
                   <SelectTrigger className="bg-white/5 border-white/20 text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-white/20">
-                    <SelectItem value="LOW" className="text-white hover:bg-white/10">Low</SelectItem>
-                    <SelectItem value="MEDIUM" className="text-white hover:bg-white/10">Medium</SelectItem>
-                    <SelectItem value="HIGH" className="text-white hover:bg-white/10">High</SelectItem>
+                    <SelectItem value="LOW" className="text-white hover:bg-white/10">{t('Low')}</SelectItem>
+                    <SelectItem value="MEDIUM" className="text-white hover:bg-white/10">{t('Medium')}</SelectItem>
+                    <SelectItem value="HIGH" className="text-white hover:bg-white/10">{t('High')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -584,14 +586,14 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
               }}
               className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={handleSaveTodo}
               disabled={!todoTitle.trim() || actionLoading}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              {editingTodo ? 'Save Changes' : 'Add To-Do'}
+              {editingTodo ? t('Save Changes') : t('Add To-Do')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -607,14 +609,14 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
         <DialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <DialogHeader>
             <DialogTitle className="text-white">
-              Add Note for {selectedSession?.job_template?.job_code}
+              {t('Add Note for')} {selectedSession?.job_template?.job_code}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             {selectedSession?.job_template?.customer && (
               <div className="bg-white/5 rounded-lg p-3 text-sm">
-                <span className="text-gray-500">Customer: </span>
+                <span className="text-gray-500">{t('Customer:')} </span>
                 <span className="font-medium text-white">
                   {selectedSession.job_template.customer.full_name}
                 </span>
@@ -623,26 +625,26 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Note Type
+                {t('Note Type')}
               </label>
               <Select value={noteType} onValueChange={(v) => setNoteType(v as JobSessionNoteType)}>
                 <SelectTrigger className="bg-white/5 border-white/20 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-white/20">
-                  <SelectItem value="CLIENT_FEEDBACK" className="text-white hover:bg-white/10">Client Feedback</SelectItem>
-                  <SelectItem value="INTERNAL" className="text-white hover:bg-white/10">Internal Note</SelectItem>
-                  <SelectItem value="FOLLOW_UP" className="text-white hover:bg-white/10">Follow Up</SelectItem>
+                  <SelectItem value="CLIENT_FEEDBACK" className="text-white hover:bg-white/10">{t('Client Feedback')}</SelectItem>
+                  <SelectItem value="INTERNAL" className="text-white hover:bg-white/10">{t('Internal Note')}</SelectItem>
+                  <SelectItem value="FOLLOW_UP" className="text-white hover:bg-white/10">{t('Follow Up')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
               <label className="text-sm font-medium text-gray-300 mb-1 block">
-                Note
+                {t('Note')}
               </label>
               <Textarea
-                placeholder="Enter your note..."
+                placeholder={t('Enter your note...')}
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
                 rows={4}
@@ -659,14 +661,14 @@ export function TodoAndNotesContent({ employerId }: TodoAndNotesContentProps) {
               }}
               className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
             >
-              Cancel
+              {t('Cancel')}
             </Button>
             <Button
               onClick={handleSaveNote}
               disabled={!noteContent.trim() || actionLoading}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              Add Note
+              {t('Add Note')}
             </Button>
           </DialogFooter>
         </DialogContent>

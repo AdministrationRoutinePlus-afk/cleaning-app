@@ -9,6 +9,7 @@ import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
 import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, ChevronLeft, CheckSquare } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 // Extended type for schedule messages with job details
 interface ScheduleMessageWithDetails extends ScheduleMessage {
@@ -40,6 +41,7 @@ interface CustomerWithJobs {
 type MainTab = 'chat' | 'procedures'
 
 export default function EmployeeMessagesPage() {
+  const { t } = useTranslation()
   const [mainTab, setMainTab] = useState<MainTab>('chat')
   const [activeTab, setActiveTab] = useState('employer')
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
@@ -165,7 +167,7 @@ export default function EmployeeMessagesPage() {
       setCurrentEmployee(data)
     } catch (error) {
       console.error('Error loading employee:', error)
-      toast.error('Failed to load your profile')
+      toast.error(t('Failed to load your profile'))
     } finally {
       setLoading(false)
     }
@@ -206,7 +208,7 @@ export default function EmployeeMessagesPage() {
       }
     } catch (error) {
       console.error('Error loading employer conversation:', error)
-      toast.error('Failed to load conversation')
+      toast.error(t('Failed to load conversation'))
     } finally {
       setLoadingConversation(false)
     }
@@ -276,7 +278,7 @@ export default function EmployeeMessagesPage() {
       })
     } catch (error) {
       console.error('Error creating employer conversation:', error)
-      toast.error('Failed to start conversation')
+      toast.error(t('Failed to start conversation'))
     } finally {
       setCreatingConversation(false)
       setLoadingConversation(false)
@@ -308,7 +310,7 @@ export default function EmployeeMessagesPage() {
       setAnnouncements(userAnnouncements)
     } catch (error) {
       console.error('Error loading announcements:', error)
-      toast.error('Failed to load announcements')
+      toast.error(t('Failed to load announcements'))
     }
   }
 
@@ -339,7 +341,7 @@ export default function EmployeeMessagesPage() {
       setCoworkerConversation(groupConv || null)
     } catch (error) {
       console.error('Error loading coworker conversation:', error)
-      toast.error('Failed to load group conversation')
+      toast.error(t('Failed to load group conversation'))
     }
   }
 
@@ -363,7 +365,7 @@ export default function EmployeeMessagesPage() {
       setJobMessages((data as ScheduleMessageWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading job messages:', error)
-      toast.error('Failed to load job messages')
+      toast.error(t('Failed to load job messages'))
     }
   }
 
@@ -435,7 +437,7 @@ export default function EmployeeMessagesPage() {
       setProcedures(proceduresArray)
     } catch (error) {
       console.error('Error loading procedures:', error)
-      toast.error('Failed to load procedures')
+      toast.error(t('Failed to load procedures'))
     } finally {
       setLoadingProcedures(false)
     }
@@ -547,7 +549,7 @@ export default function EmployeeMessagesPage() {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
         <div className="max-w-md mx-auto">
           <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-              <p className="text-gray-300">Employee profile not found</p>
+              <p className="text-gray-300">{t('Employee profile not found')}</p>
           </div>
         </div>
       </div>
@@ -568,7 +570,7 @@ export default function EmployeeMessagesPage() {
             }`}
           >
             <MessageSquare className={`w-10 h-10 ${mainTab === 'chat' ? 'text-white' : 'text-gray-400'}`} />
-            <span>Chat</span>
+            <span>{t('Chat')}</span>
             {hasAnyUnreadMessages() && (
               <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
             )}
@@ -583,7 +585,7 @@ export default function EmployeeMessagesPage() {
             }`}
           >
             <ClipboardList className={`w-10 h-10 ${mainTab === 'procedures' ? 'text-white' : 'text-gray-400'}`} />
-            <span>Procedures</span>
+            <span>{t('Procedures')}</span>
           </button>
         </div>
 
@@ -602,7 +604,7 @@ export default function EmployeeMessagesPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span>Boss</span>
+                    <span>{t('Boss')}</span>
                     {employerConversation && hasUnreadMessages(employerConversation) && (
                       <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
                     )}
@@ -618,7 +620,7 @@ export default function EmployeeMessagesPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span>Jobs</span>
+                    <span>{t('Jobs')}</span>
                     {jobMessages.filter(m => !m.read_at).length > 0 && (
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
@@ -639,7 +641,7 @@ export default function EmployeeMessagesPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span>News</span>
+                    <span>{t('News')}</span>
                     {hasUnreadAnnouncements() && (
                       <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
                     )}
@@ -655,7 +657,7 @@ export default function EmployeeMessagesPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span>Team</span>
+                    <span>{t('Team')}</span>
                     {coworkerConversation && hasUnreadMessages(coworkerConversation) && (
                       <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
                     )}
@@ -671,7 +673,7 @@ export default function EmployeeMessagesPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span>Swap</span>
+                    <span>{t('Swap')}</span>
                   </div>
                 </button>
               </div>
@@ -690,16 +692,16 @@ export default function EmployeeMessagesPage() {
             ) : employerConversation ? (
               <EmployeeChatView
                 conversationId={employerConversation.id}
-                title="Chat with Boss"
+                title={t('Chat with Boss')}
               />
             ) : (
               <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                  <p className="text-yellow-300 text-lg font-semibold mb-3">⚠️ Chat Not Available</p>
+                  <p className="text-yellow-300 text-lg font-semibold mb-3">{t('Chat Not Available')}</p>
                   <p className="text-gray-300 mb-2">
-                    The employer account needs to be set up first.
+                    {t('The employer account needs to be set up first.')}
                   </p>
                   <p className="text-sm text-gray-400">
-                    Ask your admin to log in to their employer account at least once to enable messaging.
+                    {t('Ask your admin to log in to their employer account at least once to enable messaging.')}
                   </p>
               </div>
             )
@@ -710,9 +712,9 @@ export default function EmployeeMessagesPage() {
             <div className="space-y-3">
               {jobMessages.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                    <p className="text-gray-300">No job notifications yet</p>
+                    <p className="text-gray-300">{t('No job notifications yet')}</p>
                     <p className="text-sm text-gray-400 mt-1">
-                      Your employer will send you important job updates here
+                      {t('Your employer will send you important job updates here')}
                     </p>
                 </div>
               ) : (
@@ -745,14 +747,14 @@ export default function EmployeeMessagesPage() {
                         {msg.job_session?.scheduled_date && msg.job_session.job_template && (
                           <div className="bg-white/5 p-2 rounded-lg space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className="text-gray-400">Window Start:</span>
+                              <span className="text-gray-400">{t('Window Start:')}</span>
                               <span className="text-white font-medium">
                                 {format(new Date(msg.job_session.scheduled_date), 'EEE, MMM d, yyyy')}
                                 {msg.job_session.job_template.time_window_start && ` at ${msg.job_session.job_template.time_window_start.substring(0, 5)}`}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-gray-400">Window End:</span>
+                              <span className="text-gray-400">{t('Window End:')}</span>
                               <span className="text-white font-medium">
                                 {format(new Date(msg.job_session.scheduled_end_date || msg.job_session.scheduled_date), 'EEE, MMM d, yyyy')}
                                 {msg.job_session.job_template.time_window_end && ` at ${msg.job_session.job_template.time_window_end.substring(0, 5)}`}
@@ -761,7 +763,7 @@ export default function EmployeeMessagesPage() {
                           </div>
                         )}
                         <div className="text-gray-500 text-right">
-                          Sent {format(new Date(msg.sent_at), 'MMM d, h:mm a')}
+                          {t('Sent')} {format(new Date(msg.sent_at), 'MMM d, h:mm a')}
                         </div>
                       </div>
                     </div>
@@ -776,9 +778,9 @@ export default function EmployeeMessagesPage() {
             <><div className="space-y-3">
               {announcements.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                    <p className="text-gray-300">No announcements yet</p>
+                    <p className="text-gray-300">{t('No announcements yet')}</p>
                     <p className="text-sm text-gray-400 mt-1">
-                      Company announcements will appear here
+                      {t('Company announcements will appear here')}
                     </p>
                 </div>
               ) : (
@@ -818,7 +820,7 @@ export default function EmployeeMessagesPage() {
                   <EmployeeChatView
                     conversationId={selectedConversation}
                     onBack={() => setSelectedConversation(null)}
-                    title="Announcement"
+                    title={t('Announcement')}
                   />
                 </div>
               </div>
@@ -830,13 +832,13 @@ export default function EmployeeMessagesPage() {
             coworkerConversation ? (
               <EmployeeChatView
                 conversationId={coworkerConversation.id}
-                title="Team Chat"
+                title={t('Team Chat')}
               />
             ) : (
               <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                  <p className="text-gray-300">No team chat available yet</p>
+                  <p className="text-gray-300">{t('No team chat available yet')}</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    Your employer will create a team chat for all employees
+                    {t('Your employer will create a team chat for all employees')}
                   </p>
               </div>
             )
@@ -867,8 +869,8 @@ export default function EmployeeMessagesPage() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-lg font-bold text-white text-center">Job Procedures</h2>
-                  <p className="text-sm text-purple-200 text-center mt-1">Tap a job to see details</p>
+                  <h2 className="text-lg font-bold text-white text-center">{t('Job Procedures')}</h2>
+                  <p className="text-sm text-purple-200 text-center mt-1">{t('Tap a job to see details')}</p>
                 </>
               )}
             </div>
@@ -883,7 +885,7 @@ export default function EmployeeMessagesPage() {
               ) : procedures.length === 0 ? (
                 <div className="text-center py-8">
                   <ClipboardList className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-400">No procedures available</p>
+                  <p className="text-gray-400">{t('No procedures available')}</p>
                 </div>
               ) : selectedJob ? (
                 /* DETAILED VIEW - Single Job */
@@ -899,13 +901,13 @@ export default function EmployeeMessagesPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
                       <p className="text-xl font-bold text-purple-400">{selectedJob.job_steps?.length || 0}</p>
-                      <p className="text-xs text-gray-400">Steps</p>
+                      <p className="text-xs text-gray-400">{t('Steps')}</p>
                     </div>
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
                       <p className="text-xl font-bold text-purple-400">
                         {selectedJob.job_steps?.reduce((acc, step) => acc + (step.job_step_checklist?.length || 0), 0) || 0}
                       </p>
-                      <p className="text-xs text-gray-400">Checklist Items</p>
+                      <p className="text-xs text-gray-400">{t('Checklist Items')}</p>
                     </div>
                   </div>
 
@@ -930,7 +932,7 @@ export default function EmployeeMessagesPage() {
                           {/* Products Needed */}
                           {step.products_needed && (
                             <div className="ml-11 mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                              <p className="text-xs font-semibold text-amber-400 mb-1">Products Needed:</p>
+                              <p className="text-xs font-semibold text-amber-400 mb-1">{t('Products Needed:')}</p>
                               <p className="text-sm text-amber-200">{step.products_needed}</p>
                             </div>
                           )}
@@ -938,7 +940,7 @@ export default function EmployeeMessagesPage() {
                           {/* Checklist Items */}
                           {step.job_step_checklist && step.job_step_checklist.length > 0 && (
                             <div className="ml-11 space-y-2">
-                              <p className="text-xs font-semibold text-gray-500">Checklist:</p>
+                              <p className="text-xs font-semibold text-gray-500">{t('Checklist:')}</p>
                               {step.job_step_checklist.map(item => (
                                 <div key={item.id} className="flex items-start gap-2 p-2 bg-white/5 rounded-lg">
                                   <CheckSquare className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
@@ -952,7 +954,7 @@ export default function EmployeeMessagesPage() {
                     </div>
                   ) : (
                     <div className="text-center py-6 text-gray-400">
-                      <p>No steps defined for this job</p>
+                      <p>{t('No steps defined for this job')}</p>
                     </div>
                   )}
                 </div>
@@ -965,19 +967,19 @@ export default function EmployeeMessagesPage() {
                       <p className="text-2xl font-bold text-purple-400">
                         {procedures.reduce((acc, p) => acc + p.jobs.length, 0)}
                       </p>
-                      <p className="text-xs text-gray-400">Jobs</p>
+                      <p className="text-xs text-gray-400">{t('Jobs')}</p>
                     </div>
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
                       <p className="text-2xl font-bold text-purple-400">
                         {procedures.reduce((acc, p) => acc + p.jobs.reduce((a, j) => a + (j.job_steps?.length || 0), 0), 0)}
                       </p>
-                      <p className="text-xs text-gray-400">Steps</p>
+                      <p className="text-xs text-gray-400">{t('Steps')}</p>
                     </div>
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
                       <p className="text-2xl font-bold text-purple-400">
                         {procedures.reduce((acc, p) => acc + p.jobs.reduce((a, j) => a + (j.job_steps?.reduce((s, step) => s + (step.job_step_checklist?.length || 0), 0) || 0), 0), 0)}
                       </p>
-                      <p className="text-xs text-gray-400">Checklist Items</p>
+                      <p className="text-xs text-gray-400">{t('Checklist Items')}</p>
                     </div>
                   </div>
 

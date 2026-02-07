@@ -18,10 +18,12 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import { JobCardsTab } from '@/components/employer/jobs/JobCardsTab'
 import { ActiveJobsTab } from '@/components/employer/jobs/ActiveJobsTab'
 import { HistoryTab } from '@/components/employer/jobs/HistoryTab'
+import { useTranslation } from '@/lib/i18n/useTranslation'
 
 type TabKey = 'cards' | 'active' | 'history'
 
 function EmployerJobsPageContent() {
+  const { t } = useTranslation()
   const [employerId, setEmployerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -79,9 +81,9 @@ function EmployerJobsPageContent() {
   }
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'cards', label: 'Job Cards', icon: <LayoutGrid className="h-4 w-4" /> },
-    { key: 'active', label: 'Active Jobs', icon: <Zap className="h-4 w-4" /> },
-    { key: 'history', label: 'History', icon: <History className="h-4 w-4" /> },
+    { key: 'cards', label: t('Job Cards'), icon: <LayoutGrid className="h-4 w-4" /> },
+    { key: 'active', label: t('Active Jobs'), icon: <Zap className="h-4 w-4" /> },
+    { key: 'history', label: t('History'), icon: <History className="h-4 w-4" /> },
   ]
 
   return (
@@ -89,13 +91,13 @@ function EmployerJobsPageContent() {
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">Jobs</h1>
+          <h1 className="text-2xl font-bold text-white">{t('Jobs')}</h1>
           <Button
             onClick={() => router.push('/employer/jobs/new')}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Create Job
+            {t('Create Job')}
           </Button>
         </div>
 
