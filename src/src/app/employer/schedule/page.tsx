@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { format, addDays, startOfWeek, isSameDay, differenceInDays, parseISO, startOfDay, isWithinInterval } from 'date-fns'
+import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInDays, parseISO, startOfDay, isWithinInterval } from 'date-fns'
 import type { JobSession, JobTemplate, Employee, Customer, JobSessionStatus } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
@@ -64,6 +64,8 @@ export default function EmployerSchedulePage() {
     return Math.min(Math.max(diff, 0), 6)
   })
   const [showCompleted, setShowCompleted] = useState(false)
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
+  const [currentMonth, setCurrentMonth] = useState(() => new Date())
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -129,7 +131,6 @@ export default function EmployerSchedulePage() {
     [startDate]
   )
 
-  const selectedDay = days[selectedDayIndex]
   const weekEndDate = addDays(startDate, 6)
   const weekRangeText = `${format(startDate, 'MMM d')} - ${format(weekEndDate, 'MMM d')}`
   const isCurrentWeek = isSameDay(startDate, startOfWeek(new Date(), { weekStartsOn: 1 }))
@@ -143,6 +144,12 @@ export default function EmployerSchedulePage() {
   }
   const goToPreviousWeek = () => setStartDate(addDays(startDate, -7))
   const goToNextWeek = () => setStartDate(addDays(startDate, 7))
+
+  // Month navigation
+  const goToPreviousMonth = () => setCurrentMonth(addMonths(currentMonth, -1))
+  const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
+  const goToThisMonth = () => setCurrentMonth(new Date())
+  const isCurrentMonth = isSameMonth(currentMonth, new Date())
 
   // Check if job is missed or overdue
   const isJobMissedOrOverdue = (session: JobSessionWithDetails) => {
@@ -208,6 +215,70 @@ export default function EmployerSchedulePage() {
 
     return { totalJobs, unclaimed, issues, inProgress }
   }, [days, getJobsForDay])
+
+  // Generate month calendar grid (6 rows x 7 cols)
+  const monthDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth)
+    const monthEnd = endOfMonth(currentMonth)
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+
+    const days: Date[] = []
+    let day = calendarStart
+    while (day <= calendarEnd) {
+      days.push(day)
+      day = addDays(day, 1)
+    }
+    return days
+  }, [currentMonth])
+
+  // Month summary stats
+  const monthStats = useMemo(() => {
+    if (viewMode !== 'month') return { totalJobs: 0, unclaimed: 0, issues: 0, inProgress: 0 }
+
+    const monthStart = startOfMonth(currentMonth)
+    const monthEnd = endOfMonth(currentMonth)
+    let totalJobs = 0
+    let unclaimed = 0
+    let issues = 0
+    let inProgress = 0
+
+    let day = monthStart
+    while (day <= monthEnd) {
+      const dayJobs = getJobsForDay(day)
+      totalJobs += dayJobs.length
+      unclaimed += dayJobs.filter(s => s.status === 'OFFERED').length
+      issues += dayJobs.filter(s => isJobMissedOrOverdue(s)).length
+      inProgress += dayJobs.filter(s => s.status === 'IN_PROGRESS').length
+      day = addDays(day, 1)
+    }
+
+    return { totalJobs, unclaimed, issues, inProgress }
+  }, [currentMonth, viewMode, getJobsForDay])
+
+  const activeStats = viewMode === 'week' ? weekStats : monthStats
+
+  // Selected day for month view
+  const [monthSelectedDay, setMonthSelectedDay] = useState(() => new Date())
+
+  // The selected day used across both views
+  const selectedDay = viewMode === 'week' ? days[selectedDayIndex] : monthSelectedDay
+
+  // Handle view mode switching with synced dates
+  const switchToWeek = () => {
+    const day = viewMode === 'month' ? monthSelectedDay : days[selectedDayIndex]
+    const newWeekStart = startOfWeek(day, { weekStartsOn: 1 })
+    setStartDate(newWeekStart)
+    setSelectedDayIndex(Math.min(Math.max(differenceInDays(day, newWeekStart), 0), 6))
+    setViewMode('week')
+  }
+
+  const switchToMonth = () => {
+    const day = viewMode === 'week' ? days[selectedDayIndex] : monthSelectedDay
+    setCurrentMonth(day)
+    setMonthSelectedDay(day)
+    setViewMode('month')
+  }
 
   // Jobs for selected day, filtered
   const selectedDayJobs = useMemo(() => {
@@ -288,31 +359,56 @@ export default function EmployerSchedulePage() {
     <div className="min-h-screen p-4 pb-24">
       <div className="max-w-lg mx-auto">
 
+        {/* View Toggle */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={switchToWeek}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+              viewMode === 'week'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/20'
+                : 'bg-white/10 text-gray-400 border border-white/20 hover:bg-white/15'
+            }`}
+          >
+            Week
+          </button>
+          <button
+            onClick={switchToMonth}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+              viewMode === 'month'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/20'
+                : 'bg-white/10 text-gray-400 border border-white/20 hover:bg-white/15'
+            }`}
+          >
+            Month
+          </button>
+        </div>
+
         {/* Summary Stats Bar */}
         <div className="grid grid-cols-4 gap-2 mb-4">
           <div className="bg-white/5 rounded-xl p-2 text-center border border-white/10">
             <Briefcase className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-white">{weekStats.totalJobs}</div>
-            <div className="text-[10px] text-gray-500 uppercase">This Week</div>
+            <div className="text-lg font-bold text-white">{activeStats.totalJobs}</div>
+            <div className="text-[10px] text-gray-500 uppercase">{viewMode === 'week' ? 'This Week' : 'This Month'}</div>
           </div>
-          <div className={`rounded-xl p-2 text-center border ${weekStats.unclaimed > 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-white/5 border-white/10'}`}>
+          <div className={`rounded-xl p-2 text-center border ${activeStats.unclaimed > 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-white/5 border-white/10'}`}>
             <Eye className="w-4 h-4 text-orange-400 mx-auto mb-1" />
-            <div className={`text-lg font-bold ${weekStats.unclaimed > 0 ? 'text-orange-400' : 'text-white'}`}>{weekStats.unclaimed}</div>
+            <div className={`text-lg font-bold ${activeStats.unclaimed > 0 ? 'text-orange-400' : 'text-white'}`}>{activeStats.unclaimed}</div>
             <div className="text-[10px] text-gray-500 uppercase">Unclaimed</div>
           </div>
           <div className="bg-white/5 rounded-xl p-2 text-center border border-white/10">
             <Clock className="w-4 h-4 text-purple-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-white">{weekStats.inProgress}</div>
+            <div className="text-lg font-bold text-white">{activeStats.inProgress}</div>
             <div className="text-[10px] text-gray-500 uppercase">Active</div>
           </div>
-          <div className={`rounded-xl p-2 text-center border ${weekStats.issues > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-white/5 border-white/10'}`}>
+          <div className={`rounded-xl p-2 text-center border ${activeStats.issues > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-white/5 border-white/10'}`}>
             <AlertTriangle className="w-4 h-4 text-red-400 mx-auto mb-1" />
-            <div className={`text-lg font-bold ${weekStats.issues > 0 ? 'text-red-400' : 'text-white'}`}>{weekStats.issues}</div>
+            <div className={`text-lg font-bold ${activeStats.issues > 0 ? 'text-red-400' : 'text-white'}`}>{activeStats.issues}</div>
             <div className="text-[10px] text-gray-500 uppercase">Issues</div>
           </div>
         </div>
 
-        {/* Week Navigation & Days */}
+        {/* Week View */}
+        {viewMode === 'week' && (
         <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
           {/* Week Header */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
@@ -395,6 +491,120 @@ export default function EmployerSchedulePage() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* Month View */}
+        {viewMode === 'month' && (
+        <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
+          {/* Month Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={goToPreviousMonth}
+                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+              >
+                <ChevronLeft className="w-5 h-5 text-white" />
+              </button>
+
+              <button onClick={goToThisMonth} className="flex flex-col items-center">
+                <span className="text-xl font-bold text-white">{format(currentMonth, 'MMMM yyyy')}</span>
+                {isCurrentMonth ? (
+                  <span className="text-xs text-blue-200 font-medium">This Month</span>
+                ) : (
+                  <span className="text-xs text-white/70 hover:text-white">Tap for this month</span>
+                )}
+              </button>
+
+              <button
+                onClick={goToNextMonth}
+                className="p-2 rounded-xl bg-white/20 border border-white/30 hover:bg-white/30 transition-all"
+              >
+                <ChevronRight className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          </div>
+
+          {/* Month Grid */}
+          <div className="p-3">
+            {/* Day of week headers */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                <div key={d} className="text-center text-[10px] font-medium text-gray-500 py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar days */}
+            <div className="grid grid-cols-7 gap-1">
+              {monthDays.map((day) => {
+                const dayJobs = getJobsForDay(day)
+                const isToday = isSameDay(day, new Date())
+                const isInMonth = isSameMonth(day, currentMonth)
+                const isSelected = isSameDay(day, monthSelectedDay)
+
+                // Group jobs by status for dot display
+                const statusCounts: { status: string; count: number }[] = []
+                const statusMap = new Map<string, number>()
+                dayJobs.forEach(s => {
+                  const effectiveStatus = getEffectiveStatus(s)
+                  statusMap.set(effectiveStatus, (statusMap.get(effectiveStatus) || 0) + 1)
+                })
+                statusMap.forEach((count, status) => {
+                  statusCounts.push({ status, count })
+                })
+
+                const maxDots = 4
+                const visibleDots = statusCounts.slice(0, maxDots)
+                const extraCount = dayJobs.length - visibleDots.reduce((sum, d) => sum + d.count, 0)
+
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => setMonthSelectedDay(day)}
+                    className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[52px] transition-all relative ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border border-purple-400'
+                        : isInMonth
+                          ? 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:border-white/20'
+                          : 'text-gray-700 border border-transparent'
+                    } ${isToday ? 'ring-2 ring-blue-500 ring-offset-1 ring-offset-gray-900' : ''}`}
+                  >
+                    <span className={`text-xs font-semibold ${
+                      isSelected ? 'text-white' : isInMonth ? '' : 'text-gray-700'
+                    }`}>
+                      {format(day, 'd')}
+                    </span>
+
+                    {/* Status dots */}
+                    {dayJobs.length > 0 && isInMonth && (
+                      <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
+                        {visibleDots.map(({ status, count }) => {
+                          const config = STATUS_CONFIG[status] || STATUS_CONFIG.OFFERED
+                          return (
+                            <div
+                              key={status}
+                              className={`w-2 h-2 rounded-full ${config.dot} ${
+                                status === 'IN_PROGRESS' ? 'animate-pulse' : ''
+                              }`}
+                              title={`${count} ${config.label}`}
+                            />
+                          )
+                        })}
+                        {extraCount > 0 && (
+                          <span className={`text-[8px] leading-none ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>
+                            +{extraCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+        )}
 
         {/* Selected Day Content */}
         <div className="bg-white/10 rounded-2xl border border-white/20 overflow-hidden mb-6">
