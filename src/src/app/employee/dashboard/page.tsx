@@ -135,28 +135,28 @@ export default function EmployeeDashboardPage() {
   const sections = [
     {
       id: 'jobs' as DashboardSection,
-      label: 'Current Jobs',
+      label: t('Current Jobs'),
       icon: Clock,
       color: 'purple',
       show: true
     },
     {
       id: 'availability' as DashboardSection,
-      label: 'Availability',
+      label: t('Availability'),
       icon: Calendar,
       color: 'blue',
       show: true
     },
     {
       id: 'message' as DashboardSection,
-      label: 'Message Boss',
+      label: t('Message Boss'),
       icon: MessageSquare,
       color: 'green',
       show: true
     },
     {
       id: 'deposit' as DashboardSection,
-      label: 'Next Deposit',
+      label: t('Next Deposit'),
       icon: DollarSign,
       color: 'amber',
       show: true
@@ -244,7 +244,7 @@ export default function EmployeeDashboardPage() {
                 }`}
               >
                 <Icon className={`w-10 h-10 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                <span className="text-center px-2">{t(section.label)}</span>
+                <span className="text-center px-2">{section.label}</span>
               </button>
             )
           })}

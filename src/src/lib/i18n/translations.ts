@@ -444,6 +444,7 @@ export const fr: Record<string, string> = {
   'Send a message to your employer': 'Envoyer un message \u00e0 votre employeur',
   'Next Deposit': 'Prochain d\u00e9p\u00f4t',
   'Current Jobs': 'Emplois en cours',
+  'Message Boss': 'Message au patron',
   'Upcoming': '\u00c0 venir',
   'No jobs today': 'Aucun emploi aujourd\'hui',
 
