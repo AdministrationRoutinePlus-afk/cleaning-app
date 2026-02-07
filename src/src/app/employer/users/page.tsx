@@ -40,7 +40,7 @@ export default function EmployerUsersPage() {
   // State
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [employeeJobCounts, setEmployeeJobCounts] = useState<Map<string, Record<string, number>>>(new Map())
+  const [employeeJobs, setEmployeeJobs] = useState<Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null }>>>(new Map())
   const [loading, setLoading] = useState(true)
   const [activeMainTab, setActiveMainTab] = useState<'employees' | 'customers'>('employees')
   const [employeeTab, setEmployeeTab] = useState<'active' | 'pending' | 'inactive'>('active')
@@ -92,24 +92,35 @@ export default function EmployerUsersPage() {
       if (employeesError) throw employeesError
       setEmployees(employeesData || [])
 
-      // Load job sessions for employee job counts
+      // Load job sessions with details for employee cards
       const { data: jobSessionsData, error: jobSessionsError } = await supabase
         .from('job_sessions')
-        .select('id, assigned_to, status')
+        .select(`
+          id, assigned_to, status, full_job_code, scheduled_date, scheduled_time,
+          job_template:job_templates(title, customer:customers(full_name))
+        `)
         .not('assigned_to', 'is', null)
 
       if (jobSessionsError) throw jobSessionsError
 
-      const countsMap = new Map<string, Record<string, number>>()
+      const jobsMap = new Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null }>>()
       for (const session of jobSessionsData || []) {
         if (!session.assigned_to) continue
-        if (!countsMap.has(session.assigned_to)) {
-          countsMap.set(session.assigned_to, {})
+        if (!jobsMap.has(session.assigned_to)) {
+          jobsMap.set(session.assigned_to, [])
         }
-        const counts = countsMap.get(session.assigned_to)!
-        counts[session.status] = (counts[session.status] || 0) + 1
+        const template = session.job_template as any
+        jobsMap.get(session.assigned_to)!.push({
+          id: session.id,
+          status: session.status,
+          full_job_code: session.full_job_code,
+          scheduled_date: session.scheduled_date,
+          scheduled_time: session.scheduled_time,
+          title: template?.title || 'Untitled',
+          customer_name: template?.customer?.full_name || null,
+        })
       }
-      setEmployeeJobCounts(countsMap)
+      setEmployeeJobs(jobsMap)
 
       // Load customers
       const { data: customersData, error: customersError } = await supabase
@@ -605,7 +616,7 @@ export default function EmployerUsersPage() {
                   <EmployeeCard
                     key={employee.id}
                     employee={employee}
-                    jobCounts={employeeJobCounts.get(employee.id)}
+                    jobs={employeeJobs.get(employee.id)}
                     onActivate={employeeTab === 'pending' ? handleActivateEmployee : undefined}
                     onDeactivate={employeeTab === 'active' ? handleDeactivateEmployee : undefined}
                     onReactivate={employeeTab === 'inactive' ? handleReactivateEmployee : undefined}
