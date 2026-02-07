@@ -650,114 +650,59 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             )}
           </div>
 
-          {/* Session Timeline */}
-          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-1">
-            <h3 className="font-semibold text-lg text-white mb-3">Session Timeline</h3>
-            <div className="relative pl-6 space-y-3">
+          {/* Session Timeline - compact horizontal */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+            <div className="flex items-center gap-1 flex-wrap">
               {(() => {
-                const steps: { label: string; time: string; color: string }[] = []
                 const statusOrder = ['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS', 'COMPLETED', 'EVALUATED']
                 const terminalStatuses = ['CANCELLED', 'REFUSED', 'MISSED', 'OVERDUE']
                 const currentIdx = statusOrder.indexOf(jobSession.status)
                 const isTerminal = terminalStatuses.includes(jobSession.status)
 
-                // Created (OFFERED)
-                steps.push({
-                  label: 'Created',
-                  time: format(new Date(jobSession.created_at), 'MMM d, yyyy h:mm a'),
-                  color: 'bg-gray-400',
-                })
+                const chips: { label: string; active: boolean; color: string; current?: boolean }[] = [
+                  { label: 'Created', active: true, color: 'bg-gray-500/30 text-gray-300 border-gray-500/30' },
+                ]
 
-                // If employee was assigned (CLAIMED or beyond)
                 if (jobSession.assigned_to && (currentIdx >= 1 || isTerminal)) {
-                  steps.push({
-                    label: `Claimed by ${jobSession.employee?.full_name || 'Employee'}`,
-                    time: currentIdx >= 1 ? '' : '',
-                    color: 'bg-yellow-400',
-                  })
+                  chips.push({ label: 'Claimed', active: true, color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' })
                 }
-
-                // If approved (APPROVED or beyond)
                 if (currentIdx >= 2) {
-                  steps.push({
-                    label: 'Approved',
-                    time: '',
-                    color: 'bg-blue-400',
-                  })
+                  chips.push({ label: 'Approved', active: true, color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' })
                 }
-
-                // If started (IN_PROGRESS or beyond)
                 if (currentIdx >= 3) {
-                  steps.push({
-                    label: 'Started',
-                    time: (jobSession as any).started_at ? format(new Date((jobSession as any).started_at), 'MMM d, yyyy h:mm a') : '',
-                    color: 'bg-purple-400',
-                  })
+                  chips.push({ label: 'Started', active: true, color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' })
                 }
-
-                // If completed
                 if (currentIdx >= 4) {
-                  steps.push({
-                    label: 'Completed',
-                    time: (jobSession as any).completed_at ? format(new Date((jobSession as any).completed_at), 'MMM d, yyyy h:mm a') : '',
-                    color: 'bg-green-400',
-                  })
+                  chips.push({ label: 'Completed', active: true, color: 'bg-green-500/20 text-green-300 border-green-500/30' })
                 }
-
-                // If evaluated
                 if (currentIdx >= 5) {
-                  steps.push({
-                    label: 'Evaluated',
-                    time: '',
-                    color: 'bg-teal-400',
-                  })
+                  chips.push({ label: 'Evaluated', active: true, color: 'bg-teal-500/20 text-teal-300 border-teal-500/30' })
                 }
-
-                // Terminal statuses
                 if (isTerminal) {
-                  const terminalColors: Record<string, string> = {
-                    CANCELLED: 'bg-red-400',
-                    REFUSED: 'bg-red-400',
-                    MISSED: 'bg-red-400',
-                    OVERDUE: 'bg-orange-400',
-                  }
-                  steps.push({
-                    label: jobSession.status.charAt(0) + jobSession.status.slice(1).toLowerCase(),
-                    time: jobSession.updated_at ? format(new Date(jobSession.updated_at), 'MMM d, yyyy h:mm a') : '',
-                    color: terminalColors[jobSession.status] || 'bg-red-400',
-                  })
+                  chips.push({ label: jobSession.status, active: true, color: 'bg-red-500/20 text-red-300 border-red-500/30', current: true })
                 }
-
-                // Current status indicator (if not terminal and not fully evaluated)
                 if (!isTerminal && currentIdx < 5) {
-                  const nextLabels: Record<string, string> = {
-                    OFFERED: 'Awaiting claim',
-                    CLAIMED: 'Awaiting approval',
-                    APPROVED: 'Ready to start',
-                    IN_PROGRESS: 'In progress',
-                    COMPLETED: 'Awaiting evaluation',
+                  const currentLabels: Record<string, string> = {
+                    OFFERED: 'Awaiting claim', CLAIMED: 'Pending approval', APPROVED: 'Ready',
+                    IN_PROGRESS: 'In progress', COMPLETED: 'Awaiting eval',
                   }
-                  steps.push({
-                    label: nextLabels[jobSession.status] || jobSession.status,
-                    time: '',
-                    color: 'bg-white/30 animate-pulse',
-                  })
+                  chips.push({ label: currentLabels[jobSession.status] || jobSession.status, active: true, color: 'bg-white/10 text-white border-white/30', current: true })
                 }
 
-                return steps.map((step, i) => (
-                  <div key={i} className="relative flex items-start gap-3">
-                    {i < steps.length - 1 && (
-                      <div className="absolute left-[-15px] top-3 w-px h-full bg-white/10" />
-                    )}
-                    <div className={`absolute left-[-18px] top-1 w-2.5 h-2.5 rounded-full ${step.color} ring-2 ring-gray-800`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white">{step.label}</p>
-                      {step.time && <p className="text-xs text-gray-500">{step.time}</p>}
-                    </div>
-                  </div>
+                return chips.map((chip, i) => (
+                  <span key={i} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border ${chip.color}`}>
+                    {chip.current && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                    {chip.label}
+                    {i < chips.length - 1 && <span className="text-gray-600 ml-1">&rarr;</span>}
+                  </span>
                 ))
               })()}
             </div>
+            <p className="text-xs text-gray-500 mt-1.5">
+              Created {format(new Date(jobSession.created_at), 'MMM d, yyyy')}
+              {jobSession.started_at && ` · Started ${format(new Date(jobSession.started_at), 'MMM d h:mm a')}`}
+              {jobSession.completed_at && ` · Completed ${format(new Date(jobSession.completed_at), 'MMM d h:mm a')}`}
+            </p>
           </div>
 
           {/* Reschedule Section */}
@@ -1033,13 +978,14 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
         </div>
 
         {/* Footer with action buttons */}
-        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+        <DialogFooter className="!flex-col gap-2">
           {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && !isReassigning && !isRecovering && (
             <>
+              {/* Primary actions */}
               {jobSession.status === 'CLAIMED' && (
-                <>
+                <div className="flex gap-2">
                   <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                     onClick={handleApprove}
                     disabled={loading}
                   >
@@ -1048,92 +994,96 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                   <Button
                     onClick={() => setIsRefusing(true)}
                     disabled={loading}
-                    className="bg-red-600 hover:bg-red-700 text-white"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                   >
                     Refuse
                   </Button>
-                </>
+                </div>
               )}
 
               {canRecover && (
-                <>
+                <div className="flex gap-2">
                   <Button
                     onClick={() => setIsRecovering(true)}
                     disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     Reschedule
                   </Button>
                   <Button
                     onClick={handleRecoverCancel}
                     disabled={loading}
-                    className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                    className="flex-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
                   >
-                    {loading ? 'Cancelling...' : 'Cancel Session'}
+                    Cancel Session
                   </Button>
-                  <Button
-                    onClick={handleDelete}
-                    disabled={loading}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    {loading ? 'Deleting...' : 'Delete'}
-                  </Button>
-                </>
+                </div>
               )}
 
-              <Button
-                variant="outline"
-                onClick={() => setIsRescheduling(true)}
-                disabled={loading || !canModify}
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-              >
-                Move Job
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => setIsModifyingPrice(true)}
-                disabled={loading || !canModify}
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-              >
-                Modify Price
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => setIsReassigning(true)}
-                disabled={loading || !canModify}
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-              >
-                Reassign
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={() => setIsPushingMessage(true)}
-                disabled={loading}
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-              >
-                Push to Messages
-              </Button>
-
-              {jobSession.status !== 'CLAIMED' && (
+              {/* Management actions - 2x2 grid */}
+              <div className="grid grid-cols-2 gap-2">
                 <Button
-                  onClick={handleCancel}
+                  size="sm"
+                  onClick={() => setIsRescheduling(true)}
                   disabled={loading || !canModify}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="bg-white/10 border border-white/20 text-white hover:bg-white/20"
                 >
-                  {loading ? 'Cancelling...' : 'Cancel Job'}
+                  Move Job
                 </Button>
-              )}
+                <Button
+                  size="sm"
+                  onClick={() => setIsModifyingPrice(true)}
+                  disabled={loading || !canModify}
+                  className="bg-white/10 border border-white/20 text-white hover:bg-white/20"
+                >
+                  Modify Price
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setIsReassigning(true)}
+                  disabled={loading || !canModify}
+                  className="bg-white/10 border border-white/20 text-white hover:bg-white/20"
+                >
+                  Reassign
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setIsPushingMessage(true)}
+                  disabled={loading}
+                  className="bg-white/10 border border-white/20 text-white hover:bg-white/20"
+                >
+                  Notify
+                </Button>
+              </div>
 
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-              >
-                Close
-              </Button>
+              {/* Destructive actions */}
+              <div className="flex gap-2 pt-1 border-t border-white/10">
+                {canModify && jobSession.status !== 'CLAIMED' && (
+                  <Button
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={loading}
+                    className="flex-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                  >
+                    Cancel
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleClose}
+                  className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
+                >
+                  Close
+                </Button>
+              </div>
             </>
           )}
         </DialogFooter>
