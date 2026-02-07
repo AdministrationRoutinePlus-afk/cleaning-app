@@ -40,6 +40,7 @@ export default function EmployerUsersPage() {
   // State
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [employeeJobCounts, setEmployeeJobCounts] = useState<Map<string, Record<string, number>>>(new Map())
   const [loading, setLoading] = useState(true)
   const [activeMainTab, setActiveMainTab] = useState<'employees' | 'customers'>('employees')
   const [employeeTab, setEmployeeTab] = useState<'active' | 'pending' | 'inactive'>('active')
@@ -90,6 +91,25 @@ export default function EmployerUsersPage() {
 
       if (employeesError) throw employeesError
       setEmployees(employeesData || [])
+
+      // Load job sessions for employee job counts
+      const { data: jobSessionsData, error: jobSessionsError } = await supabase
+        .from('job_sessions')
+        .select('id, assigned_to, status')
+        .not('assigned_to', 'is', null)
+
+      if (jobSessionsError) throw jobSessionsError
+
+      const countsMap = new Map<string, Record<string, number>>()
+      for (const session of jobSessionsData || []) {
+        if (!session.assigned_to) continue
+        if (!countsMap.has(session.assigned_to)) {
+          countsMap.set(session.assigned_to, {})
+        }
+        const counts = countsMap.get(session.assigned_to)!
+        counts[session.status] = (counts[session.status] || 0) + 1
+      }
+      setEmployeeJobCounts(countsMap)
 
       // Load customers
       const { data: customersData, error: customersError } = await supabase
@@ -585,6 +605,7 @@ export default function EmployerUsersPage() {
                   <EmployeeCard
                     key={employee.id}
                     employee={employee}
+                    jobCounts={employeeJobCounts.get(employee.id)}
                     onActivate={employeeTab === 'pending' ? handleActivateEmployee : undefined}
                     onDeactivate={employeeTab === 'active' ? handleDeactivateEmployee : undefined}
                     onReactivate={employeeTab === 'inactive' ? handleReactivateEmployee : undefined}

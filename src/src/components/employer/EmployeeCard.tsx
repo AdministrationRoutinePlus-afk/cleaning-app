@@ -12,6 +12,7 @@ import { User, Shield, ShieldOff, Eye, CheckCircle } from 'lucide-react'
 
 interface EmployeeCardProps {
   employee: Employee
+  jobCounts?: Record<string, number>
   onActivate?: (employee: Employee) => void
   onReactivate?: (employee: Employee) => void
   onDeactivate?: (employee: Employee) => void
@@ -19,8 +20,20 @@ interface EmployeeCardProps {
   onViewProfile?: (employee: Employee) => void
 }
 
+const JOB_STATUS_CONFIG: { key: string; label: string; color: string }[] = [
+  { key: 'OFFERED', label: 'Open', color: 'bg-gray-500' },
+  { key: 'CLAIMED', label: 'Claimed', color: 'bg-yellow-500' },
+  { key: 'APPROVED', label: 'Approved', color: 'bg-blue-500' },
+  { key: 'IN_PROGRESS', label: 'In Progress', color: 'bg-purple-500' },
+  { key: 'COMPLETED', label: 'Completed', color: 'bg-green-500' },
+  { key: 'EVALUATED', label: 'Evaluated', color: 'bg-teal-500' },
+  { key: 'CANCELLED', label: 'Cancelled', color: 'bg-red-500' },
+  { key: 'MISSED', label: 'Missed', color: 'bg-red-500' },
+]
+
 export function EmployeeCard({
   employee,
+  jobCounts,
   onActivate,
   onReactivate,
   onDeactivate,
@@ -64,6 +77,22 @@ export function EmployeeCard({
           {employee.phone && <p className="text-sm text-gray-300">Phone: {employee.phone}</p>}
           {employee.activated_at && (
             <p className="text-sm text-gray-300">Activated: {format(new Date(employee.activated_at), 'MMM d, yyyy')}</p>
+          )}
+        </div>
+
+        {/* Job Status Counts */}
+        <div className="bg-white/5 rounded-xl p-2 border border-white/10">
+          {jobCounts && Object.keys(jobCounts).length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {JOB_STATUS_CONFIG.filter(s => jobCounts[s.key] && jobCounts[s.key] > 0).map(s => (
+                <span key={s.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 text-xs text-gray-300">
+                  <span className={`w-2 h-2 rounded-full ${s.color}`} />
+                  {jobCounts[s.key]} {s.label}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500 text-center">No jobs assigned</p>
           )}
         </div>
 
