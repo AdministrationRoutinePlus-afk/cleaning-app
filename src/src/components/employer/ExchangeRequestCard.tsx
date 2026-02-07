@@ -34,12 +34,21 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
+      // decided_by is FK to employers table, not auth.users
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!employer) throw new Error('Employer not found')
+
       const { error: exchangeError } = await supabase
         .from('job_exchanges')
         .update({
           status: approved ? 'APPROVED' : 'DENIED',
           decided_at: new Date().toISOString(),
-          decided_by: user.id
+          decided_by: employer.id
         })
         .eq('id', exchange.id)
 
