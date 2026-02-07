@@ -35,7 +35,7 @@ export function StepChecklist({ items, sessionId, progress, onToggle, disabled =
 
   return (
     <div className="space-y-2">
-      <h4 className="text-sm font-semibold text-gray-700 mb-3">Checklist</h4>
+      <h4 className="text-sm font-semibold text-gray-300 mb-3">Checklist</h4>
       {items
         .sort((a, b) => a.item_order - b.item_order)
         .map((item) => {
@@ -47,7 +47,7 @@ export function StepChecklist({ items, sessionId, progress, onToggle, disabled =
               key={item.id}
               className={`
                 flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer
-                ${checked ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 hover:border-gray-300'}
+                ${checked ? 'bg-green-500/10 border-green-500/30' : 'bg-white/5 border-white/10 hover:border-white/20'}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
                 ${isUpdating ? 'opacity-50' : ''}
               `}
@@ -57,9 +57,9 @@ export function StepChecklist({ items, sessionId, progress, onToggle, disabled =
                 checked={checked}
                 onChange={() => handleToggle(item.id, checked)}
                 disabled={disabled || isUpdating}
-                className="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
+                className="mt-1 h-5 w-5 rounded border-white/30 bg-white/5 accent-blue-500 cursor-pointer disabled:cursor-not-allowed"
               />
-              <span className={`flex-1 text-sm ${checked ? 'text-gray-600 line-through' : 'text-gray-900'}`}>
+              <span className={`flex-1 text-sm ${checked ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
                 {item.item_text}
               </span>
             </label>

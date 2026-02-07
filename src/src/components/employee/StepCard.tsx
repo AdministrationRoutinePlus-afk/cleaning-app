@@ -11,9 +11,9 @@ function ImageWithSkeleton({ src, alt, caption }: { src: string; alt: string; ca
   const [loaded, setLoaded] = useState(false)
 
   return (
-    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+    <div className="relative aspect-video rounded-lg overflow-hidden bg-white/5">
       {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+        <div className="absolute inset-0 animate-pulse bg-white/10" />
       )}
       <Image
         src={src}
@@ -43,6 +43,7 @@ interface StepCardProps {
   onToggleStep: (stepId: string, isCompleted: boolean) => Promise<void>
   onToggleChecklistItem: (itemId: string, isChecked: boolean) => Promise<void>
   isListMode?: boolean
+  compact?: boolean
 }
 
 export function StepCard({
@@ -56,7 +57,8 @@ export function StepCard({
   checklistProgress,
   onToggleStep,
   onToggleChecklistItem,
-  isListMode = false
+  isListMode = false,
+  compact = false
 }: StepCardProps) {
   const [updating, setUpdating] = useState(false)
   const isCompleted = stepProgress?.is_completed || false
@@ -72,23 +74,70 @@ export function StepCard({
 
   const sortedImages = [...images].sort((a, b) => a.image_order - b.image_order)
 
+  if (compact) {
+    return (
+      <div className={`
+        bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border-2 transition-all
+        ${isCompleted ? 'border-green-500/50' : 'border-white/10'}
+        mb-4
+      `}>
+        {/* Compact header row */}
+        <div className="flex items-center gap-3 p-4">
+          <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full text-sm font-bold flex-shrink-0">
+            {stepNumber}
+          </span>
+          <h3 className="text-lg font-semibold text-white flex-1">{step.title}</h3>
+          {isCompleted ? (
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <Check className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          ) : (
+            <Button
+              onClick={handleToggleComplete}
+              disabled={updating}
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+            >
+              {updating ? 'Updating...' : 'Complete'}
+            </Button>
+          )}
+        </div>
+
+        {/* Inline checklist items (compact) */}
+        {checklistItems.length > 0 && (
+          <div className="px-4 pb-4 border-t border-white/10">
+            <StepChecklist
+              items={checklistItems}
+              sessionId={sessionId}
+              progress={checklistProgress}
+              onToggle={onToggleChecklistItem}
+              disabled={isCompleted}
+            />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={`
-      bg-white rounded-lg shadow-md border-2 transition-all
-      ${isCompleted ? 'border-green-500 bg-green-50' : 'border-gray-200'}
+      bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border-2 transition-all
+      ${isCompleted ? 'border-green-500/50' : 'border-white/10'}
       ${isListMode ? 'mb-4' : 'h-full'}
     `}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="border-b border-white/10 p-4">
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold">
+              <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full text-sm font-bold">
                 {stepNumber}
               </span>
               <span className="text-xs text-gray-500">of {totalSteps}</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">{step.title}</h3>
+            <h3 className="text-lg font-semibold text-white">{step.title}</h3>
           </div>
 
           {isCompleted && (
@@ -101,20 +150,20 @@ export function StepCard({
         </div>
 
         {step.description && (
-          <p className="text-sm text-gray-600 mt-2">{step.description}</p>
+          <p className="text-sm text-gray-400 mt-2">{step.description}</p>
         )}
 
         {step.products_needed && (
-          <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
-            <p className="text-xs font-semibold text-blue-900 mb-1">Products Needed:</p>
-            <p className="text-sm text-blue-800">{step.products_needed}</p>
+          <div className="mt-3 p-2 bg-blue-500/10 rounded-lg border border-blue-500/30">
+            <p className="text-xs font-semibold text-blue-300 mb-1">Products Needed:</p>
+            <p className="text-sm text-blue-200">{step.products_needed}</p>
           </div>
         )}
       </div>
 
       {/* Images */}
       {sortedImages.length > 0 && (
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-white/10">
           <div className="grid grid-cols-2 gap-2">
             {sortedImages.map((image) => (
               <ImageWithSkeleton
@@ -130,7 +179,7 @@ export function StepCard({
 
       {/* Checklist */}
       {checklistItems.length > 0 && (
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-white/10">
           <StepChecklist
             items={checklistItems}
             sessionId={sessionId}
@@ -148,8 +197,8 @@ export function StepCard({
           disabled={updating}
           className={`w-full ${
             isCompleted
-              ? 'bg-green-600 hover:bg-green-700'
-              : 'bg-blue-600 hover:bg-blue-700'
+              ? 'bg-green-600 hover:bg-green-700 text-white'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
           {updating ? 'Updating...' : isCompleted ? 'Mark Incomplete' : 'Mark Complete'}

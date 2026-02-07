@@ -16,14 +16,13 @@ import { createClient } from '@/lib/supabase/client'
 import { StepCard } from '@/components/employee/StepCard'
 import { ProgressBar } from '@/components/employee/ProgressBar'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ChevronLeft,
   ChevronRight,
   List,
-  Layers,
+  ClipboardList,
+  Check,
   CheckCircle2,
   AlertCircle,
   MapPin,
@@ -62,7 +61,7 @@ export default function JobExecutionPage() {
 
   const [jobData, setJobData] = useState<JobData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'list' | 'swipe'>('list')
+  const [viewMode, setViewMode] = useState<'checklist' | 'detailed'>('checklist')
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [showCompleteDialog, setShowCompleteDialog] = useState(false)
   const [completing, setCompleting] = useState(false)
@@ -300,17 +299,17 @@ export default function JobExecutionPage() {
   if (!jobData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4 flex items-center justify-center">
-        <Card className="p-8 text-center bg-white/10  border-white/20">
+        <div className="p-8 text-center bg-white/10 rounded-xl border border-white/20">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">Job not found</h2>
-          <p className="text-gray-300 mb-4">This job does not exist or you don't have access to it.</p>
+          <p className="text-gray-300 mb-4">This job does not exist or you don&apos;t have access to it.</p>
           <Button
             onClick={() => router.push('/employee/jobs')}
             className="bg-white/10 hover:bg-white/20 text-white border border-white/20"
           >
             Back to Jobs
           </Button>
-        </Card>
+        </div>
       </div>
     )
   }
@@ -380,7 +379,7 @@ export default function JobExecutionPage() {
       {/* Refusal Reason Banner - shown when job is REFUSED */}
       {jobData.session.status === 'REFUSED' && (
         <div className="max-w-6xl mx-auto p-4">
-          <Card className="p-6 bg-red-500/10 border-red-500/30 ">
+          <div className="p-6 bg-red-500/10 rounded-xl border border-red-500/30">
             <div className="flex items-start gap-3">
               <XCircle className="w-8 h-8 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -397,108 +396,166 @@ export default function JobExecutionPage() {
                 )}
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
       {/* View Mode Selector - hidden for REFUSED jobs */}
       {jobData.session.status !== 'REFUSED' && (
       <div className="max-w-6xl mx-auto p-4">
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'swipe')} className="mb-4">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-            <TabsTrigger value="list" className="flex items-center gap-2">
-              <List className="w-4 h-4" />
-              List Mode
-            </TabsTrigger>
-            <TabsTrigger value="swipe" className="flex items-center gap-2">
-              <Layers className="w-4 h-4" />
-              Swipe Mode
-            </TabsTrigger>
-          </TabsList>
+        {/* View Mode Toggle Buttons */}
+        <div className="flex gap-2 max-w-md mx-auto mb-6">
+          <button
+            onClick={() => setViewMode('checklist')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              viewMode === 'checklist'
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            Checklist
+          </button>
+          <button
+            onClick={() => setViewMode('detailed')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              viewMode === 'detailed'
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            Detailed
+          </button>
+        </div>
 
-          {/* List Mode */}
-          <TabsContent value="list" className="mt-6">
-            <div className="space-y-4">
-              {jobData.steps.map((step, index) => {
-                const stepProgress = jobData.stepProgress.find(p => p.job_step_id === step.id)
-                const stepChecklistProgress = jobData.checklistProgress.filter(
-                  cp => step.job_step_checklist.some(item => item.id === cp.checklist_item_id)
-                )
+        {/* Checklist Mode */}
+        {viewMode === 'checklist' && (
+          <div className="space-y-2">
+            {jobData.steps.map((step, index) => {
+              const stepProgress = jobData.stepProgress.find(p => p.job_step_id === step.id)
+              const isCompleted = stepProgress?.is_completed ?? false
+              const checklistItems = step.job_step_checklist
 
-                return (
-                  <StepCard
-                    key={step.id}
-                    step={step}
-                    stepNumber={index + 1}
-                    totalSteps={totalSteps}
-                    images={step.job_step_images}
-                    checklistItems={step.job_step_checklist}
-                    sessionId={sessionId}
-                    stepProgress={stepProgress}
-                    checklistProgress={stepChecklistProgress}
-                    onToggleStep={handleToggleStep}
-                    onToggleChecklistItem={handleToggleChecklistItem}
-                    isListMode={true}
-                  />
-                )
-              })}
+              return (
+                <div
+                  key={step.id}
+                  className="bg-white/5 rounded-xl border border-white/10 overflow-hidden"
+                >
+                  {/* Step header row */}
+                  <div className="p-3 flex items-center gap-3">
+                    {/* Completion toggle button */}
+                    <button
+                      onClick={() => handleToggleStep(step.id, isCompleted)}
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        isCompleted
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-white/30 hover:border-white/50'
+                      }`}
+                    >
+                      {isCompleted && <Check className="w-4 h-4 text-white" />}
+                    </button>
+
+                    {/* Step number + title */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Step {index + 1}</span>
+                        <span className={`text-sm font-medium ${
+                          isCompleted ? 'text-gray-500 line-through' : 'text-white'
+                        }`}>
+                          {step.title}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Inline checklist items (if any) */}
+                  {checklistItems.length > 0 && (
+                    <div className="px-3 pb-3 pl-14 space-y-1">
+                      {checklistItems.map((item) => {
+                        const itemProgress = jobData.checklistProgress.find(
+                          cp => cp.checklist_item_id === item.id
+                        )
+                        const isChecked = itemProgress?.is_checked ?? false
+
+                        return (
+                          <label
+                            key={item.id}
+                            className="flex items-center gap-2 text-xs cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handleToggleChecklistItem(item.id, isChecked)}
+                              className="h-4 w-4 rounded border-white/30 bg-white/5 accent-green-500"
+                            />
+                            <span className={
+                              isChecked ? 'text-gray-500 line-through' : 'text-gray-300'
+                            }>
+                              {item.item_text}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Detailed Mode */}
+        {viewMode === 'detailed' && currentStep && (
+          <div>
+            <div className="mb-4">
+              <StepCard
+                step={currentStep}
+                stepNumber={currentStepIndex + 1}
+                totalSteps={totalSteps}
+                images={currentStep.job_step_images}
+                checklistItems={currentStep.job_step_checklist}
+                sessionId={sessionId}
+                stepProgress={jobData.stepProgress.find(p => p.job_step_id === currentStep.id)}
+                checklistProgress={jobData.checklistProgress.filter(
+                  cp => currentStep.job_step_checklist.some(item => item.id === cp.checklist_item_id)
+                )}
+                onToggleStep={handleToggleStep}
+                onToggleChecklistItem={handleToggleChecklistItem}
+                isListMode={false}
+              />
             </div>
-          </TabsContent>
 
-          {/* Swipe Mode */}
-          <TabsContent value="swipe" className="mt-6">
-            {currentStep && (
-              <div>
-                <div className="mb-4">
-                  <StepCard
-                    step={currentStep}
-                    stepNumber={currentStepIndex + 1}
-                    totalSteps={totalSteps}
-                    images={currentStep.job_step_images}
-                    checklistItems={currentStep.job_step_checklist}
-                    sessionId={sessionId}
-                    stepProgress={jobData.stepProgress.find(p => p.job_step_id === currentStep.id)}
-                    checklistProgress={jobData.checklistProgress.filter(
-                      cp => currentStep.job_step_checklist.some(item => item.id === cp.checklist_item_id)
-                    )}
-                    onToggleStep={handleToggleStep}
-                    onToggleChecklistItem={handleToggleChecklistItem}
-                    isListMode={false}
-                  />
-                </div>
-
-                {/* Navigation */}
-                <div className="flex justify-between items-center gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={handlePreviousStep}
-                    disabled={currentStepIndex === 0}
-                    className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    Previous
-                  </Button>
-                  <span className="text-sm text-gray-300 whitespace-nowrap">
-                    {currentStepIndex + 1} of {totalSteps}
-                  </span>
-                  <Button
-                    variant="outline"
-                    onClick={handleNextStep}
-                    disabled={currentStepIndex === totalSteps - 1}
-                    className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            {/* Navigation */}
+            <div className="flex justify-between items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={handlePreviousStep}
+                disabled={currentStepIndex === 0}
+                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Previous
+              </Button>
+              <span className="text-sm text-gray-300 whitespace-nowrap">
+                {currentStepIndex + 1} of {totalSteps}
+              </span>
+              <Button
+                variant="outline"
+                onClick={handleNextStep}
+                disabled={currentStepIndex === totalSteps - 1}
+                className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Complete Job Button */}
         {allStepsComplete && (
-          <Card className="p-6 mt-6 bg-green-500/10 border-green-500/30 ">
+          <div className="p-6 mt-6 bg-green-500/10 rounded-xl border border-green-500/30">
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
@@ -513,15 +570,15 @@ export default function JobExecutionPage() {
             >
               Complete Job
             </Button>
-          </Card>
+          </div>
         )}
 
         {!allStepsComplete && totalSteps > 0 && (
-          <Card className="p-4 mt-6 bg-blue-500/10 border-blue-500/30 ">
+          <div className="p-4 mt-6 bg-blue-500/10 rounded-xl border border-blue-500/30">
             <p className="text-sm text-blue-300 text-center">
               Complete all steps to finish this job ({completedStepsCount}/{totalSteps} done)
             </p>
-          </Card>
+          </div>
         )}
       </div>
       )}

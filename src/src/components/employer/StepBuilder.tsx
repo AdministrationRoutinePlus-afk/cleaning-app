@@ -2,20 +2,18 @@
 
 import { useState, useRef } from 'react'
 import Image from 'next/image'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 function StepBuilderImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false)
   return (
-    <div className="aspect-video relative rounded-lg overflow-hidden bg-gray-100">
+    <div className="aspect-video relative rounded-lg overflow-hidden bg-white/5">
       {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+        <div className="absolute inset-0 animate-pulse bg-white/10" />
       )}
       <Image
         src={src}
@@ -224,106 +222,118 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label className="text-base font-medium">Step-by-Step Instructions</Label>
-        <Button type="button" variant="outline" size="sm" onClick={addStep}>
+        <span className="text-base font-medium text-gray-300">Step-by-Step Instructions</span>
+        <button
+          type="button"
+          onClick={addStep}
+          className="bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-lg px-3 py-1.5 text-sm"
+        >
           + Add Step
-        </Button>
+        </button>
       </div>
 
       {steps.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-4">
-          No steps added yet. Click "Add Step" to create instructions.
+          No steps added yet. Click &quot;Add Step&quot; to create instructions.
         </p>
       ) : (
         <div className="space-y-3">
           {steps.map((step, index) => (
-            <Card key={index} className="overflow-hidden">
-              <CardHeader
-                className="py-3 cursor-pointer hover:bg-gray-50"
+            <div key={index} className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+              <div
+                className="p-3 cursor-pointer hover:bg-white/10 transition-colors"
                 onClick={() => setExpandedStep(expandedStep === index ? null : index)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-200 text-sm font-medium">
+                    <span className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-sm font-bold flex items-center justify-center">
                       {step.step_order}
                     </span>
-                    <CardTitle className="text-base">
-                      {step.title || `Step ${step.step_order}`}
-                    </CardTitle>
+                    <span className="text-sm font-medium text-white">
+                      {step.title || <span className="text-gray-500">Step {step.step_order}</span>}
+                    </span>
                     {step.images.length > 0 && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500">
                         ({step.images.length} image{step.images.length > 1 ? 's' : ''})
+                      </span>
+                    )}
+                    {step.checklist_items.length > 0 && (
+                      <span className="text-xs text-gray-500">
+                        ({step.checklist_items.length} item{step.checklist_items.length > 1 ? 's' : ''})
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         moveStep(index, 'up')
                       }}
                       disabled={index === 0}
-                      className="h-7 w-7 p-0"
+                      className="text-gray-500 hover:text-white hover:bg-white/10 h-7 w-7 rounded-lg flex items-center justify-center disabled:opacity-30"
                     >
-                      ↑
-                    </Button>
-                    <Button
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         moveStep(index, 'down')
                       }}
                       disabled={index === steps.length - 1}
-                      className="h-7 w-7 p-0"
+                      className="text-gray-500 hover:text-white hover:bg-white/10 h-7 w-7 rounded-lg flex items-center justify-center disabled:opacity-30"
                     >
-                      ↓
-                    </Button>
-                    <span className="text-gray-400 ml-2">
-                      {expandedStep === index ? '−' : '+'}
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    <span className="text-gray-500 ml-2">
+                      {expandedStep === index ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </span>
                   </div>
                 </div>
-              </CardHeader>
+              </div>
 
               {expandedStep === index && (
-                <CardContent className="space-y-4 pt-0">
+                <div className="border-t border-white/10 p-4 space-y-4">
                   <div className="space-y-2">
-                    <Label>Step Title</Label>
+                    <label className="text-sm text-gray-300">Step Title</label>
                     <Input
                       value={step.title}
                       onChange={(e) => updateStep(index, { title: e.target.value })}
                       placeholder="e.g., Clean kitchen counters"
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Description</Label>
+                    <label className="text-sm text-gray-300">Description</label>
                     <Textarea
                       value={step.description}
                       onChange={(e) => updateStep(index, { description: e.target.value })}
                       placeholder="Detailed instructions for this step..."
                       rows={3}
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Products Needed</Label>
+                    <label className="text-sm text-gray-300">Products Needed</label>
                     <Input
                       value={step.products_needed}
                       onChange={(e) => updateStep(index, { products_needed: e.target.value })}
                       placeholder="e.g., All-purpose cleaner, microfiber cloth"
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                     />
                   </div>
 
                   {/* Reference Images */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Reference Images</Label>
+                      <label className="text-sm text-gray-300">Reference Images</label>
                       <div>
                         <input
                           type="file"
@@ -333,15 +343,14 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                           ref={(el) => { fileInputRefs.current[index] = el }}
                           onChange={(e) => handleImageUpload(index, e)}
                         />
-                        <Button
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
                           onClick={() => fileInputRefs.current[index]?.click()}
                           disabled={uploading === index}
+                          className="bg-white/10 border border-white/20 text-gray-300 hover:bg-white/20 text-xs px-2 py-1 rounded-lg disabled:opacity-50"
                         >
                           {uploading === index ? 'Uploading...' : '+ Add Images'}
-                        </Button>
+                        </button>
                       </div>
                     </div>
 
@@ -355,20 +364,18 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                               src={image.url}
                               alt={image.caption || `Step ${step.step_order} image ${imgIndex + 1}`}
                             />
-                            <Button
+                            <button
                               type="button"
-                              variant="destructive"
-                              size="sm"
                               onClick={() => removeImage(index, imgIndex)}
-                              className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500/80 hover:bg-red-600 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              ×
-                            </Button>
+                              x
+                            </button>
                             <Input
                               value={image.caption || ''}
                               onChange={(e) => updateImageCaption(index, imgIndex, e.target.value)}
                               placeholder="Caption (optional)"
-                              className="mt-1 text-xs"
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 text-xs mt-1"
                             />
                           </div>
                         ))}
@@ -379,15 +386,14 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                   {/* Checklist Items */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Checklist Items</Label>
-                      <Button
+                      <label className="text-sm text-gray-300">Checklist Items</label>
+                      <button
                         type="button"
-                        variant="ghost"
-                        size="sm"
                         onClick={() => addChecklistItem(index)}
+                        className="text-gray-400 hover:text-white text-xs"
                       >
                         + Add Item
-                      </Button>
+                      </button>
                     </div>
                     {step.checklist_items.length === 0 ? (
                       <p className="text-xs text-gray-400">No checklist items</p>
@@ -401,17 +407,15 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                                 updateChecklistItem(index, itemIndex, e.target.value)
                               }
                               placeholder={`Item ${itemIndex + 1}`}
-                              className="flex-1"
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 flex-1"
                             />
-                            <Button
+                            <button
                               type="button"
-                              variant="ghost"
-                              size="sm"
                               onClick={() => removeChecklistItem(index, itemIndex)}
-                              className="text-red-500 hover:text-red-700"
+                              className="text-red-400 hover:text-red-300 h-8 w-8 flex items-center justify-center"
                             >
-                              ×
-                            </Button>
+                              x
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -419,18 +423,17 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                   </div>
 
                   <div className="flex justify-end pt-2">
-                    <Button
+                    <button
                       type="button"
-                      variant="destructive"
-                      size="sm"
                       onClick={() => removeStep(index)}
+                      className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs px-3 py-1.5 rounded-lg"
                     >
                       Remove Step
-                    </Button>
+                    </button>
                   </div>
-                </CardContent>
+                </div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
       )}
