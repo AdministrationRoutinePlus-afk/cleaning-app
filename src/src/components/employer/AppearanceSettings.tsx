@@ -151,7 +151,7 @@ export function AppearanceSettings({ theme, primaryColor, language, logoUrl, emp
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               size="sm"
-              className="border-white/20 text-gray-300 hover:bg-white/10"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               {uploading ? 'Uploading...' : currentLogoUrl ? 'Change Logo' : 'Upload Logo'}
             </Button>

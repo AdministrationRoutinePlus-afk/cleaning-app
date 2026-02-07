@@ -130,7 +130,7 @@ export function AccountSettings({ currentEmail, onChangeEmail, onChangePassword,
             onClick={handleEmailChange}
             disabled={changingEmail}
             variant="outline"
-            className="w-full border-white/20 text-gray-300 hover:bg-white/10"
+            className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             {changingEmail ? 'Sending Verification...' : 'Change Email'}
           </Button>
@@ -199,7 +199,7 @@ export function AccountSettings({ currentEmail, onChangeEmail, onChangePassword,
         <Button
           onClick={onLogout}
           variant="outline"
-          className="w-full border-white/20 text-gray-300 hover:bg-white/10"
+          className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
         >
           Logout
         </Button>
@@ -224,7 +224,7 @@ export function AccountSettings({ currentEmail, onChangeEmail, onChangePassword,
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="border-white/20 text-gray-300 hover:bg-white/10">Cancel</AlertDialogCancel>
+              <AlertDialogCancel className="bg-white/10 border-white/30 text-white hover:bg-white/20">Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={onDeleteAccount}
                 className="bg-red-600 hover:bg-red-700 text-white"

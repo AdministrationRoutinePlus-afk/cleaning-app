@@ -262,7 +262,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
                   size="sm"
                   variant="outline"
                   onClick={() => handleOpenEdit(note)}
-                  className="flex-1 border-white/20 text-gray-300 hover:bg-white/10"
+                  className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
                 >
                   <Edit2 className="w-3 h-3 mr-1" />
                   Edit
@@ -378,7 +378,7 @@ export function EmployeeNotesContent({ employerId }: EmployeeNotesContentProps) 
                 setShowAddDialog(false)
                 resetForm()
               }}
-              className="border-white/20 text-gray-300 hover:bg-white/10"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               Cancel
             </Button>

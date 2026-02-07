@@ -247,7 +247,7 @@ export default function EmployerJobsPage() {
             <Button
               variant="outline"
               onClick={() => router.push('/employer/jobs/history')}
-              className="gap-2 border-white/20 text-gray-300 hover:bg-white/10"
+              className="gap-2 bg-white/10 border-white/30 text-white hover:bg-white/20"
             >
               <History className="h-4 w-4" />
               History

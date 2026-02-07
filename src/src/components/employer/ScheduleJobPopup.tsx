@@ -457,7 +457,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 <Button onClick={handleReschedule} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
                   {loading ? 'Saving...' : 'Confirm Reschedule'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsRescheduling(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
+                <Button variant="outline" onClick={() => setIsRescheduling(false)} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
                   Cancel
                 </Button>
               </div>
@@ -488,7 +488,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 <Button onClick={handleModifyPrice} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
                   {loading ? 'Saving...' : 'Update Price'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsModifyingPrice(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
+                <Button variant="outline" onClick={() => setIsModifyingPrice(false)} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
                   Cancel
                 </Button>
               </div>
@@ -521,7 +521,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 >
                   {loading ? 'Refusing...' : 'Confirm Refuse'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsRefusing(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
+                <Button variant="outline" onClick={() => setIsRefusing(false)} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
                   Cancel
                 </Button>
               </div>
@@ -592,7 +592,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 >
                   {loading ? 'Sending...' : `Send to ${selectedEmployeeIds.length} Employee(s)`}
                 </Button>
-                <Button variant="outline" onClick={() => setIsPushingMessage(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
+                <Button variant="outline" onClick={() => setIsPushingMessage(false)} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
                   Cancel
                 </Button>
               </div>
@@ -627,7 +627,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 variant="outline"
                 onClick={() => setIsRescheduling(true)}
                 disabled={loading || !canModify}
-                className="border-white/20 text-gray-300 hover:bg-white/10"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
                 Move Job
               </Button>
@@ -636,7 +636,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 variant="outline"
                 onClick={() => setIsModifyingPrice(true)}
                 disabled={loading || !canModify}
-                className="border-white/20 text-gray-300 hover:bg-white/10"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
                 Modify Price
               </Button>
@@ -645,7 +645,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 variant="outline"
                 onClick={() => setIsPushingMessage(true)}
                 disabled={loading}
-                className="border-white/20 text-gray-300 hover:bg-white/10"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
                 Push to Messages
               </Button>
@@ -663,7 +663,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               <Button
                 variant="outline"
                 onClick={handleClose}
-                className="border-white/20 text-gray-300 hover:bg-white/10"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20"
               >
                 Close
               </Button>
