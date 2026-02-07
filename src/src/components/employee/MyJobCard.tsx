@@ -32,6 +32,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [showExchangeDialog, setShowExchangeDialog] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -349,13 +350,19 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       {/* Background Image with dark gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-40">
         {hasImage ? (
-          <Image
-            src={image_url}
-            alt={title}
-            fill
-            className="object-cover opacity-30"
-            onError={() => setImageError(true)}
-          />
+          <>
+            {!imageLoaded && (
+              <div className="absolute inset-0 animate-pulse bg-gray-700" />
+            )}
+            <Image
+              src={image_url}
+              alt={title}
+              fill
+              className={`object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-30' : 'opacity-0'}`}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+            />
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center opacity-20">
             <div className="text-8xl">

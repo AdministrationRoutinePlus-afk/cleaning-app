@@ -7,6 +7,30 @@ import { StepChecklist } from './StepChecklist'
 import { Button } from '@/components/ui/button'
 import { Check } from 'lucide-react'
 
+function ImageWithSkeleton({ src, alt, caption }: { src: string; alt: string; caption: string | null }) {
+  const [loaded, setLoaded] = useState(false)
+
+  return (
+    <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+      {!loaded && (
+        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+      )}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
+      {caption && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 p-1">
+          <p className="text-xs text-white text-center">{caption}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface StepCardProps {
   step: JobStep
   stepNumber: number
@@ -93,19 +117,12 @@ export function StepCard({
         <div className="p-4 border-b border-gray-200">
           <div className="grid grid-cols-2 gap-2">
             {sortedImages.map((image) => (
-              <div key={image.id} className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
-                <Image
-                  src={image.image_url}
-                  alt={image.caption || `Step ${stepNumber} image`}
-                  fill
-                  className="object-cover"
-                />
-                {image.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 p-1">
-                    <p className="text-xs text-white text-center">{image.caption}</p>
-                  </div>
-                )}
-              </div>
+              <ImageWithSkeleton
+                key={image.id}
+                src={image.image_url}
+                alt={image.caption || `Step ${stepNumber} image`}
+                caption={image.caption}
+              />
             ))}
           </div>
         </div>

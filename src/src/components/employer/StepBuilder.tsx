@@ -10,6 +10,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
+function StepBuilderImage({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false)
+  return (
+    <div className="aspect-video relative rounded-lg overflow-hidden bg-gray-100">
+      {!loaded && (
+        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+      )}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
+    </div>
+  )
+}
+
 export interface StepImage {
   url: string
   caption?: string
@@ -333,14 +351,10 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
                       <div className="grid grid-cols-2 gap-3">
                         {step.images.map((image, imgIndex) => (
                           <div key={imgIndex} className="relative group">
-                            <div className="aspect-video relative rounded-lg overflow-hidden bg-gray-100">
-                              <Image
-                                src={image.url}
-                                alt={image.caption || `Step ${step.step_order} image ${imgIndex + 1}`}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
+                            <StepBuilderImage
+                              src={image.url}
+                              alt={image.caption || `Step ${step.step_order} image ${imgIndex + 1}`}
+                            />
                             <Button
                               type="button"
                               variant="destructive"
