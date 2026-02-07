@@ -1,5 +1,6 @@
 'use client'
 
+import { parseISO } from 'date-fns'
 import { ChevronDown, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
@@ -139,7 +140,7 @@ export function MarketplaceJobCard({
             <p className="text-gray-400 text-xs mb-1">Scheduled</p>
             <p className="text-white font-semibold text-sm">
               {jobSession.scheduled_date
-                ? new Date(jobSession.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+                ? parseISO(jobSession.scheduled_date).toLocaleDateString('en-US', {
                     weekday: 'long',
                     month: 'long',
                     day: 'numeric'

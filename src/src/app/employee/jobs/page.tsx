@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { MyJobCard } from '@/components/employee/MyJobCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 
 type MainTab = 'current' | 'history'
 type SubTab = 'active' | 'upcoming' | 'pending' | 'completed' | 'refused' | 'issues'
@@ -16,7 +17,9 @@ export default function EmployeeJobsPage() {
   const [mainTab, setMainTab] = useState<MainTab>('current')
   const [subTab, setSubTab] = useState<SubTab>('active')
   const contentRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   // Fetch jobs for the current employee
   const fetchJobs = async () => {
@@ -59,19 +62,26 @@ export default function EmployeeJobsPage() {
         return
       }
 
+      if (!isMountedRef.current) return
+
       // Type assertion to ensure proper typing
       const typedData = data as unknown as JobSessionFull[]
       setJobs(typedData || [])
     } catch (error) {
       console.error('Error in fetchJobs:', error)
+      toast.error('Failed to load your jobs')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
   // Load jobs on mount
   useEffect(() => {
+    isMountedRef.current = true
     fetchJobs()
+    return () => { isMountedRef.current = false }
   }, [])
 
   // Scroll to top when tabs change

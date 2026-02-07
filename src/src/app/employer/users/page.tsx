@@ -17,27 +17,31 @@
  * - Edit customer details
  */
 
-import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Employee, Customer, EmployeeStatus, CustomerStatus, NewCustomer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { EmployeeCard } from '@/components/employer/EmployeeCard'
 import { CustomerCard } from '@/components/employer/CustomerCard'
+import { Plus, Users, Building2 } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function EmployerUsersPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   // State
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeMainTab, setActiveMainTab] = useState<'employees' | 'customers'>('employees')
   const [employeeTab, setEmployeeTab] = useState<'active' | 'pending' | 'inactive'>('active')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -50,7 +54,6 @@ export default function EmployerUsersPage() {
     phone: '',
     address: '',
     notes: '',
-    // Optional account credentials
     create_account: false,
     username: '',
     password: ''
@@ -64,7 +67,6 @@ export default function EmployerUsersPage() {
     phone: '',
     address: '',
     notes: '',
-    // Optional account credentials
     create_account: false,
     username: '',
     password: ''
@@ -72,7 +74,9 @@ export default function EmployerUsersPage() {
 
   // Load employees and customers
   useEffect(() => {
+    isMountedRef.current = true
     loadData()
+    return () => { isMountedRef.current = false }
   }, [])
 
   const loadData = async () => {
@@ -97,6 +101,7 @@ export default function EmployerUsersPage() {
       setCustomers(customersData || [])
     } catch (error) {
       console.error('Error loading data:', error)
+      toast.error('Failed to load users')
     } finally {
       setLoading(false)
     }
@@ -116,7 +121,6 @@ export default function EmployerUsersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get employer record to use employer.id (not user.id) for FK
       const { data: employer } = await supabase
         .from('employers')
         .select('id')
@@ -141,6 +145,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error activating employee:', error)
+      toast.error('Failed to activate employee')
     }
   }
 
@@ -155,10 +160,10 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error deactivating employee:', error)
+      toast.error('Failed to deactivate employee')
     }
   }
 
-  // Reactivate an inactive employee (back to ACTIVE status)
   const handleReactivateEmployee = async (employee: Employee) => {
     try {
       const { error } = await supabase
@@ -170,6 +175,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error reactivating employee:', error)
+      toast.error('Failed to reactivate employee')
     }
   }
 
@@ -184,10 +190,10 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error blocking employee:', error)
+      toast.error('Failed to block employee')
     }
   }
 
-  // Navigate to detailed employee profile page with job history, evaluations, strikes
   const handleViewEmployeeProfile = (employee: Employee) => {
     router.push(`/employer/users/employee/${employee.id}`)
   }
@@ -201,7 +207,6 @@ export default function EmployerUsersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Get employer record
       const { data: employer } = await supabase
         .from('employers')
         .select('id')
@@ -212,7 +217,6 @@ export default function EmployerUsersPage() {
 
       let authUserId: string | null = null
 
-      // Create auth account if requested (via server-side API)
       if (employeeForm.create_account && employeeForm.username && employeeForm.password) {
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
@@ -232,7 +236,6 @@ export default function EmployerUsersPage() {
         authUserId = result.user_id
       }
 
-      // Create employee record
       const { error: employeeError } = await supabase
         .from('employees')
         .insert({
@@ -242,13 +245,12 @@ export default function EmployerUsersPage() {
           phone: employeeForm.phone || null,
           address: employeeForm.address || null,
           notes: employeeForm.notes || null,
-          status: 'ACTIVE', // Created by employer = already active
+          status: 'ACTIVE',
           created_by: employer.id
         })
 
       if (employeeError) throw employeeError
 
-      // Reset form and reload
       setEmployeeForm({
         full_name: '',
         email: '',
@@ -263,13 +265,12 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error creating employee:', error)
-      alert('Failed to create employee. Please try again.')
+      toast.error('Failed to create employee. Please try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Navigate to detailed customer profile page with job history, evaluations, strikes
   const handleEditCustomer = (customer: Customer) => {
     router.push(`/employer/users/customer/${customer.id}`)
   }
@@ -285,6 +286,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error deactivating customer:', error)
+      toast.error('Failed to deactivate customer')
     }
   }
 
@@ -299,10 +301,10 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error blocking customer:', error)
+      toast.error('Failed to block customer')
     }
   }
 
-  // Navigate to customer profile (jobs tab is shown there)
   const handleViewCustomerJobs = (customer: Customer) => {
     router.push(`/employer/users/customer/${customer.id}`)
   }
@@ -316,14 +318,12 @@ export default function EmployerUsersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Validate customer code (3 letters)
       if (!/^[A-Z]{3}$/.test(customerForm.customer_code)) {
-        alert('Customer code must be exactly 3 uppercase letters')
+        toast.error('Customer code must be exactly 3 uppercase letters')
         setSubmitting(false)
         return
       }
 
-      // Get employer record
       const { data: employer } = await supabase
         .from('employers')
         .select('id')
@@ -334,7 +334,6 @@ export default function EmployerUsersPage() {
 
       let authUserId: string | null = null
 
-      // Create auth account if requested (via server-side API)
       if (customerForm.create_account && customerForm.username && customerForm.password) {
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
@@ -354,7 +353,6 @@ export default function EmployerUsersPage() {
         authUserId = result.user_id
       }
 
-      // Create customer record
       const { error: customerError } = await supabase
         .from('customers')
         .insert({
@@ -371,7 +369,6 @@ export default function EmployerUsersPage() {
 
       if (customerError) throw customerError
 
-      // Reset form and reload
       setCustomerForm({
         customer_code: '',
         full_name: '',
@@ -387,7 +384,7 @@ export default function EmployerUsersPage() {
       await loadData()
     } catch (error) {
       console.error('Error creating customer:', error)
-      alert('Failed to create customer. Please try again.')
+      toast.error('Failed to create customer. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -397,110 +394,146 @@ export default function EmployerUsersPage() {
     return <LoadingSpinner fullScreen />
   }
 
+  const employeeSubTabs: { value: typeof employeeTab; label: string }[] = [
+    { value: 'active', label: 'Active' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'inactive', label: 'Inactive' },
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen p-4 pb-20">
       <div className="max-w-7xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Users Management</h1>
+          <h1 className="text-2xl font-bold text-white">Users</h1>
         </div>
 
-        <Tabs defaultValue="employees" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-          </TabsList>
+        {/* Main Tabs: Employees / Customers */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveMainTab('employees')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              activeMainTab === 'employees'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Employees
+          </button>
+          <button
+            onClick={() => setActiveMainTab('customers')}
+            className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              activeMainTab === 'customers'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            Customers
+          </button>
+        </div>
 
-          {/* EMPLOYEES TAB */}
-          <TabsContent value="employees" className="space-y-4">
+        {/* EMPLOYEES TAB */}
+        {activeMainTab === 'employees' && (
+          <div className="space-y-4">
             <div className="flex justify-end">
               <Sheet open={employeeSheetOpen} onOpenChange={setEmployeeSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>Add Employee</Button>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Employee
+                  </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto bg-gray-900 border-white/20">
                   <SheetHeader>
-                    <SheetTitle>Create New Employee</SheetTitle>
-                    <SheetDescription>
+                    <SheetTitle className="text-white">Create New Employee</SheetTitle>
+                    <SheetDescription className="text-gray-400">
                       Add a new employee to your team. Optionally create login credentials.
                     </SheetDescription>
                   </SheetHeader>
                   <form onSubmit={handleCreateEmployee} className="space-y-4 mt-6">
                     <div className="space-y-2">
-                      <Label htmlFor="emp_full_name">Full Name *</Label>
+                      <Label htmlFor="emp_full_name" className="text-gray-300">Full Name *</Label>
                       <Input
                         id="emp_full_name"
                         placeholder="John Doe"
                         required
                         value={employeeForm.full_name}
                         onChange={(e) => setEmployeeForm({ ...employeeForm, full_name: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_email">Email</Label>
+                      <Label htmlFor="emp_email" className="text-gray-300">Email</Label>
                       <Input
                         id="emp_email"
                         type="email"
                         placeholder="john@example.com"
                         value={employeeForm.email}
                         onChange={(e) => setEmployeeForm({ ...employeeForm, email: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_phone">Phone</Label>
+                      <Label htmlFor="emp_phone" className="text-gray-300">Phone</Label>
                       <Input
                         id="emp_phone"
                         type="tel"
                         placeholder="+1 (555) 123-4567"
                         value={employeeForm.phone}
                         onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_address">Address</Label>
+                      <Label htmlFor="emp_address" className="text-gray-300">Address</Label>
                       <Input
                         id="emp_address"
                         placeholder="123 Main St, City, State"
                         value={employeeForm.address}
                         onChange={(e) => setEmployeeForm({ ...employeeForm, address: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="emp_notes">Notes (optional)</Label>
+                      <Label htmlFor="emp_notes" className="text-gray-300">Notes (optional)</Label>
                       <Input
                         id="emp_notes"
                         placeholder="Internal notes..."
                         value={employeeForm.notes}
                         onChange={(e) => setEmployeeForm({ ...employeeForm, notes: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
 
                     {/* Account Section */}
-                    <div className="border-t pt-4 mt-4">
+                    <div className="border-t border-white/10 pt-4 mt-4">
                       <div className="flex items-center space-x-2 mb-4">
                         <input
                           type="checkbox"
                           id="emp_create_account"
                           checked={employeeForm.create_account}
                           onChange={(e) => setEmployeeForm({ ...employeeForm, create_account: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300"
+                          className="h-4 w-4 rounded border-white/20 bg-white/5"
                         />
-                        <Label htmlFor="emp_create_account" className="font-medium">Create login account</Label>
+                        <Label htmlFor="emp_create_account" className="font-medium text-gray-300">Create login account</Label>
                       </div>
 
                       {employeeForm.create_account && (
-                        <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                        <div className="space-y-4 pl-6 border-l-2 border-blue-500/30">
                           <div className="space-y-2">
-                            <Label htmlFor="emp_username">Username *</Label>
+                            <Label htmlFor="emp_username" className="text-gray-300">Username *</Label>
                             <Input
                               id="emp_username"
                               placeholder="johndoe"
                               required={employeeForm.create_account}
                               value={employeeForm.username}
                               onChange={(e) => setEmployeeForm({ ...employeeForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="emp_password">Password *</Label>
+                            <Label htmlFor="emp_password" className="text-gray-300">Password *</Label>
                             <Input
                               id="emp_password"
                               type="password"
@@ -509,13 +542,14 @@ export default function EmployerUsersPage() {
                               minLength={6}
                               value={employeeForm.password}
                               onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                             />
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={submitting}>
+                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
                       {submitting ? 'Creating...' : 'Create Employee'}
                     </Button>
                   </form>
@@ -523,85 +557,67 @@ export default function EmployerUsersPage() {
               </Sheet>
             </div>
 
-            <Tabs value={employeeTab} onValueChange={(v) => setEmployeeTab(v as typeof employeeTab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="inactive">Inactive/Blocked</TabsTrigger>
-              </TabsList>
+            {/* Employee Sub-Tabs */}
+            <div className="flex gap-2">
+              {employeeSubTabs.map(tab => (
+                <button
+                  key={tab.value}
+                  onClick={() => setEmployeeTab(tab.value)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                    employeeTab === tab.value
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              <TabsContent value="active" className="space-y-4 mt-4">
-                {filteredEmployees.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No active employees</p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredEmployees.map((employee) => (
-                      <EmployeeCard
-                        key={employee.id}
-                        employee={employee}
-                        onDeactivate={handleDeactivateEmployee}
-                        onBlock={handleBlockEmployee}
-                        onViewProfile={handleViewEmployeeProfile}
-                      />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
+            {/* Employee List */}
+            {filteredEmployees.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                No {employeeTab === 'inactive' ? 'inactive/blocked' : employeeTab} employees
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredEmployees.map((employee) => (
+                  <EmployeeCard
+                    key={employee.id}
+                    employee={employee}
+                    onActivate={employeeTab === 'pending' ? handleActivateEmployee : undefined}
+                    onDeactivate={employeeTab === 'active' ? handleDeactivateEmployee : undefined}
+                    onReactivate={employeeTab === 'inactive' ? handleReactivateEmployee : undefined}
+                    onBlock={employeeTab !== 'inactive' ? handleBlockEmployee : undefined}
+                    onViewProfile={handleViewEmployeeProfile}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-              <TabsContent value="pending" className="space-y-4 mt-4">
-                {filteredEmployees.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No pending employees</p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredEmployees.map((employee) => (
-                      <EmployeeCard
-                        key={employee.id}
-                        employee={employee}
-                        onActivate={handleActivateEmployee}
-                        onBlock={handleBlockEmployee}
-                        onViewProfile={handleViewEmployeeProfile}
-                      />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="inactive" className="space-y-4 mt-4">
-                {filteredEmployees.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">No inactive/blocked employees</p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredEmployees.map((employee) => (
-                      <EmployeeCard
-                        key={employee.id}
-                        employee={employee}
-                        onReactivate={handleReactivateEmployee}
-                        onViewProfile={handleViewEmployeeProfile}
-                      />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-
-          {/* CUSTOMERS TAB */}
-          <TabsContent value="customers" className="space-y-4">
+        {/* CUSTOMERS TAB */}
+        {activeMainTab === 'customers' && (
+          <div className="space-y-4">
             <div className="flex justify-end">
               <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button>Add Customer</Button>
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Customer
+                  </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto bg-gray-900 border-white/20">
                   <SheetHeader>
-                    <SheetTitle>Create New Customer</SheetTitle>
-                    <SheetDescription>
+                    <SheetTitle className="text-white">Create New Customer</SheetTitle>
+                    <SheetDescription className="text-gray-400">
                       Add a new customer to your system. This will create an account for them.
                     </SheetDescription>
                   </SheetHeader>
                   <form onSubmit={handleCreateCustomer} className="space-y-4 mt-6">
                     <div className="space-y-2">
-                      <Label htmlFor="customer_code">Customer Code (3 letters)</Label>
+                      <Label htmlFor="customer_code" className="text-gray-300">Customer Code (3 letters)</Label>
                       <Input
                         id="customer_code"
                         placeholder="ABC"
@@ -609,84 +625,91 @@ export default function EmployerUsersPage() {
                         required
                         value={customerForm.customer_code}
                         onChange={(e) => setCustomerForm({ ...customerForm, customer_code: e.target.value.toUpperCase() })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="full_name">Full Name</Label>
+                      <Label htmlFor="full_name" className="text-gray-300">Full Name</Label>
                       <Input
                         id="full_name"
                         placeholder="John Doe"
                         required
                         value={customerForm.full_name}
                         onChange={(e) => setCustomerForm({ ...customerForm, full_name: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email (optional)</Label>
+                      <Label htmlFor="email" className="text-gray-300">Email (optional)</Label>
                       <Input
                         id="email"
                         type="email"
                         placeholder="john@example.com"
                         value={customerForm.email}
                         onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="phone" className="text-gray-300">Phone</Label>
                       <Input
                         id="phone"
                         type="tel"
                         placeholder="+1 (555) 123-4567"
                         value={customerForm.phone}
                         onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="address">Address</Label>
+                      <Label htmlFor="address" className="text-gray-300">Address</Label>
                       <Input
                         id="address"
                         placeholder="123 Main St, City, State"
                         value={customerForm.address}
                         onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="notes">Notes (optional)</Label>
+                      <Label htmlFor="notes" className="text-gray-300">Notes (optional)</Label>
                       <Input
                         id="notes"
                         placeholder="Internal notes about this customer..."
                         value={customerForm.notes}
                         onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })}
+                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                       />
                     </div>
 
                     {/* Account Section */}
-                    <div className="border-t pt-4 mt-4">
+                    <div className="border-t border-white/10 pt-4 mt-4">
                       <div className="flex items-center space-x-2 mb-4">
                         <input
                           type="checkbox"
                           id="cust_create_account"
                           checked={customerForm.create_account}
                           onChange={(e) => setCustomerForm({ ...customerForm, create_account: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300"
+                          className="h-4 w-4 rounded border-white/20 bg-white/5"
                         />
-                        <Label htmlFor="cust_create_account" className="font-medium">Create login account</Label>
+                        <Label htmlFor="cust_create_account" className="font-medium text-gray-300">Create login account</Label>
                       </div>
 
                       {customerForm.create_account && (
-                        <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                        <div className="space-y-4 pl-6 border-l-2 border-blue-500/30">
                           <div className="space-y-2">
-                            <Label htmlFor="cust_username">Username *</Label>
+                            <Label htmlFor="cust_username" className="text-gray-300">Username *</Label>
                             <Input
                               id="cust_username"
                               placeholder="johndoe"
                               required={customerForm.create_account}
                               value={customerForm.username}
                               onChange={(e) => setCustomerForm({ ...customerForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="cust_password">Password *</Label>
+                            <Label htmlFor="cust_password" className="text-gray-300">Password *</Label>
                             <Input
                               id="cust_password"
                               type="password"
@@ -695,13 +718,14 @@ export default function EmployerUsersPage() {
                               minLength={6}
                               value={customerForm.password}
                               onChange={(e) => setCustomerForm({ ...customerForm, password: e.target.value })}
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                             />
                           </div>
                         </div>
                       )}
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={submitting}>
+                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={submitting}>
                       {submitting ? 'Creating...' : 'Create Customer'}
                     </Button>
                   </form>
@@ -710,7 +734,7 @@ export default function EmployerUsersPage() {
             </div>
 
             {customers.length === 0 ? (
-              <p className="text-gray-600 text-center py-8">No customers yet</p>
+              <p className="text-gray-500 text-center py-8">No customers yet</p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {customers.map((customer) => (
@@ -725,8 +749,8 @@ export default function EmployerUsersPage() {
                 ))}
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
       </div>
     </div>
   )

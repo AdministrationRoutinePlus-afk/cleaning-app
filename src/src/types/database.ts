@@ -436,3 +436,61 @@ export interface EvaluationWithDetails extends Evaluation {
 export interface StrikeWithTarget extends Strike {
   target: Customer | Employee
 }
+
+// =============================================
+// EMPLOYER DASHBOARD TYPES
+// =============================================
+
+export type EmployerNoteType = 'ILLNESS' | 'ABSENCE' | 'PERFORMANCE' | 'OTHER'
+
+export interface EmployerNote {
+  id: string
+  employer_id: string
+  employee_id: string
+  note_type: EmployerNoteType
+  title: string
+  content: string | null
+  note_date: string
+  created_at: string
+  updated_at: string
+}
+
+export type TodoPriority = 'LOW' | 'MEDIUM' | 'HIGH'
+
+export interface EmployerTodo {
+  id: string
+  employer_id: string
+  title: string
+  description: string | null
+  due_date: string | null
+  is_completed: boolean
+  completed_at: string | null
+  priority: TodoPriority
+  created_at: string
+  updated_at: string
+}
+
+export type JobSessionNoteType = 'CLIENT_FEEDBACK' | 'INTERNAL' | 'FOLLOW_UP'
+
+export interface JobSessionNote {
+  id: string
+  job_session_id: string
+  employer_id: string
+  note_type: JobSessionNoteType
+  content: string
+  created_at: string
+}
+
+// Helper types for new records
+export type NewEmployerNote = Omit<EmployerNote, 'id' | 'created_at' | 'updated_at'>
+export type NewEmployerTodo = Omit<EmployerTodo, 'id' | 'created_at' | 'updated_at' | 'completed_at'>
+export type NewJobSessionNote = Omit<JobSessionNote, 'id' | 'created_at'>
+
+// Join types
+export interface EmployerNoteWithEmployee extends EmployerNote {
+  employee: Employee
+}
+
+export interface JobSessionNoteWithSession extends JobSessionNote {
+  job_session: JobSessionFull
+}

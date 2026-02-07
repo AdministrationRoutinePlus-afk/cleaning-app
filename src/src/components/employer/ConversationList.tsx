@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { Conversation, ConversationParticipant, Message } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { MessageSquare } from 'lucide-react'
 
 interface ConversationWithDetails extends Conversation {
   conversation_participants: ConversationParticipant[]
@@ -32,7 +32,6 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
         return
       }
 
-      // First get conversation IDs where user is a participant
       const { data: participations, error: partError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
@@ -45,14 +44,12 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
       }
 
       if (!participations || participations.length === 0) {
-        // No conversations yet - this is normal
         setConversations([])
         return
       }
 
       const conversationIds = participations.map(p => p.conversation_id)
 
-      // Now fetch the full conversation details
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -110,12 +107,10 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
     return (
       <div className="space-y-3">
         {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-4">
-              <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-            </CardContent>
-          </Card>
+          <div key={i} className="bg-white/5 rounded-xl p-4 animate-pulse border border-white/10">
+            <div className="h-4 bg-white/10 rounded w-1/3 mb-2"></div>
+            <div className="h-3 bg-white/10 rounded w-2/3"></div>
+          </div>
         ))}
       </div>
     )
@@ -123,9 +118,9 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
 
   if (conversations.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">No conversations yet</p>
-        <p className="text-sm text-gray-400 mt-1">Messages will appear here when you start chatting</p>
+      <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+        <p className="text-gray-400">No conversations yet</p>
+        <p className="text-sm text-gray-500 mt-1">Messages will appear here when you start chatting</p>
       </div>
     )
   }
@@ -137,39 +132,42 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
         const unread = hasUnreadMessages(conv)
 
         return (
-          <Card
+          <div
             key={conv.id}
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white/5 rounded-xl border border-white/10 p-4 cursor-pointer hover:bg-white/[0.07] transition-colors"
             onClick={() => onSelectConversation(conv.id)}
           >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-5 h-5 text-blue-400" />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium text-gray-900 truncate">
+                    <h3 className="font-medium text-white truncate">
                       {conv.conversation_participants.length > 0
                         ? 'Employee Chat'
                         : 'Direct Message'}
                     </h3>
                     {unread && (
-                      <Badge variant="default" className="text-xs">New</Badge>
+                      <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">New</Badge>
                     )}
                   </div>
 
                   {lastMessage && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-600 line-clamp-2">
+                      <p className="text-sm text-gray-400 line-clamp-2">
                         {lastMessage.content}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-500">
                         {formatTimestamp(lastMessage.sent_at)}
                       </p>
                     </div>
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )
       })}
     </div>

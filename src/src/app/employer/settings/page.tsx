@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { EmployerSettings, CompanyInfo, ThemeType } from '@/types/database'
 import { AppearanceSettings } from '@/components/employer/AppearanceSettings'
@@ -10,6 +10,7 @@ import { AccountManagement } from '@/components/employer/AccountManagement'
 import { AccountSettings } from '@/components/employer/AccountSettings'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { toast } from 'sonner'
 
 export default function EmployerSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -17,11 +18,15 @@ export default function EmployerSettingsPage() {
   const [userEmail, setUserEmail] = useState<string>('')
   const [settings, setSettings] = useState<EmployerSettings | null>(null)
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   // Load employer data and settings
   useEffect(() => {
+    isMountedRef.current = true
     loadSettings()
+    return () => { isMountedRef.current = false }
   }, [])
 
   const loadSettings = async () => {
@@ -96,6 +101,7 @@ export default function EmployerSettingsPage() {
       setCompanyInfo(companyData || null)
     } catch (error) {
       console.error('Error loading settings:', error)
+      toast.error('Failed to load settings')
     } finally {
       setLoading(false)
     }
@@ -177,9 +183,7 @@ export default function EmployerSettingsPage() {
   }) => {
     if (!employerId) return
 
-    // Check if company info exists
     if (companyInfo) {
-      // Update existing
       const { error } = await supabase
         .from('company_info')
         .update({
@@ -199,7 +203,6 @@ export default function EmployerSettingsPage() {
         throw error
       }
     } else {
-      // Create new
       const { error } = await supabase
         .from('company_info')
         .insert({
@@ -233,7 +236,6 @@ export default function EmployerSettingsPage() {
       throw error
     }
 
-    // Also update the employer record
     if (employerId) {
       await supabase
         .from('employers')
@@ -264,7 +266,6 @@ export default function EmployerSettingsPage() {
   const handleDeleteAccount = async () => {
     if (!employerId) return
 
-    // Delete employer record (cascading deletes will handle related data)
     const { error } = await supabase
       .from('employers')
       .delete()
@@ -275,7 +276,6 @@ export default function EmployerSettingsPage() {
       throw error
     }
 
-    // Sign out
     await supabase.auth.signOut()
     window.location.href = '/'
   }
@@ -286,26 +286,26 @@ export default function EmployerSettingsPage() {
 
   if (!settings) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg font-medium text-red-600">Failed to load settings</div>
+          <div className="text-lg font-medium text-red-400">Failed to load settings</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
+    <div className="min-h-screen p-4 pb-20">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
+        <p className="text-gray-400 mb-6">
           Manage your account, notifications, and company information
         </p>
 
         <Accordion type="single" collapsible className="space-y-4">
-          <AccordionItem value="appearance" className="bg-white rounded-lg border-0">
+          <AccordionItem value="appearance" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold">App Appearance</span>
+              <span className="text-lg font-semibold text-white">App Appearance</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AppearanceSettings
@@ -319,9 +319,9 @@ export default function EmployerSettingsPage() {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="notifications" className="bg-white rounded-lg border-0">
+          <AccordionItem value="notifications" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold">Notifications</span>
+              <span className="text-lg font-semibold text-white">Notifications</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <NotificationSettings
@@ -338,9 +338,9 @@ export default function EmployerSettingsPage() {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="company" className="bg-white rounded-lg border-0">
+          <AccordionItem value="company" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold">Company Information</span>
+              <span className="text-lg font-semibold text-white">Company Information</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <CompanyInfoForm
@@ -350,18 +350,18 @@ export default function EmployerSettingsPage() {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="management" className="bg-white rounded-lg border-0">
+          <AccordionItem value="management" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold">Account Management</span>
+              <span className="text-lg font-semibold text-white">Account Management</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AccountManagement />
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="account" className="bg-white rounded-lg border-0">
+          <AccordionItem value="account" className="bg-white/5 rounded-xl border border-white/10">
             <AccordionTrigger className="px-6 hover:no-underline">
-              <span className="text-lg font-semibold">Account & Security</span>
+              <span className="text-lg font-semibold text-white">Account & Security</span>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
               <AccountSettings

@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'sonner'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
@@ -7,6 +8,7 @@ import type { JobSession, JobTemplate, Customer, Employee, JobExchange } from '@
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { parseISO, startOfDay } from 'date-fns'
 import { ShoppingBag, Users, ArrowRightLeft, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
 import Image from 'next/image'
 
@@ -43,6 +45,13 @@ export default function EmployeeMarketplacePage() {
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null)
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
 
   // Load user and data
   useEffect(() => {
@@ -65,7 +74,7 @@ export default function EmployeeMarketplacePage() {
         .from('employees')
         .select('id')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
       const empId = employee?.id
       if (empId) setEmployeeId(empId)
@@ -152,6 +161,7 @@ export default function EmployeeMarketplacePage() {
 
     } catch (error) {
       console.error('Error loading jobs:', error)
+      toast.error('Failed to load marketplace jobs')
     } finally {
       setLoading(false)
     }
@@ -190,6 +200,7 @@ export default function EmployeeMarketplacePage() {
       setSwapJobs(validExchanges)
     } catch (error) {
       console.error('Error loading swap jobs:', error)
+      toast.error('Failed to load swap jobs')
     } finally {
       setSwapLoading(false)
     }
@@ -207,8 +218,29 @@ export default function EmployeeMarketplacePage() {
     }
   }, [mainTab, employeeId, loadSwapJobs])
 
+  // Cross-tab synchronization for swipe history
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('swipe-history-sync')
+      broadcastChannelRef.current = channel
+
+      channel.onmessage = () => {
+        // Another tab changed swipe history, reload data
+        if (userId) {
+          loadData()
+        }
+      }
+
+      return () => {
+        channel.close()
+        broadcastChannelRef.current = null
+      }
+    }
+  }, [userId, loadData])
+
   const loadUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
+    if (!isMountedRef.current) return
     if (user) {
       setUserId(user.id)
 
@@ -217,8 +249,9 @@ export default function EmployeeMarketplacePage() {
         .from('employees')
         .select('id, status')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
+      if (!isMountedRef.current) return
       if (employee) {
         setEmployeeStatus(employee.status)
         setEmployeeId(employee.id)
@@ -230,7 +263,14 @@ export default function EmployeeMarketplacePage() {
   const getSwipeHistory = (): SwipeAction[] => {
     if (typeof window === 'undefined') return []
     const history = localStorage.getItem('swipeHistory')
-    return history ? JSON.parse(history) : []
+    if (!history) return []
+    try {
+      return JSON.parse(history) as SwipeAction[]
+    } catch {
+      // Corrupted data - clear and return empty
+      localStorage.removeItem('swipeHistory')
+      return []
+    }
   }
 
   const saveSwipeAction = (jobSessionId: string, action: 'interested' | 'skipped') => {
@@ -241,12 +281,14 @@ export default function EmployeeMarketplacePage() {
       timestamp: new Date().toISOString()
     })
     localStorage.setItem('swipeHistory', JSON.stringify(history))
+    broadcastChannelRef.current?.postMessage({ type: 'swipe-update' })
   }
 
   const removeFromSwipeHistory = (jobSessionId: string) => {
     const history = getSwipeHistory()
     const updated = history.filter(h => h.jobSessionId !== jobSessionId)
     localStorage.setItem('swipeHistory', JSON.stringify(updated))
+    broadcastChannelRef.current?.postMessage({ type: 'swipe-update' })
   }
 
   // Group jobs by scheduled_date
@@ -266,9 +308,8 @@ export default function EmployeeMarketplacePage() {
 
   // Format date for header display
   const formatDateHeader = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00')
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const date = startOfDay(parseISO(dateStr))
+    const today = startOfDay(new Date())
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
@@ -293,20 +334,32 @@ export default function EmployeeMarketplacePage() {
   // Handle claim job
   const handleClaimJob = async (job: JobSessionWithDetails) => {
     try {
-      // Get employee record
-      const { data: employee } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('user_id', userId)
-        .single()
-
-      if (!employee) {
-        console.error('Employee record not found')
+      // Check employee status is ACTIVE before allowing claim
+      if (employeeStatus !== 'ACTIVE') {
+        toast.error('Your account must be active to claim jobs.')
         return
       }
 
-      // Update job session
-      const { error } = await supabase
+      // Get employee record
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id, status')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (!employee) {
+        toast.error('Employee record not found.')
+        return
+      }
+
+      // Double-check employee status from DB
+      if (employee.status !== 'ACTIVE') {
+        toast.error('Your account must be active to claim jobs.')
+        return
+      }
+
+      // Update job session with optimistic locking - only claim if still OFFERED
+      const { data: updated, error } = await supabase
         .from('job_sessions')
         .update({
           status: 'CLAIMED',
@@ -314,8 +367,17 @@ export default function EmployeeMarketplacePage() {
           updated_at: new Date().toISOString()
         })
         .eq('id', job.id)
+        .eq('status', 'OFFERED')
+        .select()
 
       if (error) throw error
+
+      // Verify the update actually affected a row (another employee may have claimed it first)
+      if (!updated || updated.length === 0) {
+        toast.error('This job has already been claimed by another employee.')
+        setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+        return
+      }
 
       // Save to swipe history
       saveSwipeAction(job.id, 'interested')
@@ -327,6 +389,7 @@ export default function EmployeeMarketplacePage() {
 
     } catch (error) {
       console.error('Error claiming job:', error)
+      toast.error('Failed to claim job. Please try again.')
     }
   }
 
@@ -346,10 +409,10 @@ export default function EmployeeMarketplacePage() {
         .from('employees')
         .select('id')
         .eq('user_id', userId)
-        .single()
+        .maybeSingle()
 
       if (employee) {
-        // Unclaim all jobs claimed by this employee (set back to OFFERED)
+        // Unclaim all jobs claimed/approved/refused by this employee (set back to OFFERED)
         await supabase
           .from('job_sessions')
           .update({
@@ -358,11 +421,12 @@ export default function EmployeeMarketplacePage() {
             updated_at: new Date().toISOString()
           })
           .eq('assigned_to', employee.id)
-          .eq('status', 'CLAIMED')
+          .in('status', ['CLAIMED', 'APPROVED', 'REFUSED'])
       }
 
-      // Clear localStorage
+      // Clear localStorage and notify other tabs
       localStorage.removeItem('swipeHistory')
+      broadcastChannelRef.current?.postMessage({ type: 'swipe-update' })
 
       // Reset state
       setSkippedJobs([])
@@ -412,10 +476,10 @@ export default function EmployeeMarketplacePage() {
       // Remove from swap list
       setSwapJobs(prev => prev.filter(s => s.id !== exchange.id))
 
-      alert('Swap request sent! Waiting for employer approval.')
+      toast.success('Swap request sent! Waiting for employer approval.')
     } catch (error) {
       console.error('Error claiming swap:', error)
-      alert('Failed to claim swap')
+      toast.error('Failed to claim swap')
     }
   }
 

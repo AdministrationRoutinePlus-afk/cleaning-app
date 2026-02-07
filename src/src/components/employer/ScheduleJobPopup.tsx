@@ -1,26 +1,13 @@
 'use client'
 
 /**
- * ScheduleJobPopup Component
+ * ScheduleJobPopup Component - Dark Theme
  *
  * A modal dialog that displays job session details and provides actions for
  * managing scheduled jobs from the employer's calendar view.
- *
- * FEATURES:
- * - View job details: code, date, time, duration, rate, address, description
- * - View assigned employee info (if any)
- * - Cancel Job: Sets job status to CANCELLED
- * - Move Job (Reschedule): Change scheduled date and time
- * - Modify Price/Hour: Override the job template's price for this session
- * - Push to Messages: Send a notification/message to the assigned employee
- *
- * BUSINESS LOGIC:
- * - Cancel and Reschedule are disabled for CANCELLED and COMPLETED jobs
- * - Modify Price is disabled for CANCELLED and COMPLETED jobs
- * - Push to Messages requires an assigned employee
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { JobSession, JobTemplate, Employee, JobSessionStatus } from '@/types/database'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -31,14 +18,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
+import { sanitizeText } from '@/lib/utils/sanitize'
+import { toast } from 'sonner'
 
-// Extended job session with related data from joins
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate
   employee: Employee | null
 }
 
-// Component props
 interface ScheduleJobPopupProps {
   jobSession: JobSessionWithDetails | null
   open: boolean
@@ -47,34 +34,24 @@ interface ScheduleJobPopupProps {
 }
 
 export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: ScheduleJobPopupProps) {
-  // UI state for different action modes
   const [isRescheduling, setIsRescheduling] = useState(false)
   const [isModifyingPrice, setIsModifyingPrice] = useState(false)
   const [isPushingMessage, setIsPushingMessage] = useState(false)
   const [isRefusing, setIsRefusing] = useState(false)
 
-  // Form state for reschedule action
   const [newDate, setNewDate] = useState('')
   const [newTime, setNewTime] = useState('')
-
-  // Form state for modify price action
   const [newPrice, setNewPrice] = useState('')
-
-  // Form state for push to messages action
   const [messageContent, setMessageContent] = useState('')
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
-
-  // Form state for refuse action
   const [refuseReason, setRefuseReason] = useState('')
-
-  // Loading state for async operations
   const [loading, setLoading] = useState(false)
 
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
-  // Load all active employees when opening push message panel
   useEffect(() => {
     if (isPushingMessage) {
       loadEmployees()
@@ -90,7 +67,6 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
     if (!error && data) {
       setAllEmployees(data)
-      // Pre-select assigned employee if any
       if (jobSession?.assigned_to) {
         setSelectedEmployeeIds([jobSession.assigned_to])
       }
@@ -116,34 +92,24 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     })
   }
 
-  if (!jobSession) return null
+  if (!jobSession || !jobSession.job_template) return null
 
-  // Check if job can be modified (not cancelled, completed, missed, or overdue)
   const canModify = jobSession.status !== 'CANCELLED' && jobSession.status !== 'COMPLETED' && jobSession.status !== 'EVALUATED' && jobSession.status !== 'MISSED' && jobSession.status !== 'OVERDUE'
 
-  const getStatusColor = (status: JobSessionStatus): string => {
-    switch (status) {
-      case 'OFFERED':
-        return 'bg-gray-500'
-      case 'CLAIMED':
-        return 'bg-yellow-500'
-      case 'APPROVED':
-        return 'bg-blue-500'
-      case 'IN_PROGRESS':
-        return 'bg-purple-500'
-      case 'COMPLETED':
-        return 'bg-green-500'
-      case 'CANCELLED':
-        return 'bg-red-500'
-      case 'EVALUATED':
-        return 'bg-teal-500'
-      case 'MISSED':
-        return 'bg-red-600'
-      case 'OVERDUE':
-        return 'bg-red-600'
-      default:
-        return 'bg-gray-500'
+  const getStatusBadge = (status: JobSessionStatus) => {
+    const config: Record<string, { bg: string; text: string; border: string }> = {
+      OFFERED: { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30' },
+      CLAIMED: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30' },
+      APPROVED: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30' },
+      IN_PROGRESS: { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/30' },
+      COMPLETED: { bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/30' },
+      EVALUATED: { bg: 'bg-teal-500/20', text: 'text-teal-300', border: 'border-teal-500/30' },
+      CANCELLED: { bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30' },
+      MISSED: { bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30' },
+      OVERDUE: { bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30' },
     }
+    const c = config[status] || config.OFFERED
+    return <Badge className={`${c.bg} ${c.text} border ${c.border}`}>{status}</Badge>
   }
 
   const handleCancel = async () => {
@@ -157,21 +123,16 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
         .eq('id', jobSession.id)
 
       if (error) throw error
-
-      alert('Job session cancelled successfully')
       onUpdate()
       onClose()
     } catch (error) {
       console.error('Error cancelling job session:', error)
-      alert('Failed to cancel job session')
+      toast.error('Failed to cancel job session')
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Handle approving a CLAIMED job - sets status to APPROVED
-   */
   const handleApprove = async () => {
     setLoading(true)
     try {
@@ -184,31 +145,24 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
         .eq('id', jobSession.id)
 
       if (error) throw error
-
-      alert('Job approved successfully!')
       onUpdate()
       onClose()
     } catch (error) {
       console.error('Error approving job:', error)
-      alert('Failed to approve job')
+      toast.error('Failed to approve job')
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Handle refusing a CLAIMED job - sets status to REFUSED and keeps employee assigned
-   * so they can see the refusal reason
-   */
   const handleRefuse = async () => {
     if (!refuseReason.trim()) {
-      alert('Please provide a reason for refusing')
+      toast.error('Please provide a reason for refusing')
       return
     }
 
     setLoading(true)
     try {
-      // Update job session to REFUSED (keep assigned_to so employee can see it)
       const { error } = await supabase
         .from('job_sessions')
         .update({
@@ -219,36 +173,39 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
       if (error) throw error
 
-      // Send a message to the employee with the reason
       if (jobSession.assigned_to) {
+        const sanitizedReason = sanitizeText(refuseReason.trim())
         await supabase
           .from('schedule_messages')
           .insert({
             job_session_id: jobSession.id,
             employee_id: jobSession.assigned_to,
-            message: `Your claim was refused: ${refuseReason.trim()}`
+            message: `Your claim was refused: ${sanitizedReason}`
           })
       }
 
-      alert('Claim refused.')
       setIsRefusing(false)
       setRefuseReason('')
       onUpdate()
       onClose()
     } catch (error) {
       console.error('Error refusing job:', error)
-      alert('Failed to refuse job')
+      toast.error('Failed to refuse job')
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Handle rescheduling: Updates the job session's date and time
-   */
   const handleReschedule = async () => {
     if (!newDate || !newTime) {
-      alert('Please provide both date and time')
+      toast.error('Please provide both date and time')
+      return
+    }
+
+    // Validate date is not in the past
+    const selectedDate = new Date(newDate + 'T' + newTime)
+    if (selectedDate < new Date()) {
+      toast.error('Cannot schedule a job in the past')
       return
     }
 
@@ -264,7 +221,6 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
       if (error) throw error
 
-      alert('Job session rescheduled successfully')
       setIsRescheduling(false)
       setNewDate('')
       setNewTime('')
@@ -272,20 +228,16 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
       onClose()
     } catch (error) {
       console.error('Error rescheduling job session:', error)
-      alert('Failed to reschedule job session')
+      toast.error('Failed to reschedule job session')
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Handle price modification: Sets a price override for this specific session
-   * The price_override field takes precedence over the job template's price_per_hour
-   */
   const handleModifyPrice = async () => {
     const priceValue = parseFloat(newPrice)
     if (isNaN(priceValue) || priceValue <= 0) {
-      alert('Please enter a valid price')
+      toast.error('Please enter a valid price')
       return
     }
 
@@ -300,41 +252,36 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
       if (error) throw error
 
-      alert('Price updated successfully')
       setIsModifyingPrice(false)
       setNewPrice('')
       onUpdate()
       onClose()
     } catch (error) {
       console.error('Error modifying price:', error)
-      alert('Failed to modify price')
+      toast.error('Failed to modify price')
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Handle push to messages: Creates schedule_message records to notify
-   * selected employees about this job with a custom note from the employer
-   */
   const handlePushMessage = async () => {
     if (!messageContent.trim()) {
-      alert('Please enter a message')
+      toast.error('Please enter a message')
       return
     }
 
     if (selectedEmployeeIds.length === 0) {
-      alert('Please select at least one employee')
+      toast.error('Please select at least one employee')
       return
     }
 
     setLoading(true)
     try {
-      // Create schedule_message records for each selected employee
+      const sanitizedMessage = sanitizeText(messageContent.trim())
       const messagesToInsert = selectedEmployeeIds.map(employeeId => ({
         job_session_id: jobSession.id,
         employee_id: employeeId,
-        message: messageContent.trim()
+        message: sanitizedMessage
       }))
 
       const { error } = await supabase
@@ -346,7 +293,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
         throw new Error(error.message || JSON.stringify(error))
       }
 
-      alert(`Message sent to ${selectedEmployeeIds.length} employee(s) successfully`)
+      toast.success(`Message sent to ${selectedEmployeeIds.length} employee(s)`)
       setIsPushingMessage(false)
       setMessageContent('')
       setSelectedEmployeeIds([])
@@ -354,15 +301,12 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
       onClose()
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      toast.error('Failed to send message')
     } finally {
       setLoading(false)
     }
   }
 
-  /**
-   * Reset all action modes when closing the popup
-   */
   const handleClose = () => {
     setIsRescheduling(false)
     setIsModifyingPrice(false)
@@ -380,45 +324,43 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-white">
             {jobSession.job_template.title}
-            <Badge className={getStatusColor(jobSession.status)}>
-              {jobSession.status}
-            </Badge>
+            {getStatusBadge(jobSession.status)}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-gray-400">
             {jobSession.full_job_code || jobSession.session_code}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Job Details */}
-          <div className="border rounded-lg p-4 space-y-2">
-            <h3 className="font-semibold text-lg">Job Details</h3>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-2">
+            <h3 className="font-semibold text-lg text-white">Job Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="font-medium">Job Code:</span> {jobSession.job_template.job_code}
+              <div className="text-gray-400">
+                <span className="font-medium text-gray-300">Job Code:</span> {jobSession.job_template.job_code}
               </div>
-              <div>
-                <span className="font-medium">Client Code:</span> {jobSession.job_template.client_code}
+              <div className="text-gray-400">
+                <span className="font-medium text-gray-300">Client Code:</span> {jobSession.job_template.client_code}
               </div>
               {(jobSession.job_template.time_window_start || jobSession.job_template.time_window_end) && jobSession.scheduled_date && (
                 <div className="col-span-2">
-                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <span className="font-medium text-blue-700 block mb-2">Time Window</span>
+                  <div className="bg-blue-500/10 p-3 rounded border border-blue-500/20">
+                    <span className="font-medium text-blue-400 block mb-2">Time Window</span>
                     <div className="space-y-1 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500">Start:</span>
-                        <span className="text-gray-700 font-medium">
+                        <span className="text-gray-300 font-medium">
                           {formatDate(jobSession.scheduled_date)}
                           {jobSession.job_template.time_window_start && ` at ${formatTime(jobSession.job_template.time_window_start)}`}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500">End:</span>
-                        <span className="text-gray-700 font-medium">
+                        <span className="text-gray-300 font-medium">
                           {formatDate(jobSession.scheduled_end_date || jobSession.scheduled_date)}
                           {jobSession.job_template.time_window_end && ` at ${formatTime(jobSession.job_template.time_window_end)}`}
                         </span>
@@ -428,16 +370,15 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 </div>
               )}
               {jobSession.job_template.duration_minutes && (
-                <div>
-                  <span className="font-medium">Duration:</span> {jobSession.job_template.duration_minutes} min
+                <div className="text-gray-400">
+                  <span className="font-medium text-gray-300">Duration:</span> {jobSession.job_template.duration_minutes} min
                 </div>
               )}
-              {/* Show price - prefer override if set, otherwise template price */}
               {(jobSession.price_override || jobSession.job_template.price_per_hour) && (
-                <div>
-                  <span className="font-medium">Rate:</span>{' '}
+                <div className="text-gray-400">
+                  <span className="font-medium text-gray-300">Rate:</span>{' '}
                   {jobSession.price_override ? (
-                    <span className="text-green-600 font-medium">
+                    <span className="text-green-400 font-medium">
                       ${jobSession.price_override}/hr (override)
                     </span>
                   ) : (
@@ -447,38 +388,38 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               )}
             </div>
             {jobSession.job_template.address && (
-              <div className="pt-2">
-                <span className="font-medium">Address:</span>
-                <p className="text-gray-600">{jobSession.job_template.address}</p>
+              <div className="pt-2 text-gray-400">
+                <span className="font-medium text-gray-300">Address:</span>
+                <p>{jobSession.job_template.address}</p>
               </div>
             )}
             {jobSession.job_template.description && (
-              <div className="pt-2">
-                <span className="font-medium">Description:</span>
-                <p className="text-gray-600">{jobSession.job_template.description}</p>
+              <div className="pt-2 text-gray-400">
+                <span className="font-medium text-gray-300">Description:</span>
+                <p>{jobSession.job_template.description}</p>
               </div>
             )}
           </div>
 
           {/* Employee Details */}
-          <div className="border rounded-lg p-4 space-y-2">
-            <h3 className="font-semibold text-lg">Assigned Employee</h3>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-2">
+            <h3 className="font-semibold text-lg text-white">Assigned Employee</h3>
             {jobSession.employee ? (
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-1 text-gray-400">
                 <div>
-                  <span className="font-medium">Name:</span> {jobSession.employee.full_name}
+                  <span className="font-medium text-gray-300">Name:</span> {jobSession.employee.full_name}
                 </div>
                 <div>
-                  <span className="font-medium">Email:</span> {jobSession.employee.email}
+                  <span className="font-medium text-gray-300">Email:</span> {jobSession.employee.email}
                 </div>
                 {jobSession.employee.phone && (
                   <div>
-                    <span className="font-medium">Phone:</span> {jobSession.employee.phone}
+                    <span className="font-medium text-gray-300">Phone:</span> {jobSession.employee.phone}
                   </div>
                 )}
                 <div>
-                  <span className="font-medium">Status:</span>{' '}
-                  <Badge variant="outline">{jobSession.employee.status}</Badge>
+                  <span className="font-medium text-gray-300">Status:</span>{' '}
+                  <Badge className="bg-white/10 text-gray-300 border border-white/20">{jobSession.employee.status}</Badge>
                 </div>
               </div>
             ) : (
@@ -486,50 +427,52 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             )}
           </div>
 
-          {/* Reschedule Section - allows changing job date and time */}
+          {/* Reschedule Section */}
           {isRescheduling && (
-            <div className="border rounded-lg p-4 space-y-4 bg-blue-50">
-              <h3 className="font-semibold text-lg">Reschedule Job</h3>
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-blue-300">Reschedule Job</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="new-date">New Date</Label>
+                  <Label htmlFor="new-date" className="text-gray-300">New Date</Label>
                   <Input
                     id="new-date"
                     type="date"
                     value={newDate}
                     onChange={(e) => setNewDate(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="new-time">New Time</Label>
+                  <Label htmlFor="new-time" className="text-gray-300">New Time</Label>
                   <Input
                     id="new-time"
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleReschedule} disabled={loading}>
+                <Button onClick={handleReschedule} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
                   {loading ? 'Saving...' : 'Confirm Reschedule'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsRescheduling(false)} disabled={loading}>
+                <Button variant="outline" onClick={() => setIsRescheduling(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
                   Cancel
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Modify Price Section - override the template's default price for this session */}
+          {/* Modify Price Section */}
           {isModifyingPrice && (
-            <div className="border rounded-lg p-4 space-y-4 bg-green-50">
-              <h3 className="font-semibold text-lg">Modify Price/Hour</h3>
-              <p className="text-sm text-gray-600">
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-green-300">Modify Price/Hour</h3>
+              <p className="text-sm text-gray-400">
                 Current rate: ${jobSession.price_override || jobSession.job_template.price_per_hour || 0}/hr
               </p>
               <div className="space-y-2">
-                <Label htmlFor="new-price">New Rate ($/hr)</Label>
+                <Label htmlFor="new-price" className="text-gray-300">New Rate ($/hr)</Label>
                 <Input
                   id="new-price"
                   type="number"
@@ -538,73 +481,72 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                   placeholder="e.g., 25.00"
                   value={newPrice}
                   onChange={(e) => setNewPrice(e.target.value)}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleModifyPrice} disabled={loading}>
+                <Button onClick={handleModifyPrice} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white">
                   {loading ? 'Saving...' : 'Update Price'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsModifyingPrice(false)} disabled={loading}>
+                <Button variant="outline" onClick={() => setIsModifyingPrice(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
                   Cancel
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Refuse Claim Section - refuse with a reason message */}
+          {/* Refuse Claim Section */}
           {isRefusing && (
-            <div className="border rounded-lg p-4 space-y-4 bg-red-50">
-              <h3 className="font-semibold text-lg">Refuse Claim</h3>
-              <p className="text-sm text-gray-600">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-red-300">Refuse Claim</h3>
+              <p className="text-sm text-gray-400">
                 Please provide a reason for refusing this claim. The employee will see this message.
               </p>
               <div className="space-y-2">
-                <Label htmlFor="refuse-reason">Reason</Label>
+                <Label htmlFor="refuse-reason" className="text-gray-300">Reason</Label>
                 <Textarea
                   id="refuse-reason"
                   placeholder="e.g., Schedule conflict, position already filled, etc."
                   rows={3}
                   value={refuseReason}
                   onChange={(e) => setRefuseReason(e.target.value)}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                 />
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant="destructive"
                   onClick={handleRefuse}
                   disabled={loading || !refuseReason.trim()}
+                  className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   {loading ? 'Refusing...' : 'Confirm Refuse'}
                 </Button>
-                <Button variant="outline" onClick={() => setIsRefusing(false)} disabled={loading}>
+                <Button variant="outline" onClick={() => setIsRefusing(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
                   Cancel
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Push to Messages Section - send a notification to selected employees */}
+          {/* Push to Messages Section */}
           {isPushingMessage && (
-            <div className="border rounded-lg p-4 space-y-4 bg-purple-50">
-              <h3 className="font-semibold text-lg">Notify Employees About This Job</h3>
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-purple-300">Notify Employees About This Job</h3>
 
-              {/* Employee Selection */}
               <div className="space-y-2">
-                <Label>Select Employees to Notify</Label>
-                <div className="border rounded-lg p-3 bg-white max-h-40 overflow-y-auto space-y-2">
-                  {/* Select All */}
-                  <div className="flex items-center space-x-2 pb-2 border-b">
+                <Label className="text-gray-300">Select Employees to Notify</Label>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                  <div className="flex items-center space-x-2 pb-2 border-b border-white/10">
                     <Checkbox
                       id="select-all"
                       checked={selectAll}
                       onCheckedChange={(checked) => handleSelectAll(!!checked)}
                     />
-                    <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                    <label htmlFor="select-all" className="text-sm font-medium cursor-pointer text-gray-300">
                       Select All ({allEmployees.length} employees)
                     </label>
                   </div>
 
-                  {/* Individual Employees */}
                   {allEmployees.length === 0 ? (
                     <p className="text-sm text-gray-500">No active employees found</p>
                   ) : (
@@ -615,10 +557,10 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                           checked={selectedEmployeeIds.includes(emp.id)}
                           onCheckedChange={() => handleToggleEmployee(emp.id)}
                         />
-                        <label htmlFor={`emp-${emp.id}`} className="text-sm cursor-pointer flex-1">
+                        <label htmlFor={`emp-${emp.id}`} className="text-sm cursor-pointer flex-1 text-gray-300">
                           {emp.full_name}
                           {jobSession.assigned_to === emp.id && (
-                            <Badge variant="outline" className="ml-2 text-xs">Assigned</Badge>
+                            <Badge className="ml-2 text-xs bg-white/10 text-gray-400 border border-white/20">Assigned</Badge>
                           )}
                         </label>
                       </div>
@@ -630,27 +572,27 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 </p>
               </div>
 
-              {/* Message Input */}
               <div className="space-y-2">
-                <Label htmlFor="message-content">Message</Label>
+                <Label htmlFor="message-content" className="text-gray-300">Message</Label>
                 <Textarea
                   id="message-content"
                   placeholder="e.g., This job is urgent and needs to be claimed today!"
                   rows={3}
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-2">
                 <Button
                   onClick={handlePushMessage}
                   disabled={loading || selectedEmployeeIds.length === 0}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   {loading ? 'Sending...' : `Send to ${selectedEmployeeIds.length} Employee(s)`}
                 </Button>
-                <Button variant="outline" onClick={() => setIsPushingMessage(false)} disabled={loading}>
+                <Button variant="outline" onClick={() => setIsPushingMessage(false)} disabled={loading} className="border-white/20 text-gray-300 hover:bg-white/10">
                   Cancel
                 </Button>
               </div>
@@ -658,70 +600,71 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
           )}
         </div>
 
-        {/* Footer with action buttons - hidden when any action panel is open */}
+        {/* Footer with action buttons */}
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
           {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && (
             <>
-              {/* Approve/Refuse buttons - only shown for CLAIMED jobs */}
               {jobSession.status === 'CLAIMED' && (
                 <>
                   <Button
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={handleApprove}
                     disabled={loading}
                   >
                     {loading ? 'Approving...' : 'Approve'}
                   </Button>
                   <Button
-                    variant="destructive"
                     onClick={() => setIsRefusing(true)}
                     disabled={loading}
+                    className="bg-red-600 hover:bg-red-700 text-white"
                   >
                     Refuse
                   </Button>
                 </>
               )}
 
-              {/* Move Job (Reschedule) - disabled for completed/cancelled jobs */}
               <Button
                 variant="outline"
                 onClick={() => setIsRescheduling(true)}
                 disabled={loading || !canModify}
+                className="border-white/20 text-gray-300 hover:bg-white/10"
               >
                 Move Job
               </Button>
 
-              {/* Modify Price - disabled for completed/cancelled jobs */}
               <Button
                 variant="outline"
                 onClick={() => setIsModifyingPrice(true)}
                 disabled={loading || !canModify}
+                className="border-white/20 text-gray-300 hover:bg-white/10"
               >
                 Modify Price
               </Button>
 
-              {/* Push to Messages - notify employees about this job */}
               <Button
                 variant="outline"
                 onClick={() => setIsPushingMessage(true)}
                 disabled={loading}
+                className="border-white/20 text-gray-300 hover:bg-white/10"
               >
                 Push to Messages
               </Button>
 
-              {/* Cancel Job - disabled for completed/cancelled jobs, hidden for CLAIMED */}
               {jobSession.status !== 'CLAIMED' && (
                 <Button
-                  variant="destructive"
                   onClick={handleCancel}
                   disabled={loading || !canModify}
+                  className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   {loading ? 'Cancelling...' : 'Cancel Job'}
                 </Button>
               )}
 
-              {/* Close button */}
-              <Button variant="secondary" onClick={handleClose}>
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                className="border-white/20 text-gray-300 hover:bg-white/10"
+              >
                 Close
               </Button>
             </>

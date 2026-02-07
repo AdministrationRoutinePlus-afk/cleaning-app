@@ -19,7 +19,8 @@
  * - Reactivate inactive customers
  */
 
-import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import type { Customer, Strike, Evaluation, JobTemplate } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -52,7 +53,8 @@ export default function CustomerProfilePage() {
   const router = useRouter()
   const params = useParams()
   const customerId = params.id as string
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   // Main state
   const [loading, setLoading] = useState(true)
@@ -212,7 +214,7 @@ export default function CustomerProfilePage() {
   const handleUpdatePassword = async () => {
     if (!customer?.user_id || !newPassword) return
     if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters')
+      toast.error('Password must be at least 6 characters')
       return
     }
 
@@ -226,12 +228,12 @@ export default function CustomerProfilePage() {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Failed to update password')
 
-      alert('Password updated successfully')
+      toast.success('Password updated successfully')
       setShowPasswordForm(false)
       setNewPassword('')
     } catch (error) {
       console.error('Error updating password:', error)
-      alert(error instanceof Error ? error.message : 'Failed to update password')
+      toast.error(error instanceof Error ? error.message : 'Failed to update password')
     } finally {
       setPasswordSaving(false)
     }
@@ -242,11 +244,11 @@ export default function CustomerProfilePage() {
    */
   const handleCreateAccount = async () => {
     if (!newAccountForm.username || !newAccountForm.password) {
-      alert('Username and password are required')
+      toast.error('Username and password are required')
       return
     }
     if (newAccountForm.password.length < 6) {
-      alert('Password must be at least 6 characters')
+      toast.error('Password must be at least 6 characters')
       return
     }
 
@@ -273,13 +275,13 @@ export default function CustomerProfilePage() {
 
       if (updateError) throw updateError
 
-      alert('Account created successfully')
+      toast.success('Account created successfully')
       setShowCreateAccount(false)
       setNewAccountForm({ username: '', password: '' })
       await loadData()
     } catch (error) {
       console.error('Error creating account:', error)
-      alert(error instanceof Error ? error.message : 'Failed to create account')
+      toast.error(error instanceof Error ? error.message : 'Failed to create account')
     } finally {
       setAccountCreating(false)
     }
@@ -290,7 +292,7 @@ export default function CustomerProfilePage() {
    */
   const handleSave = async () => {
     if (!editForm.full_name) {
-      alert('Name is required')
+      toast.error('Name is required')
       return
     }
 
@@ -312,7 +314,7 @@ export default function CustomerProfilePage() {
       await loadData()
     } catch (error) {
       console.error('Error saving customer:', error)
-      alert('Failed to save customer')
+      toast.error('Failed to save customer')
     } finally {
       setSaving(false)
     }
@@ -324,7 +326,7 @@ export default function CustomerProfilePage() {
    */
   const handleAddStrike = async () => {
     if (!strikeForm.description) {
-      alert('Please enter a description')
+      toast.error('Please enter a description')
       return
     }
 
@@ -350,7 +352,7 @@ export default function CustomerProfilePage() {
       await loadData()
     } catch (error) {
       console.error('Error adding strike:', error)
-      alert('Failed to add strike')
+      toast.error('Failed to add strike')
     } finally {
       setSubmitting(false)
     }
@@ -370,7 +372,7 @@ export default function CustomerProfilePage() {
       await loadData()
     } catch (error) {
       console.error('Error reactivating customer:', error)
-      alert('Failed to reactivate customer')
+      toast.error('Failed to reactivate customer')
     }
   }
 

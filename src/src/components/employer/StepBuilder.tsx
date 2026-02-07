@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 export interface StepImage {
   url: string
@@ -120,13 +121,13 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
       for (const file of Array.from(files)) {
         // Validate file type
         if (!file.type.startsWith('image/')) {
-          alert(`${file.name} is not an image file`)
+          toast.error(`${file.name} is not an image file`)
           continue
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-          alert(`${file.name} is too large. Max size is 5MB`)
+          toast.error(`${file.name} is too large. Max size is 5MB`)
           continue
         }
 
@@ -142,7 +143,7 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
 
         if (uploadError) {
           console.error('Upload error:', uploadError)
-          alert(`Failed to upload ${file.name}: ${uploadError.message}`)
+          toast.error(`Failed to upload ${file.name}: ${uploadError.message}`)
           continue
         }
 
@@ -165,7 +166,7 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
       }
     } catch (error) {
       console.error('Error uploading images:', error)
-      alert('Failed to upload images')
+      toast.error('Failed to upload images')
     } finally {
       setUploading(null)
       // Reset file input

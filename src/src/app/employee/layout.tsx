@@ -6,6 +6,7 @@ import { DashboardHeader } from '@/components/employee/DashboardHeader'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export default function EmployeeLayout({
   children,
@@ -84,7 +85,9 @@ export default function EmployeeLayout({
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black overflow-hidden">
       <DashboardHeader employeeName={employeeName} />
       <div id="main-scroll-container" className="h-full overflow-y-auto pt-14">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </div>
       <BottomNav profile="EMPLOYEE" />
     </div>

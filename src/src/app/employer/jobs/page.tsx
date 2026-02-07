@@ -14,7 +14,7 @@
  *    - "Random Jobs" group for RND jobs without a customer
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JobTemplate, JobSessionFull, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -22,8 +22,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { JobCard } from '@/components/employer/JobCard'
 import { format } from 'date-fns'
-import { History } from 'lucide-react'
+import { History, Plus, ChevronDown, ChevronRight, Briefcase, Users, Calendar } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { toast } from 'sonner'
 
 // Type for grouped sessions: Customer -> Job -> Sessions
 interface GroupedSessions {
@@ -48,7 +49,9 @@ export default function EmployerJobsPage() {
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   const fetchData = async () => {
     try {
@@ -87,6 +90,8 @@ export default function EmployerJobsPage() {
       const drafts = jobs?.filter(j => j.status === 'DRAFT') || []
       const actives = jobs?.filter(j => j.status === 'ACTIVE') || []
 
+      if (!isMountedRef.current) return
+
       setDraftJobs(drafts)
       setActiveJobs(actives)
 
@@ -106,18 +111,22 @@ export default function EmployerJobsPage() {
         .order('scheduled_date', { ascending: true })
 
       if (sessionsError) throw sessionsError
+      if (!isMountedRef.current) return
 
       setSessions(sessionsData as JobSessionFull[] || [])
 
     } catch (error) {
       console.error('Error fetching data:', error)
+      if (isMountedRef.current) toast.error('Failed to load jobs')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) setLoading(false)
     }
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData()
+    return () => { isMountedRef.current = false }
   }, [])
 
   const handleCreateJob = () => {
@@ -175,16 +184,16 @@ export default function EmployerJobsPage() {
     return acc
   }, {} as GroupedSessions)
 
-  // Get status badge color
-  const getStatusColor = (status: string) => {
+  // Get status badge styling
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'OFFERED': return 'bg-gray-500'
-      case 'CLAIMED': return 'bg-yellow-500'
-      case 'APPROVED': return 'bg-blue-500'
-      case 'IN_PROGRESS': return 'bg-purple-500'
-      case 'MISSED': return 'bg-red-500'
-      case 'OVERDUE': return 'bg-red-500'
-      default: return 'bg-gray-400'
+      case 'OFFERED': return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+      case 'CLAIMED': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+      case 'APPROVED': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+      case 'IN_PROGRESS': return 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+      case 'MISSED': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      case 'OVERDUE': return 'bg-red-500/20 text-red-300 border border-red-500/30'
+      default: return 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
     }
   }
 
@@ -229,21 +238,22 @@ export default function EmployerJobsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
+    <div className="min-h-screen p-4 pb-20">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
+          <h1 className="text-2xl font-bold text-white">Jobs</h1>
           <div className="flex gap-2">
             <Button
               variant="outline"
               onClick={() => router.push('/employer/jobs/history')}
-              className="gap-2"
+              className="gap-2 border-white/20 text-gray-300 hover:bg-white/10"
             >
               <History className="h-4 w-4" />
               History
             </Button>
-            <Button onClick={handleCreateJob}>
+            <Button onClick={handleCreateJob} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="h-4 w-4 mr-1" />
               Create Job
             </Button>
           </div>
@@ -252,7 +262,7 @@ export default function EmployerJobsPage() {
         {/* Draft Jobs Section */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-white">
               Draft Jobs
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ({draftJobs.length})
@@ -261,9 +271,9 @@ export default function EmployerJobsPage() {
           </div>
 
           {draftJobs.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-              <p className="text-gray-500">No draft jobs</p>
-              <p className="text-sm text-gray-400 mt-1">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+              <p className="text-gray-400">No draft jobs</p>
+              <p className="text-sm text-gray-500 mt-1">
                 Create a new job template to get started
               </p>
             </div>
@@ -279,7 +289,7 @@ export default function EmployerJobsPage() {
         {/* Active Jobs Section */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-white">
               Active Jobs
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ({activeJobs.length})
@@ -288,9 +298,9 @@ export default function EmployerJobsPage() {
           </div>
 
           {activeJobs.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-              <p className="text-gray-500">No active jobs</p>
-              <p className="text-sm text-gray-400 mt-1">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+              <p className="text-gray-400">No active jobs</p>
+              <p className="text-sm text-gray-500 mt-1">
                 Activate a draft job to post it to the marketplace
               </p>
             </div>
@@ -306,7 +316,7 @@ export default function EmployerJobsPage() {
         {/* Current Sessions Section - Hierarchical View */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-white">
               Current Sessions
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ({sessions.length})
@@ -315,14 +325,14 @@ export default function EmployerJobsPage() {
           </div>
 
           {sessions.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-              <p className="text-gray-500">No active sessions</p>
-              <p className="text-sm text-gray-400 mt-1">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+              <p className="text-gray-400">No active sessions</p>
+              <p className="text-sm text-gray-500 mt-1">
                 Sessions appear here when jobs are activated
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
               {/* Loop through customers */}
               {Object.entries(groupedSessions).map(([customerId, customerData]) => {
                 const isCustomerExpanded = expandedCustomers.has(customerId)
@@ -332,59 +342,67 @@ export default function EmployerJobsPage() {
                 )
 
                 return (
-                  <div key={customerId} className="border-b last:border-b-0">
+                  <div key={customerId} className="border-b border-white/10 last:border-b-0">
                     {/* Customer Row - Level 1 */}
                     <button
                       onClick={() => toggleCustomer(customerId)}
-                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         {/* Expand/Collapse Icon */}
-                        <span className="text-gray-400 w-5">
-                          {isCustomerExpanded ? '▼' : '▶'}
-                        </span>
+                        {isCustomerExpanded ? (
+                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-500" />
+                        )}
                         {/* Customer Icon */}
-                        <span className="text-xl">
-                          {customerId === 'random' ? '🎲' : '👤'}
-                        </span>
-                        <span className="font-medium text-gray-900">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          customerId === 'random' ? 'bg-orange-500/20' : 'bg-blue-500/20'
+                        }`}>
+                          <Users className={`w-4 h-4 ${
+                            customerId === 'random' ? 'text-orange-400' : 'text-blue-400'
+                          }`} />
+                        </div>
+                        <span className="font-medium text-white">
                           {customerData.customerName}
                         </span>
                         {customerData.customer?.customer_code && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge className="bg-white/10 text-gray-300 border border-white/20 text-xs">
                             {customerData.customer.customer_code}
                           </Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <span>{jobCount} job{jobCount !== 1 ? 's' : ''}</span>
-                        <span>•</span>
+                        <span>·</span>
                         <span>{sessionCount} session{sessionCount !== 1 ? 's' : ''}</span>
                       </div>
                     </button>
 
                     {/* Jobs under this customer - Level 2 */}
                     {isCustomerExpanded && (
-                      <div className="bg-gray-50">
+                      <div className="bg-white/[0.02]">
                         {Object.entries(customerData.jobs).map(([jobId, jobData]) => {
                           const isJobExpanded = expandedJobs.has(jobId)
 
                           return (
-                            <div key={jobId} className="border-t border-gray-200">
+                            <div key={jobId} className="border-t border-white/5">
                               {/* Job Row */}
                               <button
                                 onClick={() => toggleJob(jobId)}
-                                className="w-full px-4 py-2 pl-12 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                                className="w-full px-4 py-2 pl-12 flex items-center justify-between hover:bg-white/5 transition-colors"
                               >
                                 <div className="flex items-center gap-3">
-                                  <span className="text-gray-400 w-5">
-                                    {isJobExpanded ? '▼' : '▶'}
-                                  </span>
-                                  <span className="text-lg">📋</span>
-                                  <span className="font-medium text-gray-800">
+                                  {isJobExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                  )}
+                                  <Briefcase className="w-4 h-4 text-purple-400" />
+                                  <span className="font-medium text-gray-200">
                                     {jobData.job?.title || 'Untitled Job'}
                                   </span>
-                                  <Badge variant="outline" className="text-xs font-mono">
+                                  <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-mono">
                                     {jobData.job?.job_code}
                                   </Badge>
                                 </div>
@@ -395,15 +413,15 @@ export default function EmployerJobsPage() {
 
                               {/* Sessions under this job - Level 3 */}
                               {isJobExpanded && (
-                                <div className="bg-white border-t border-gray-100">
+                                <div className="bg-white/[0.02] border-t border-white/5">
                                   {jobData.sessions.map(session => (
                                     <div
                                       key={session.id}
-                                      className="px-4 py-2 pl-20 flex items-center justify-between hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                                      className="px-4 py-2 pl-20 flex items-center justify-between hover:bg-white/5 border-b border-white/5 last:border-b-0"
                                     >
                                       <div className="flex items-center gap-3">
-                                        <span className="text-gray-400">📅</span>
-                                        <span className="font-mono text-sm text-gray-600">
+                                        <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                                        <span className="font-mono text-sm text-gray-400">
                                           {session.full_job_code || session.session_code}
                                         </span>
                                         <span className="text-sm text-gray-500">
@@ -412,18 +430,18 @@ export default function EmployerJobsPage() {
                                             : 'No date'}
                                         </span>
                                         {session.scheduled_time && (
-                                          <span className="text-sm text-gray-400">
+                                          <span className="text-sm text-gray-600">
                                             @ {session.scheduled_time.slice(0, 5)}
                                           </span>
                                         )}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         {session.employee && (
-                                          <span className="text-sm text-gray-500">
+                                          <span className="text-sm text-gray-400">
                                             {session.employee.full_name}
                                           </span>
                                         )}
-                                        <Badge className={`${getStatusColor(getDisplayStatus(session))} text-white text-xs`}>
+                                        <Badge className={`${getStatusBadge(getDisplayStatus(session))} text-xs`}>
                                           {getDisplayStatus(session)}
                                         </Badge>
                                       </div>

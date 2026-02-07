@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
+import { useEffect, useState, useRef } from 'react'
 import type { Customer, Employer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { CustomerChat } from '@/components/customer/CustomerChat'
@@ -10,17 +11,21 @@ export default function CustomerMessagesPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [employer, setEmployer] = useState<Employer | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadCustomerAndEmployer()
+    return () => { isMountedRef.current = false }
   }, [])
 
   const loadCustomerAndEmployer = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        alert('Please log in to view messages')
+        toast.error('Please log in to view messages')
         return
       }
 
@@ -45,7 +50,7 @@ export default function CustomerMessagesPage() {
       setEmployer(employerData)
     } catch (error) {
       console.error('Error loading data:', error)
-      alert('Failed to load customer or employer profile')
+      toast.error('Failed to load customer or employer profile')
     } finally {
       setLoading(false)
     }

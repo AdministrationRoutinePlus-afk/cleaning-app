@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
 
 interface ReviewFormProps {
   jobSession: JobSession & {
@@ -60,7 +61,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
       onSuccess()
     } catch (error) {
       console.error('Error submitting review:', error)
-      alert('Failed to submit review. Please try again.')
+      toast.error('Failed to submit review. Please try again.')
     } finally {
       setSubmitting(false)
     }

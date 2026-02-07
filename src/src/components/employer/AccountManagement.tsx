@@ -4,17 +4,17 @@ import { useState, useEffect } from 'react'
 import type { Employee, Customer } from '@/types/database'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { createClient } from '@/lib/supabase/client'
 import { UserX, UserCheck, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function AccountManagement() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'employees' | 'customers'>('employees')
   const supabase = createClient()
 
   useEffect(() => {
@@ -24,13 +24,11 @@ export function AccountManagement() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Load all employees (including blocked)
       const { data: empData } = await supabase
         .from('employees')
         .select('*')
         .order('full_name')
 
-      // Load all customers (including blocked)
       const { data: custData } = await supabase
         .from('customers')
         .select('*')
@@ -58,7 +56,7 @@ export function AccountManagement() {
       await loadData()
     } catch (error) {
       console.error('Error updating employee:', error)
-      alert('Failed to update employee status')
+      toast.error('Failed to update employee status')
     } finally {
       setUpdating(null)
     }
@@ -77,7 +75,7 @@ export function AccountManagement() {
       await loadData()
     } catch (error) {
       console.error('Error updating customer:', error)
-      alert('Failed to update customer status')
+      toast.error('Failed to update customer status')
     } finally {
       setUpdating(null)
     }
@@ -90,181 +88,184 @@ export function AccountManagement() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="animate-pulse space-y-4">
+        <div className="h-4 bg-white/10 rounded w-1/3"></div>
+        <div className="h-10 bg-white/10 rounded"></div>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Account Management</CardTitle>
-        <CardDescription>Block or unblock employees and customers</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="employees" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-4">
-            <TabsTrigger value="employees" className="text-sm">
-              Employees
-              {blockedEmployees.length > 0 && (
-                <Badge variant="destructive" className="ml-2 text-xs">
-                  {blockedEmployees.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="text-sm">
-              Customers
-              {blockedCustomers.length > 0 && (
-                <Badge variant="destructive" className="ml-2 text-xs">
-                  {blockedCustomers.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+    <div className="space-y-4">
+      {/* Tab toggle */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('employees')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'employees'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+          }`}
+        >
+          Employees
+          {blockedEmployees.length > 0 && (
+            <Badge className="ml-2 bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
+              {blockedEmployees.length}
+            </Badge>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('customers')}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === 'customers'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+          }`}
+        >
+          Customers
+          {blockedCustomers.length > 0 && (
+            <Badge className="ml-2 bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
+              {blockedCustomers.length}
+            </Badge>
+          )}
+        </button>
+      </div>
 
-          {/* Employees Tab */}
-          <TabsContent value="employees" className="space-y-4">
-            {/* Blocked Employees */}
-            {blockedEmployees.length > 0 && (
+      {/* Employees Tab */}
+      {activeTab === 'employees' && (
+        <div className="space-y-4">
+          {blockedEmployees.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="w-4 h-4" />
+                Blocked Employees ({blockedEmployees.length})
+              </Label>
               <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-red-600">
-                  <AlertTriangle className="w-4 h-4" />
-                  Blocked Employees ({blockedEmployees.length})
-                </Label>
-                <div className="space-y-2">
-                  {blockedEmployees.map(emp => (
-                    <div
-                      key={emp.id}
-                      className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{emp.full_name}</p>
-                        <p className="text-sm text-gray-500">{emp.email}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleToggleEmployeeBlock(emp)}
-                        disabled={updating === emp.id}
-                        className="text-green-600 border-green-600 hover:bg-green-50"
-                      >
-                        <UserCheck className="w-4 h-4 mr-1" />
-                        {updating === emp.id ? 'Unblocking...' : 'Unblock'}
-                      </Button>
+                {blockedEmployees.map(emp => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-white">{emp.full_name}</p>
+                      <p className="text-sm text-gray-400">{emp.email}</p>
                     </div>
-                  ))}
-                </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleEmployeeBlock(emp)}
+                      disabled={updating === emp.id}
+                      className="text-green-400 border-green-500/30 hover:bg-green-500/10"
+                    >
+                      <UserCheck className="w-4 h-4 mr-1" />
+                      {updating === emp.id ? 'Unblocking...' : 'Unblock'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label className="text-gray-300">Active Employees ({activeEmployees.length})</Label>
+            {activeEmployees.length === 0 ? (
+              <p className="text-sm text-gray-500 py-2">No active employees</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {activeEmployees.map(emp => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-white">{emp.full_name}</p>
+                      <p className="text-sm text-gray-400">{emp.email}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleEmployeeBlock(emp)}
+                      disabled={updating === emp.id}
+                      className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                    >
+                      <UserX className="w-4 h-4 mr-1" />
+                      {updating === emp.id ? 'Blocking...' : 'Block'}
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
 
-            {/* Active Employees */}
+      {/* Customers Tab */}
+      {activeTab === 'customers' && (
+        <div className="space-y-4">
+          {blockedCustomers.length > 0 && (
             <div className="space-y-2">
-              <Label>Active Employees ({activeEmployees.length})</Label>
-              {activeEmployees.length === 0 ? (
-                <p className="text-sm text-gray-500 py-2">No active employees</p>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {activeEmployees.map(emp => (
-                    <div
-                      key={emp.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{emp.full_name}</p>
-                        <p className="text-sm text-gray-500">{emp.email}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleToggleEmployeeBlock(emp)}
-                        disabled={updating === emp.id}
-                        className="text-red-600 border-red-600 hover:bg-red-50"
-                      >
-                        <UserX className="w-4 h-4 mr-1" />
-                        {updating === emp.id ? 'Blocking...' : 'Block'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* Customers Tab */}
-          <TabsContent value="customers" className="space-y-4">
-            {/* Blocked Customers */}
-            {blockedCustomers.length > 0 && (
+              <Label className="flex items-center gap-2 text-red-400">
+                <AlertTriangle className="w-4 h-4" />
+                Blocked Customers ({blockedCustomers.length})
+              </Label>
               <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-red-600">
-                  <AlertTriangle className="w-4 h-4" />
-                  Blocked Customers ({blockedCustomers.length})
-                </Label>
-                <div className="space-y-2">
-                  {blockedCustomers.map(cust => (
-                    <div
-                      key={cust.id}
-                      className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{cust.full_name}</p>
-                        <p className="text-sm text-gray-500">{cust.customer_code} - {cust.email}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleToggleCustomerBlock(cust)}
-                        disabled={updating === cust.id}
-                        className="text-green-600 border-green-600 hover:bg-green-50"
-                      >
-                        <UserCheck className="w-4 h-4 mr-1" />
-                        {updating === cust.id ? 'Unblocking...' : 'Unblock'}
-                      </Button>
+                {blockedCustomers.map(cust => (
+                  <div
+                    key={cust.id}
+                    className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-white">{cust.full_name}</p>
+                      <p className="text-sm text-gray-400">{cust.customer_code} - {cust.email}</p>
                     </div>
-                  ))}
-                </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleCustomerBlock(cust)}
+                      disabled={updating === cust.id}
+                      className="text-green-400 border-green-500/30 hover:bg-green-500/10"
+                    >
+                      <UserCheck className="w-4 h-4 mr-1" />
+                      {updating === cust.id ? 'Unblocking...' : 'Unblock'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label className="text-gray-300">Active Customers ({activeCustomers.length})</Label>
+            {activeCustomers.length === 0 ? (
+              <p className="text-sm text-gray-500 py-2">No active customers</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {activeCustomers.map(cust => (
+                  <div
+                    key={cust.id}
+                    className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-white">{cust.full_name}</p>
+                      <p className="text-sm text-gray-400">{cust.customer_code} - {cust.email}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleCustomerBlock(cust)}
+                      disabled={updating === cust.id}
+                      className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                    >
+                      <UserX className="w-4 h-4 mr-1" />
+                      {updating === cust.id ? 'Blocking...' : 'Block'}
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
-
-            {/* Active Customers */}
-            <div className="space-y-2">
-              <Label>Active Customers ({activeCustomers.length})</Label>
-              {activeCustomers.length === 0 ? (
-                <p className="text-sm text-gray-500 py-2">No active customers</p>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {activeCustomers.map(cust => (
-                    <div
-                      key={cust.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{cust.full_name}</p>
-                        <p className="text-sm text-gray-500">{cust.customer_code} - {cust.email}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleToggleCustomerBlock(cust)}
-                        disabled={updating === cust.id}
-                        className="text-red-600 border-red-600 hover:bg-red-50"
-                      >
-                        <UserX className="w-4 h-4 mr-1" />
-                        {updating === cust.id ? 'Blocking...' : 'Block'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

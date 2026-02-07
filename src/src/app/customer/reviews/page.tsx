@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
+import { useEffect, useState, useRef } from 'react'
 import type { JobSession, Customer, Evaluation } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -39,10 +40,14 @@ export default function CustomerReviewsPage() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [selectedSession, setSelectedSession] = useState<JobSessionWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadCustomerData()
+    return () => { isMountedRef.current = false }
   }, [])
 
   useEffect(() => {
@@ -58,8 +63,8 @@ export default function CustomerReviewsPage() {
   const loadCustomerData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        alert('Please log in to view reviews')
+      if (!user || !isMountedRef.current) {
+        if (user === null) toast.error('Please log in to view reviews')
         return
       }
 
@@ -71,12 +76,16 @@ export default function CustomerReviewsPage() {
         .single()
 
       if (customerError) throw customerError
-      setCustomer(customerData)
+      if (isMountedRef.current) {
+        setCustomer(customerData)
+      }
     } catch (error) {
       console.error('Error loading customer data:', error)
-      alert('Failed to load customer profile')
+      if (isMountedRef.current) toast.error('Failed to load customer profile')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -106,6 +115,7 @@ export default function CustomerReviewsPage() {
       setPendingSessions((data as JobSessionWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading pending sessions:', error)
+      toast.error('Failed to load pending reviews')
     }
   }
 
@@ -134,6 +144,7 @@ export default function CustomerReviewsPage() {
       setSubmittedReviews((data as EvaluationWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading submitted reviews:', error)
+      toast.error('Failed to load submitted reviews')
     }
   }
 

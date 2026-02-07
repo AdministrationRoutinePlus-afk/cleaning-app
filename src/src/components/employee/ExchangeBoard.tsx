@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: {
@@ -133,12 +134,12 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
       if (error) throw error
 
-      alert('Job posted for exchange successfully!')
+      toast.success('Job posted for exchange successfully!')
       await loadData()
       setActiveTab('my-requests')
     } catch (error) {
       console.error('Error posting job for exchange:', error)
-      alert('Failed to post job for exchange')
+      toast.error('Failed to post job for exchange')
     }
   }
 
@@ -152,12 +153,12 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
         .single()
 
       if (existingRequest?.to_employee_id === employeeId) {
-        alert('You have already requested this job exchange.')
+        toast.info('You have already requested this job exchange.')
         return
       }
 
       if (existingRequest?.to_employee_id) {
-        alert('Another employee has already requested this job exchange.')
+        toast.info('Another employee has already requested this job exchange.')
         await loadData()
         return
       }
@@ -170,11 +171,11 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
       if (error) throw error
 
-      alert('Request sent! Waiting for the employee to choose and employer to approve.')
+      toast.success('Request sent! Waiting for the employee to choose and employer to approve.')
       await loadData()
     } catch (error) {
       console.error('Error requesting job:', error)
-      alert('Failed to request job')
+      toast.error('Failed to request job')
     }
   }
 

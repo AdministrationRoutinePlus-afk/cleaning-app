@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import type { JobExchange, JobSession, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { ArrowRight, Check, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface JobExchangeWithDetails extends JobExchange {
   job_session: JobSession & {
@@ -33,7 +34,6 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Update exchange status
       const { error: exchangeError } = await supabase
         .from('job_exchanges')
         .update({
@@ -45,7 +45,6 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
 
       if (exchangeError) throw exchangeError
 
-      // If approved, reassign the job
       if (approved && exchange.to_employee_id) {
         const { error: sessionError } = await supabase
           .from('job_sessions')
@@ -57,7 +56,6 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
 
         if (sessionError) throw sessionError
 
-        // Notify new employee
         if (exchange.to_employee?.user_id) {
           await supabase.from('notifications').insert({
             user_id: exchange.to_employee.user_id as string,
@@ -71,7 +69,6 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
         }
       }
 
-      // Notify original employee
       if (exchange.from_employee.user_id) {
         await supabase.from('notifications').insert({
           user_id: exchange.from_employee.user_id,
@@ -89,7 +86,7 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
       onUpdate()
     } catch (error) {
       console.error('Error handling exchange decision:', error)
-      alert('Failed to process exchange request')
+      toast.error('Failed to process exchange request')
     } finally {
       setLoading(false)
     }
@@ -106,32 +103,33 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
+    <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden hover:bg-white/[0.07] transition-colors">
+      <div className="p-4 pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-sm font-mono text-gray-500">
                 {exchange.job_session.job_template?.job_code || exchange.job_session.session_code}
               </span>
-              <Badge variant="secondary">PENDING</Badge>
+              <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">PENDING</Badge>
             </div>
-            <h3 className="font-medium text-gray-900">
+            <h3 className="font-medium text-white">
               {exchange.job_session.job_template?.title || 'Job Exchange Request'}
             </h3>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="pb-3 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+      <div className="px-4 pb-3 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
             <p className="text-xs text-gray-500">From</p>
-            <p className="text-sm font-medium">{exchange.from_employee.full_name}</p>
+            <p className="text-sm font-medium text-white">{exchange.from_employee.full_name}</p>
           </div>
-          <div>
+          <ArrowRight className="w-4 h-4 text-gray-500" />
+          <div className="flex-1">
             <p className="text-xs text-gray-500">To</p>
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium text-white">
               {exchange.to_employee?.full_name || 'Marketplace'}
             </p>
           </div>
@@ -139,42 +137,43 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
 
         <div>
           <p className="text-xs text-gray-500">Scheduled Date</p>
-          <p className="text-sm">{formatDate(exchange.job_session.scheduled_date)}</p>
+          <p className="text-sm text-gray-300">{formatDate(exchange.job_session.scheduled_date)}</p>
         </div>
 
         {exchange.reason && (
           <div>
             <p className="text-xs text-gray-500">Reason</p>
-            <p className="text-sm text-gray-700">{exchange.reason}</p>
+            <p className="text-sm text-gray-300">{exchange.reason}</p>
           </div>
         )}
 
         <div>
           <p className="text-xs text-gray-500">Requested</p>
-          <p className="text-sm">{formatDate(exchange.requested_at)}</p>
+          <p className="text-sm text-gray-300">{formatDate(exchange.requested_at)}</p>
         </div>
-      </CardContent>
+      </div>
 
-      <CardFooter className="flex gap-2 pt-3 border-t">
+      <div className="px-4 pb-4 pt-3 border-t border-white/10 flex gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => handleDecision(false)}
           disabled={loading}
-          className="flex-1"
+          className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
         >
+          <X className="w-3 h-3 mr-1" />
           {loading ? '...' : 'Deny'}
         </Button>
         <Button
-          variant="default"
           size="sm"
           onClick={() => handleDecision(true)}
           disabled={loading}
-          className="flex-1"
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
         >
+          <Check className="w-3 h-3 mr-1" />
           {loading ? '...' : 'Approve'}
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   )
 }

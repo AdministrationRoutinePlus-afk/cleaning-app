@@ -6,40 +6,25 @@
  * This page provides all messaging functionality for employers:
  *
  * TAB 1: DIRECT MESSAGES
- * - View list of 1-on-1 conversations with employees
- * - Start new conversations with any active employee
- * - Real-time chat with read receipts
- *
  * TAB 2: ANNOUNCEMENTS
- * - Broadcast messages to all active employees (one-way)
- * - View history of past announcements
- *
  * TAB 3: GROUP CHAT
- * - View the employee group chat (read-only for employer)
- * - Employees can chat with each other here
- *
  * TAB 4: JOB MESSAGES
- * - View messages pushed from Schedule to employees
- * - Shows all schedule_messages records
- *
  * TAB 5: EXCHANGES
- * - View pending job exchange requests
- * - Approve or deny employee swap requests
  */
 
-import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { useState, useEffect, useRef } from 'react'
 import type { JobExchange, JobSession, Employee, Conversation, Message, ScheduleMessage } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ConversationList } from '@/components/employer/ConversationList'
 import { ChatView } from '@/components/employer/ChatView'
 import { AnnouncementForm } from '@/components/employer/AnnouncementForm'
 import { ExchangeRequestCard } from '@/components/employer/ExchangeRequestCard'
 import { format } from 'date-fns'
+import { MessageSquare, Megaphone, Users, Briefcase, ArrowLeftRight, Plus, ArrowLeft } from 'lucide-react'
 
 // Extended type for job exchanges with related data
 interface JobExchangeWithDetails extends JobExchange {
@@ -90,7 +75,8 @@ export default function EmployerMessagesPage() {
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [loadingEmployees, setLoadingEmployees] = useState(false)
 
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   // Load data based on active tab
   useEffect(() => {
@@ -128,6 +114,7 @@ export default function EmployerMessagesPage() {
       setExchanges((data as JobExchangeWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading exchanges:', error)
+      toast.error('Failed to load exchange requests')
     } finally {
       setLoadingExchanges(false)
     }
@@ -153,6 +140,7 @@ export default function EmployerMessagesPage() {
       setAnnouncements((data as ConversationWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading announcements:', error)
+      toast.error('Failed to load announcements')
     } finally {
       setLoadingAnnouncements(false)
     }
@@ -163,9 +151,6 @@ export default function EmployerMessagesPage() {
     loadAnnouncements()
   }
 
-  /**
-   * Load employees for starting new conversations
-   */
   const loadEmployees = async () => {
     setLoadingEmployees(true)
     try {
@@ -179,19 +164,15 @@ export default function EmployerMessagesPage() {
       setEmployees(data || [])
     } catch (error) {
       console.error('Error loading employees:', error)
+      toast.error('Failed to load employees')
     } finally {
       setLoadingEmployees(false)
     }
   }
 
-  /**
-   * Load group chat messages (EMPLOYEE_GROUP conversation type)
-   * Employer can view but not participate
-   */
   const loadGroupChat = async () => {
     setLoadingGroup(true)
     try {
-      // Find or get the employee group chat
       const { data: groupConv, error: convError } = await supabase
         .from('conversations')
         .select('id')
@@ -201,7 +182,6 @@ export default function EmployerMessagesPage() {
       if (convError && convError.code !== 'PGRST116') throw convError
 
       if (groupConv) {
-        // Load messages from the group chat
         const { data: messages, error: msgError } = await supabase
           .from('messages')
           .select('*')
@@ -216,14 +196,12 @@ export default function EmployerMessagesPage() {
       }
     } catch (error) {
       console.error('Error loading group chat:', error)
+      toast.error('Failed to load group chat')
     } finally {
       setLoadingGroup(false)
     }
   }
 
-  /**
-   * Load schedule messages (pushed from Schedule tab)
-   */
   const loadScheduleMessages = async () => {
     setLoadingSchedule(true)
     try {
@@ -244,14 +222,12 @@ export default function EmployerMessagesPage() {
       setScheduleMessages((data as ScheduleMessageWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading schedule messages:', error)
+      toast.error('Failed to load schedule messages')
     } finally {
       setLoadingSchedule(false)
     }
   }
 
-  /**
-   * Start a new direct conversation with an employee
-   */
   const handleStartConversation = async () => {
     if (!selectedEmployeeId) return
 
@@ -259,7 +235,6 @@ export default function EmployerMessagesPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Get employee user_id
       const { data: employee, error: empError } = await supabase
         .from('employees')
         .select('user_id, full_name')
@@ -268,19 +243,16 @@ export default function EmployerMessagesPage() {
 
       if (empError) {
         console.error('Error fetching employee:', empError)
-        alert('Error fetching employee data')
+        toast.error('Error fetching employee data')
         return
       }
 
       if (!employee?.user_id) {
-        alert(`${employee?.full_name || 'This employee'} does not have a user account linked yet. They need to register/login first before you can chat with them.`)
+        toast.info(`${employee?.full_name || 'This employee'} does not have a user account linked yet. They need to register/login first before you can chat with them.`)
         return
       }
 
-      // Check if conversation already exists between these two users
-      // First get user's conversations via conversation_participants
-      console.log('Checking for existing conversation between:', user.id, 'and', employee.user_id)
-
+      // Check if conversation already exists
       const { data: userParticipations, error: upError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
@@ -288,13 +260,11 @@ export default function EmployerMessagesPage() {
 
       if (upError) {
         console.log('Error checking user participations (may be empty):', upError)
-        // Continue - user might have no conversations yet
       }
 
       if (userParticipations && userParticipations.length > 0) {
         const convIds = userParticipations.map(p => p.conversation_id)
 
-        // Check if employee is in any of these conversations
         const { data: sharedConvs } = await supabase
           .from('conversation_participants')
           .select('conversation_id')
@@ -302,8 +272,6 @@ export default function EmployerMessagesPage() {
           .in('conversation_id', convIds)
 
         if (sharedConvs && sharedConvs.length > 0) {
-          // Found existing conversation
-          console.log('Found existing conversation:', sharedConvs[0].conversation_id)
           setSelectedConversation(sharedConvs[0].conversation_id)
           setShowNewConversation(false)
           setSelectedEmployeeId('')
@@ -311,10 +279,7 @@ export default function EmployerMessagesPage() {
         }
       }
 
-      console.log('No existing conversation found, creating new one')
-
       // Create new conversation
-      console.log('Creating conversation for user:', user.id)
       const { data: newConv, error: convError } = await supabase
         .from('conversations')
         .insert({
@@ -326,14 +291,11 @@ export default function EmployerMessagesPage() {
 
       if (convError) {
         console.error('Error creating conversation:', convError)
-        alert(`Failed to create conversation: ${convError.message || JSON.stringify(convError)}`)
+        toast.error(`Failed to create conversation: ${convError.message || JSON.stringify(convError)}`)
         return
       }
 
-      console.log('Conversation created:', newConv.id)
-
       // Add participants
-      console.log('Adding participants:', user.id, employee.user_id)
       const { error: partError } = await supabase
         .from('conversation_participants')
         .insert([
@@ -343,20 +305,17 @@ export default function EmployerMessagesPage() {
 
       if (partError) {
         console.error('Error adding participants:', partError)
-        alert(`Failed to add participants: ${partError.message || JSON.stringify(partError)}`)
+        toast.error(`Failed to add participants: ${partError.message || JSON.stringify(partError)}`)
         return
       }
 
-      console.log('Participants added successfully')
-
-      // Open the new conversation
       setSelectedConversation(newConv.id)
       setShowNewConversation(false)
       setSelectedEmployeeId('')
     } catch (error) {
       console.error('Error starting conversation:', error)
       const errorMsg = error instanceof Error ? error.message : JSON.stringify(error)
-      alert(`Failed to start conversation: ${errorMsg}`)
+      toast.error(`Failed to start conversation: ${errorMsg}`)
     }
   }
 
@@ -371,30 +330,57 @@ export default function EmployerMessagesPage() {
     })
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-20">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Messages</h1>
+  const tabs = [
+    { value: 'direct', label: 'Chat', icon: MessageSquare },
+    { value: 'announcements', label: 'News', icon: Megaphone },
+    { value: 'group', label: 'Team', icon: Users },
+    { value: 'job-messages', label: 'Jobs', icon: Briefcase },
+    { value: 'exchanges', label: 'Swap', icon: ArrowLeftRight, badge: exchanges.length },
+  ]
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Tab Navigation - 5 tabs, compact for mobile */}
-          <TabsList className="w-full grid grid-cols-5 mb-6 h-auto p-1">
-            <TabsTrigger value="direct" className="text-[10px] sm:text-sm px-1 py-2">Chat</TabsTrigger>
-            <TabsTrigger value="announcements" className="text-[10px] sm:text-sm px-1 py-2">News</TabsTrigger>
-            <TabsTrigger value="group" className="text-[10px] sm:text-sm px-1 py-2">Team</TabsTrigger>
-            <TabsTrigger value="job-messages" className="text-[10px] sm:text-sm px-1 py-2">Jobs</TabsTrigger>
-            <TabsTrigger value="exchanges" className="text-[10px] sm:text-sm px-1 py-2 relative">
-              Swap
-              {exchanges.length > 0 && (
+  // Skeleton loader for dark theme
+  const SkeletonLoader = ({ count = 3 }: { count?: number }) => (
+    <div className="space-y-3">
+      {[...Array(count)].map((_, i) => (
+        <div key={i} className="bg-white/5 p-4 rounded-xl animate-pulse border border-white/10">
+          <div className="h-4 bg-white/10 rounded w-1/4 mb-2"></div>
+          <div className="h-3 bg-white/10 rounded w-full"></div>
+        </div>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen p-4 pb-20">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold text-white mb-6">Messages</h1>
+
+        {/* Tab Navigation - 5 tabs */}
+        <div className="flex gap-1 mb-6 bg-white/5 rounded-xl p-1 border border-white/10">
+          {tabs.map(tab => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`flex-1 py-2 px-1 rounded-lg text-[10px] sm:text-sm font-medium transition-colors relative flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 ${
+                activeTab === tab.value
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-300'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              {tab.label}
+              {tab.badge && tab.badge > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center">
-                  {exchanges.length}
+                  {tab.badge}
                 </span>
               )}
-            </TabsTrigger>
-          </TabsList>
+            </button>
+          ))}
+        </div>
 
-          {/* TAB 1: Direct Messages */}
-          <TabsContent value="direct">
+        {/* TAB 1: Direct Messages */}
+        {activeTab === 'direct' && (
+          <>
             {selectedConversation ? (
               <ChatView
                 conversationId={selectedConversation}
@@ -402,69 +388,77 @@ export default function EmployerMessagesPage() {
               />
             ) : showNewConversation ? (
               /* New Conversation Form */
-              <Card>
-                <CardContent className="p-6 space-y-4">
-                  <h2 className="text-lg font-semibold">Start New Conversation</h2>
-                  <div className="space-y-2">
-                    <label className="text-sm text-gray-600">Select Employee</label>
-                    <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose an employee..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map(emp => (
-                          <SelectItem
-                            key={emp.id}
-                            value={emp.id}
-                            disabled={!emp.user_id}
-                          >
-                            {emp.full_name} ({emp.email})
-                            {!emp.user_id && ' - No account'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {employees.some(e => !e.user_id) && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Employees without accounts need to register before you can message them.
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowNewConversation(false)
-                        setSelectedEmployeeId('')
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleStartConversation}
-                      disabled={!selectedEmployeeId}
-                    >
-                      Start Chat
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="bg-white/5 rounded-xl p-6 space-y-4 border border-white/10">
+                <h2 className="text-lg font-semibold text-white">Start New Conversation</h2>
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">Select Employee</label>
+                  <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white">
+                      <SelectValue placeholder="Choose an employee..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {employees.map(emp => (
+                        <SelectItem
+                          key={emp.id}
+                          value={emp.id}
+                          disabled={!emp.user_id}
+                          className="text-white hover:bg-white/10"
+                        >
+                          {emp.full_name} ({emp.email})
+                          {!emp.user_id && ' - No account'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {employees.some(e => !e.user_id) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Employees without accounts need to register before you can message them.
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowNewConversation(false)
+                      setSelectedEmployeeId('')
+                    }}
+                    className="border-white/20 text-gray-300 hover:bg-white/10"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleStartConversation}
+                    disabled={!selectedEmployeeId}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Start Chat
+                  </Button>
+                </div>
+              </div>
             ) : (
               /* Conversation List */
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Conversations</h2>
-                  <Button onClick={() => setShowNewConversation(true)} size="sm">
-                    + New Chat
+                  <h2 className="text-lg font-semibold text-white">Conversations</h2>
+                  <Button
+                    onClick={() => setShowNewConversation(true)}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    New Chat
                   </Button>
                 </div>
                 <ConversationList onSelectConversation={setSelectedConversation} />
               </div>
             )}
-          </TabsContent>
+          </>
+        )}
 
-          {/* Announcements Tab */}
-          <TabsContent value="announcements">
+        {/* Announcements Tab */}
+        {activeTab === 'announcements' && (
+          <>
             {showAnnouncementForm ? (
               <AnnouncementForm
                 onSuccess={handleAnnouncementSuccess}
@@ -473,25 +467,22 @@ export default function EmployerMessagesPage() {
             ) : (
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Past Announcements</h2>
-                  <Button onClick={() => setShowAnnouncementForm(true)}>
-                    New Announcement
+                  <h2 className="text-lg font-semibold text-white">Past Announcements</h2>
+                  <Button
+                    onClick={() => setShowAnnouncementForm(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    New
                   </Button>
                 </div>
 
                 {loadingAnnouncements ? (
-                  <div className="space-y-3">
-                    {[...Array(2)].map((_, i) => (
-                      <div key={i} className="bg-white p-4 rounded-lg animate-pulse">
-                        <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-full"></div>
-                      </div>
-                    ))}
-                  </div>
+                  <SkeletonLoader count={2} />
                 ) : announcements.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-lg">
-                    <p className="text-gray-500">No announcements yet</p>
-                    <p className="text-sm text-gray-400 mt-1">
+                  <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+                    <p className="text-gray-400">No announcements yet</p>
+                    <p className="text-sm text-gray-500 mt-1">
                       Create your first announcement to notify all employees
                     </p>
                   </div>
@@ -502,16 +493,16 @@ export default function EmployerMessagesPage() {
                       return (
                         <div
                           key={announcement.id}
-                          className="bg-white p-4 rounded-lg border hover:shadow-md transition-shadow"
+                          className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/[0.07] transition-colors"
                         >
                           <div className="flex items-start justify-between mb-2">
                             <p className="text-sm text-gray-500">
                               {formatAnnouncementDate(announcement.created_at)}
                             </p>
-                            <Badge variant="secondary">ANNOUNCEMENT</Badge>
+                            <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">ANNOUNCEMENT</Badge>
                           </div>
                           {firstMessage && (
-                            <p className="text-sm text-gray-700">{firstMessage.content}</p>
+                            <p className="text-sm text-gray-300">{firstMessage.content}</p>
                           )}
                         </div>
                       )
@@ -520,146 +511,126 @@ export default function EmployerMessagesPage() {
                 )}
               </div>
             )}
-          </TabsContent>
+          </>
+        )}
 
-          {/* TAB 3: Employee Group Chat (read-only for employer) */}
-          <TabsContent value="group">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Employee Group Chat</h2>
-                <Badge variant="outline">Read Only</Badge>
+        {/* TAB 3: Employee Group Chat (read-only for employer) */}
+        {activeTab === 'group' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Employee Group Chat</h2>
+              <Badge className="bg-white/10 text-gray-300 border border-white/20">Read Only</Badge>
+            </div>
+
+            {loadingGroup ? (
+              <SkeletonLoader />
+            ) : groupMessages.length === 0 ? (
+              <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+                <p className="text-gray-400">No group chat messages yet</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Messages will appear here when employees chat with each other
+                </p>
               </div>
-
-              {loadingGroup ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-white p-4 rounded-lg animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-full"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : groupMessages.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg">
-                  <p className="text-gray-500">No group chat messages yet</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Messages will appear here when employees chat with each other
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg border max-h-[500px] overflow-y-auto">
-                  <div className="p-4 space-y-3">
-                    {groupMessages.map((message) => (
-                      <div key={message.id} className="border-b pb-3 last:border-b-0 last:pb-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-700">
-                            Employee
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {format(new Date(message.sent_at), 'MMM d, h:mm a')}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">{message.content}</p>
+            ) : (
+              <div className="bg-white/5 rounded-xl border border-white/10 max-h-[500px] overflow-y-auto">
+                <div className="p-4 space-y-3">
+                  {groupMessages.map((message) => (
+                    <div key={message.id} className="border-b border-white/5 pb-3 last:border-b-0 last:pb-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-300">
+                          Employee
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(message.sent_at), 'MMM d, h:mm a')}
+                        </span>
                       </div>
-                    ))}
+                      <p className="text-sm text-gray-400">{message.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: Job Push Messages (from Schedule) */}
+        {activeTab === 'job-messages' && (
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-2">Job Messages</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Messages sent to employees from the Schedule tab
+            </p>
+
+            {loadingSchedule ? (
+              <SkeletonLoader />
+            ) : scheduleMessages.length === 0 ? (
+              <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+                <p className="text-gray-400">No job messages yet</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Use "Push to Messages" in Schedule to send messages about jobs
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scheduleMessages.map((msg) => (
+                  <div key={msg.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <span className="font-mono text-sm text-gray-500">
+                          {msg.job_session?.job_template?.job_code || 'Unknown Job'}
+                        </span>
+                        <h3 className="font-medium text-white">
+                          {msg.job_session?.job_template?.title || 'Job Message'}
+                        </h3>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={msg.read_at
+                          ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                          : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        }>
+                          {msg.read_at ? 'Read' : 'Unread'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-2">{msg.message}</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>To: {msg.employee?.full_name || 'Unknown'}</span>
+                      <span>{format(new Date(msg.sent_at), 'MMM d, h:mm a')}</span>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-          {/* TAB 4: Job Push Messages (from Schedule) */}
-          <TabsContent value="job-messages">
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Job Messages</h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Messages sent to employees from the Schedule tab
-              </p>
+        {/* TAB 5: Exchange Requests */}
+        {activeTab === 'exchanges' && (
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-4">Pending Exchange Requests</h2>
 
-              {loadingSchedule ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-white p-4 rounded-lg animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-full"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : scheduleMessages.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg">
-                  <p className="text-gray-500">No job messages yet</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Use "Push to Messages" in Schedule to send messages about jobs
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {scheduleMessages.map((msg) => (
-                    <Card key={msg.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <span className="font-mono text-sm text-gray-500">
-                              {msg.job_session?.job_template?.job_code || 'Unknown Job'}
-                            </span>
-                            <h3 className="font-medium text-gray-900">
-                              {msg.job_session?.job_template?.title || 'Job Message'}
-                            </h3>
-                          </div>
-                          <div className="text-right">
-                            <Badge variant={msg.read_at ? 'secondary' : 'default'}>
-                              {msg.read_at ? 'Read' : 'Unread'}
-                            </Badge>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{msg.message}</p>
-                        <div className="flex items-center justify-between text-xs text-gray-400">
-                          <span>To: {msg.employee?.full_name || 'Unknown'}</span>
-                          <span>{format(new Date(msg.sent_at), 'MMM d, h:mm a')}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* TAB 5: Exchange Requests */}
-          <TabsContent value="exchanges">
-            <div>
-              <h2 className="text-lg font-semibold mb-4">Pending Exchange Requests</h2>
-
-              {loadingExchanges ? (
-                <div className="space-y-3">
-                  {[...Array(2)].map((_, i) => (
-                    <div key={i} className="bg-white p-4 rounded-lg animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : exchanges.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg">
-                  <p className="text-gray-500">No pending exchange requests</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Requests will appear here when employees request job exchanges
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {exchanges.map((exchange) => (
-                    <ExchangeRequestCard
-                      key={exchange.id}
-                      exchange={exchange}
-                      onUpdate={loadExchanges}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+            {loadingExchanges ? (
+              <SkeletonLoader count={2} />
+            ) : exchanges.length === 0 ? (
+              <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
+                <p className="text-gray-400">No pending exchange requests</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Requests will appear here when employees request job exchanges
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {exchanges.map((exchange) => (
+                  <ExchangeRequestCard
+                    key={exchange.id}
+                    exchange={exchange}
+                    onUpdate={loadExchanges}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

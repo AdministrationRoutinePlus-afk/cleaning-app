@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { Clock, Play, ArrowRight } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface CurrentJobsCardProps {
   employeeId: string
@@ -129,7 +130,7 @@ export function CurrentJobsCard({ employeeId }: CurrentJobsCardProps) {
       router.push(`/employee/jobs/${job.id}`)
     } catch (error) {
       console.error('Error starting job:', error)
-      alert('Failed to start job. Please try again.')
+      toast.error('Failed to start job. Please try again.')
     }
   }
 

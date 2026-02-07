@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 
 interface DocumentUploadProps {
   employeeId: string
@@ -24,13 +25,13 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
     // Validate file type (images and PDFs)
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
     if (!allowedTypes.includes(file.type)) {
-      alert('Please upload a JPEG, PNG, or PDF file')
+      toast.error('Please upload a JPEG, PNG, or PDF file')
       return
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB')
+      toast.error('File size must be less than 5MB')
       return
     }
 
@@ -88,10 +89,10 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
 
       setPreviewUrl(publicUrl)
       onUploadSuccess(publicUrl)
-      alert('Document uploaded successfully!')
+      toast.success('Document uploaded successfully!')
     } catch (error) {
       console.error('Error uploading document:', error)
-      alert('Failed to upload document. Please try again.')
+      toast.error('Failed to upload document. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -125,10 +126,10 @@ export function DocumentUpload({ employeeId, currentDocumentUrl, onUploadSuccess
 
       setPreviewUrl(null)
       onUploadSuccess('')
-      alert('Document removed successfully!')
+      toast.success('Document removed successfully!')
     } catch (error) {
       console.error('Error removing document:', error)
-      alert('Failed to remove document. Please try again.')
+      toast.error('Failed to remove document. Please try again.')
     } finally {
       setUploading(false)
     }

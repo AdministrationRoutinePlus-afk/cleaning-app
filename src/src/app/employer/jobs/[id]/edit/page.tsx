@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import type { Customer, JobTemplate, DayOfWeek, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { addDays, format, parseISO, nextDay } from 'date-fns'
+import { addDays, format, parseISO, nextDay, startOfDay } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -26,7 +27,8 @@ export default function EditJobPage() {
   const router = useRouter()
   const params = useParams()
   const jobId = params.id as string
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -290,8 +292,8 @@ export default function EditJobPage() {
 
       if (sessionData.is_recurring) {
         // Recurring: Create one session per week from start_date to end_date
-        const startDate = sessionData.start_date ? new Date(sessionData.start_date + 'T00:00:00') : today
-        const endDate = sessionData.end_date ? new Date(sessionData.end_date + 'T00:00:00') : addDays(today, 30)
+        const startDate = sessionData.start_date ? parseISO(sessionData.start_date) : today
+        const endDate = sessionData.end_date ? parseISO(sessionData.end_date) : addDays(today, 30)
 
         console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(endDate, 'yyyy-MM-dd'))
 
@@ -339,7 +341,7 @@ export default function EditJobPage() {
         console.log('Specific dates:', datesToCreate)
 
         for (const dateStr of datesToCreate) {
-          const windowStart = new Date(dateStr + 'T00:00:00')
+          const windowStart = parseISO(dateStr)
           const windowEnd = addDays(windowStart, windowDays)
 
           const sessionCode = generateSessionCode()
@@ -380,13 +382,13 @@ export default function EditJobPage() {
       setLoading(true)
 
       if (!job) {
-        alert('Job data not loaded')
+        toast.error('Job data not loaded')
         return
       }
 
       // Validate required fields
       if (!formData.title) {
-        alert('Please fill in the job title')
+        toast.error('Please fill in the job title')
         return
       }
 
@@ -519,7 +521,7 @@ export default function EditJobPage() {
       const errorMessage = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message || JSON.stringify(error)
-      alert(`Failed to update job template: ${errorMessage}`)
+      toast.error(`Failed to update job template: ${errorMessage}`)
     } finally {
       setLoading(false)
     }
@@ -546,7 +548,7 @@ export default function EditJobPage() {
       const errorMessage = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message || JSON.stringify(error)
-      alert(`Failed to delete job: ${errorMessage}`)
+      toast.error(`Failed to delete job: ${errorMessage}`)
     } finally {
       setLoading(false)
     }

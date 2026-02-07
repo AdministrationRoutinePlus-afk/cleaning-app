@@ -1,4 +1,7 @@
+'use client'
+
 import { BottomNav } from '@/components/BottomNav'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export default function CustomerLayout({
   children,
@@ -7,7 +10,9 @@ export default function CustomerLayout({
 }) {
   return (
     <>
-      {children}
+      <ErrorBoundary>
+        {children}
+      </ErrorBoundary>
       <BottomNav profile="CUSTOMER" />
     </>
   )

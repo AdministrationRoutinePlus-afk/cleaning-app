@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Send } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface EmployeeChatViewProps {
   conversationId: string
@@ -125,7 +126,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
 
       if (error) {
         console.error('Error sending message:', error)
-        alert(`Failed to send: ${error.message}`)
+        toast.error(`Failed to send: ${error.message}`)
         return
       }
 
@@ -141,7 +142,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      toast.error('Failed to send message')
     } finally {
       setSending(false)
     }

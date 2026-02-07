@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
@@ -27,9 +28,12 @@ export default function EmployeeSchedulePage() {
   const calendarRef = useRef<HTMLDivElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadScheduledJobs()
+    return () => { isMountedRef.current = false }
   }, [])
 
   const loadScheduledJobs = async () => {
@@ -67,6 +71,7 @@ export default function EmployeeSchedulePage() {
       setSessions((data as JobSessionWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading scheduled jobs:', error)
+      toast.error('Failed to load your schedule')
     } finally {
       setLoading(false)
     }
@@ -155,7 +160,7 @@ export default function EmployeeSchedulePage() {
     if (!calendarElement) {
       console.error('Calendar element not found')
       setShowExportDialog(false)
-      alert('Failed to generate PDF: Calendar element not found')
+      toast.error('Failed to generate PDF: Calendar element not found')
       return
     }
 
@@ -196,7 +201,7 @@ export default function EmployeeSchedulePage() {
       setShowExportDialog(false)
     } catch (error) {
       console.error('Error generating PDF:', error)
-      alert(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      toast.error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setShowExportDialog(false)
     }
   }

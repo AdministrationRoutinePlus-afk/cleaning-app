@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,7 +47,6 @@ export function AccountSettings({ currentEmail, onChangeEmail, onChangePassword,
       return
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(newEmail)) {
       setEmailError('Please enter a valid email address')
@@ -102,139 +100,141 @@ export function AccountSettings({ currentEmail, onChangeEmail, onChangePassword,
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Account & Security</CardTitle>
-        <CardDescription>Manage your account settings</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Change Email */}
-        <div className="space-y-4">
-          <h3 className="font-medium text-sm text-gray-700">Change Email</h3>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Current Email</Label>
-              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{currentEmail}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new_email">New Email</Label>
-              <Input
-                id="new_email"
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="Enter new email address"
-              />
-            </div>
-            {emailError && (
-              <p className="text-sm text-red-600">{emailError}</p>
-            )}
-            {emailSuccess && (
-              <p className="text-sm text-green-600">{emailSuccess}</p>
-            )}
-            <Button
-              onClick={handleEmailChange}
-              disabled={changingEmail}
-              variant="outline"
-              className="w-full"
-            >
-              {changingEmail ? 'Sending Verification...' : 'Change Email'}
-            </Button>
+    <div className="space-y-6">
+      {/* Change Email */}
+      <div className="space-y-4">
+        <h3 className="font-medium text-sm text-gray-400">Change Email</h3>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-gray-300">Current Email</Label>
+            <p className="text-sm text-gray-400 bg-white/5 p-2 rounded-lg border border-white/10">{currentEmail}</p>
           </div>
-        </div>
-
-        {/* Change Password */}
-        <div className="space-y-4 pt-4 border-t">
-          <h3 className="font-medium text-sm text-gray-700">Change Password</h3>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="current_password">Current Password</Label>
-              <Input
-                id="current_password"
-                type="password"
-                value={passwordData.current}
-                onChange={(e) =>
-                  setPasswordData((prev) => ({ ...prev, current: e.target.value }))
-                }
-                placeholder="Enter current password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new_password">New Password</Label>
-              <Input
-                id="new_password"
-                type="password"
-                value={passwordData.new}
-                onChange={(e) =>
-                  setPasswordData((prev) => ({ ...prev, new: e.target.value }))
-                }
-                placeholder="Enter new password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm_password">Confirm New Password</Label>
-              <Input
-                id="confirm_password"
-                type="password"
-                value={passwordData.confirm}
-                onChange={(e) =>
-                  setPasswordData((prev) => ({ ...prev, confirm: e.target.value }))
-                }
-                placeholder="Confirm new password"
-              />
-            </div>
-            {passwordError && (
-              <p className="text-sm text-red-600">{passwordError}</p>
-            )}
-            <Button
-              onClick={handlePasswordChange}
-              disabled={changingPassword}
-              className="w-full"
-            >
-              {changingPassword ? 'Changing Password...' : 'Change Password'}
-            </Button>
+          <div className="space-y-2">
+            <Label htmlFor="new_email" className="text-gray-300">New Email</Label>
+            <Input
+              id="new_email"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="Enter new email address"
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
           </div>
-        </div>
-
-        {/* Logout */}
-        <div className="space-y-4 pt-4 border-t">
-          <h3 className="font-medium text-sm text-gray-700">Session</h3>
-          <Button onClick={onLogout} variant="outline" className="w-full">
-            Logout
+          {emailError && (
+            <p className="text-sm text-red-400">{emailError}</p>
+          )}
+          {emailSuccess && (
+            <p className="text-sm text-green-400">{emailSuccess}</p>
+          )}
+          <Button
+            onClick={handleEmailChange}
+            disabled={changingEmail}
+            variant="outline"
+            className="w-full border-white/20 text-gray-300 hover:bg-white/10"
+          >
+            {changingEmail ? 'Sending Verification...' : 'Change Email'}
           </Button>
         </div>
+      </div>
 
-        {/* Delete Account */}
-        <div className="space-y-4 pt-4 border-t">
-          <h3 className="font-medium text-sm text-gray-700">Danger Zone</h3>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full">
-                Delete Account
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete your account
-                  and remove all your data from our servers, including all job templates,
-                  employees, customers, and messages.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={onDeleteAccount}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  Yes, Delete My Account
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+      {/* Change Password */}
+      <div className="space-y-4 pt-4 border-t border-white/10">
+        <h3 className="font-medium text-sm text-gray-400">Change Password</h3>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="current_password" className="text-gray-300">Current Password</Label>
+            <Input
+              id="current_password"
+              type="password"
+              value={passwordData.current}
+              onChange={(e) =>
+                setPasswordData((prev) => ({ ...prev, current: e.target.value }))
+              }
+              placeholder="Enter current password"
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new_password" className="text-gray-300">New Password</Label>
+            <Input
+              id="new_password"
+              type="password"
+              value={passwordData.new}
+              onChange={(e) =>
+                setPasswordData((prev) => ({ ...prev, new: e.target.value }))
+              }
+              placeholder="Enter new password"
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm_password" className="text-gray-300">Confirm New Password</Label>
+            <Input
+              id="confirm_password"
+              type="password"
+              value={passwordData.confirm}
+              onChange={(e) =>
+                setPasswordData((prev) => ({ ...prev, confirm: e.target.value }))
+              }
+              placeholder="Confirm new password"
+              className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+            />
+          </div>
+          {passwordError && (
+            <p className="text-sm text-red-400">{passwordError}</p>
+          )}
+          <Button
+            onClick={handlePasswordChange}
+            disabled={changingPassword}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {changingPassword ? 'Changing Password...' : 'Change Password'}
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Logout */}
+      <div className="space-y-4 pt-4 border-t border-white/10">
+        <h3 className="font-medium text-sm text-gray-400">Session</h3>
+        <Button
+          onClick={onLogout}
+          variant="outline"
+          className="w-full border-white/20 text-gray-300 hover:bg-white/10"
+        >
+          Logout
+        </Button>
+      </div>
+
+      {/* Delete Account */}
+      <div className="space-y-4 pt-4 border-t border-white/10">
+        <h3 className="font-medium text-sm text-red-400">Danger Zone</h3>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button className="w-full bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30">
+              Delete Account
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-400">
+                This action cannot be undone. This will permanently delete your account
+                and remove all your data from our servers, including all job templates,
+                employees, customers, and messages.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-white/20 text-gray-300 hover:bg-white/10">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onDeleteAccount}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Yes, Delete My Account
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
   )
 }

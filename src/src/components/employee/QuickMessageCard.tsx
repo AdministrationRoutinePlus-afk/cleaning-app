@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { Send, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function QuickMessageCard() {
   const [message, setMessage] = useState('')
@@ -118,7 +119,7 @@ export function QuickMessageCard() {
       setTimeout(() => setSent(false), 3000)
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      toast.error('Failed to send message')
     } finally {
       setSending(false)
     }

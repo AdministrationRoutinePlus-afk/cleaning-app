@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Calendar, Lock, Unlock, AlertCircle, X, Clock, Copy, CalendarDays, Repeat, ChevronLeft, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 import { format, addDays, startOfDay, nextMonday, getDay, addWeeks } from 'date-fns'
 
 interface SpecificAvailabilityEditorProps {
@@ -289,7 +290,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       closeDayEditor()
     } catch (error) {
       console.error('Error saving availability:', error)
-      alert('Failed to save availability')
+      toast.error('Failed to save availability')
     } finally {
       setSaving(false)
     }
@@ -359,7 +360,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       closeWeeklyDayEditor()
     } catch (error) {
       console.error('Error saving weekly availability:', error)
-      alert('Failed to save availability')
+      toast.error('Failed to save availability')
     } finally {
       setSaving(false)
     }
@@ -411,7 +412,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       setShowReminder(false)
     } catch (error) {
       console.error('Error locking availability:', error)
-      alert('Failed to lock availability')
+      toast.error('Failed to lock availability')
     } finally {
       setSaving(false)
     }
@@ -437,7 +438,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       await initializeDays()
     } catch (error) {
       console.error('Error unlocking availability:', error)
-      alert('Failed to unlock availability')
+      toast.error('Failed to unlock availability')
     } finally {
       setSaving(false)
     }

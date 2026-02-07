@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
 
 interface CustomerChatProps {
   customer: Customer
@@ -125,7 +126,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
       setConversationId(newConversation.id)
     } catch (error) {
       console.error('Error initializing chat:', error)
-      alert('Failed to initialize chat')
+      toast.error('Failed to initialize chat')
     } finally {
       setLoading(false)
     }
@@ -183,7 +184,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
       setNewMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      toast.error('Failed to send message')
     } finally {
       setSending(false)
     }

@@ -1,20 +1,21 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import type { Employee } from '@/types/database'
+import type { Employer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { CurrentJobsContent } from '@/components/employee/CurrentJobsCard'
-import { SpecificAvailabilityContent } from '@/components/employee/SpecificAvailabilityEditor'
-import { QuickMessageContent } from '@/components/employee/QuickMessageCard'
-import { NextDepositContent } from '@/components/employee/NextDepositCard'
+import { JobsOverviewContent } from '@/components/employer/dashboard/JobsOverviewContent'
+import { PayrollContent } from '@/components/employer/dashboard/PayrollContent'
+import { EmployeeNotesContent } from '@/components/employer/dashboard/EmployeeNotesContent'
+import { TodoAndNotesContent } from '@/components/employer/dashboard/TodoAndNotesContent'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Clock, Calendar, MessageSquare, DollarSign } from 'lucide-react'
+import { Briefcase, DollarSign, FileText, ListTodo, Settings } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
-type DashboardSection = 'jobs' | 'availability' | 'message' | 'deposit'
+type DashboardSection = 'jobs' | 'payroll' | 'notes' | 'todos'
 
-export default function EmployeeDashboardPage() {
-  const [employee, setEmployee] = useState<Employee | null>(null)
+export default function EmployerDashboardPage() {
+  const [employer, setEmployer] = useState<Employer | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeSection, setActiveSection] = useState<DashboardSection>('jobs')
   const contentRef = useRef<HTMLDivElement>(null)
@@ -24,7 +25,6 @@ export default function EmployeeDashboardPage() {
 
   const handleSectionChange = (sectionId: DashboardSection) => {
     setActiveSection(sectionId)
-    // Smooth scroll to content after a brief delay to allow render
     setTimeout(() => {
       contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 100)
@@ -32,27 +32,27 @@ export default function EmployeeDashboardPage() {
 
   useEffect(() => {
     isMountedRef.current = true
-    loadEmployee()
+    loadEmployer()
     return () => { isMountedRef.current = false }
   }, [])
 
-  const loadEmployee = async () => {
+  const loadEmployer = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user || !isMountedRef.current) return
 
       const { data, error } = await supabase
-        .from('employees')
+        .from('employers')
         .select('*')
         .eq('user_id', user.id)
         .single()
 
       if (error) throw error
       if (isMountedRef.current) {
-        setEmployee(data)
+        setEmployer(data)
       }
     } catch (error) {
-      console.error('Error loading employee:', error)
+      console.error('Error loading employer:', error)
       toast.error('Failed to load dashboard')
     } finally {
       if (isMountedRef.current) {
@@ -65,11 +65,11 @@ export default function EmployeeDashboardPage() {
     return <LoadingSpinner fullScreen />
   }
 
-  if (!employee) {
+  if (!employer) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-white/10 rounded-2xl p-8 text-center border border-white/20">
-          <p className="text-gray-300">Employee profile not found</p>
+          <p className="text-gray-300">Employer profile not found</p>
         </div>
       </div>
     )
@@ -78,33 +78,29 @@ export default function EmployeeDashboardPage() {
   const sections = [
     {
       id: 'jobs' as DashboardSection,
-      label: 'Current Jobs',
-      icon: Clock,
+      label: 'Jobs Overview',
+      icon: Briefcase,
       color: 'purple',
-      show: true
     },
     {
-      id: 'availability' as DashboardSection,
-      label: 'Availability',
-      icon: Calendar,
-      color: 'blue',
-      show: true
-    },
-    {
-      id: 'message' as DashboardSection,
-      label: 'Message Boss',
-      icon: MessageSquare,
-      color: 'green',
-      show: true
-    },
-    {
-      id: 'deposit' as DashboardSection,
-      label: 'Next Deposit',
+      id: 'payroll' as DashboardSection,
+      label: 'Payroll',
       icon: DollarSign,
+      color: 'green',
+    },
+    {
+      id: 'notes' as DashboardSection,
+      label: 'Employee Notes',
+      icon: FileText,
+      color: 'blue',
+    },
+    {
+      id: 'todos' as DashboardSection,
+      label: 'To-Do & Notes',
+      icon: ListTodo,
       color: 'amber',
-      show: true
     }
-  ].filter(s => s.show)
+  ]
 
   const getGradient = (color: string, isActive: boolean) => {
     if (!isActive) return 'bg-white/5'
@@ -142,6 +138,17 @@ export default function EmployeeDashboardPage() {
   return (
     <div className="min-h-screen p-4 pb-24">
       <div className="max-w-lg mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <Link
+            href="/employer/settings"
+            className="p-2 rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
+          >
+            <Settings className="w-5 h-5 text-gray-300" />
+          </Link>
+        </div>
+
         {/* Section Selector - 2x2 Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           {sections.map((section) => {
@@ -168,16 +175,16 @@ export default function EmployeeDashboardPage() {
         {/* Content Section */}
         <div ref={contentRef} className="bg-white/10 rounded-2xl border border-white/20 p-4 scroll-mt-4">
           {activeSection === 'jobs' && (
-            <CurrentJobsContent employeeId={employee.id} />
+            <JobsOverviewContent employerId={employer.id} />
           )}
-          {activeSection === 'availability' && (
-            <SpecificAvailabilityContent employeeId={employee.id} />
+          {activeSection === 'payroll' && (
+            <PayrollContent employerId={employer.id} />
           )}
-          {activeSection === 'message' && (
-            <QuickMessageContent />
+          {activeSection === 'notes' && (
+            <EmployeeNotesContent employerId={employer.id} />
           )}
-          {activeSection === 'deposit' && (
-            <NextDepositContent employeeId={employee.id} />
+          {activeSection === 'todos' && (
+            <TodoAndNotesContent employerId={employer.id} />
           )}
         </div>
       </div>

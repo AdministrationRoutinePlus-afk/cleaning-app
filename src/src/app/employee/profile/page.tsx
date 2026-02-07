@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import { useState, useEffect, useRef } from 'react'
 import type { Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -38,13 +39,17 @@ export default function EmployeeProfilePage() {
   const [permissionStatus, setPermissionStatus] = useState<string>('default')
   const [requestingPermission, setRequestingPermission] = useState(false)
 
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadEmployeeProfile()
     // Check notification permission on mount
     const status = getNotificationPermissionStatus()
     setPermissionStatus(status)
+    return () => { isMountedRef.current = false }
   }, [])
 
   const loadEmployeeProfile = async () => {
@@ -69,6 +74,7 @@ export default function EmployeeProfilePage() {
       setNotes(data.notes || '')
     } catch (error) {
       console.error('Error loading employee profile:', error)
+      toast.error('Failed to load your profile')
     } finally {
       setLoading(false)
     }
@@ -92,11 +98,11 @@ export default function EmployeeProfilePage() {
 
       if (error) throw error
 
-      alert('Personal information updated successfully!')
+      toast.success('Personal information updated successfully!')
       await loadEmployeeProfile()
     } catch (error) {
       console.error('Error saving personal info:', error)
-      alert('Failed to save personal information')
+      toast.error('Failed to save personal information')
     } finally {
       setSaving(false)
     }
@@ -117,11 +123,11 @@ export default function EmployeeProfilePage() {
 
       if (error) throw error
 
-      alert('Notes saved successfully!')
+      toast.success('Notes saved successfully!')
       await loadEmployeeProfile()
     } catch (error) {
       console.error('Error saving notes:', error)
-      alert('Failed to save notes')
+      toast.error('Failed to save notes')
     } finally {
       setSaving(false)
     }
@@ -153,17 +159,17 @@ export default function EmployeeProfilePage() {
 
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
-      alert('Please enter both password fields')
+      toast.error('Please enter both password fields')
       return
     }
 
     if (newPassword !== confirmPassword) {
-      alert('Passwords do not match')
+      toast.error('Passwords do not match')
       return
     }
 
     if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters')
+      toast.error('Password must be at least 6 characters')
       return
     }
 
@@ -175,12 +181,12 @@ export default function EmployeeProfilePage() {
 
       if (error) throw error
 
-      alert('Password changed successfully!')
+      toast.success('Password changed successfully!')
       setNewPassword('')
       setConfirmPassword('')
     } catch (error) {
       console.error('Error changing password:', error)
-      alert('Failed to change password')
+      toast.error('Failed to change password')
     } finally {
       setSaving(false)
     }

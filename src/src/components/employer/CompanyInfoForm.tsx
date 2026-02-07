@@ -5,7 +5,6 @@ import type { CompanyInfo } from '@/types/database'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface CompanyInfoFormProps {
   companyInfo: CompanyInfo | null
@@ -54,95 +53,96 @@ export function CompanyInfoForm({ companyInfo, onSave }: CompanyInfoFormProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Company Information</CardTitle>
-        <CardDescription>Update your company details</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="company_name">Company Name</Label>
-          <Input
-            id="company_name"
-            type="text"
-            value={formData.companyName}
-            onChange={(e) => handleChange('companyName', e.target.value)}
-            placeholder="Routine Plus Inc."
-          />
-        </div>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="company_name" className="text-gray-300">Company Name</Label>
+        <Input
+          id="company_name"
+          type="text"
+          value={formData.companyName}
+          onChange={(e) => handleChange('companyName', e.target.value)}
+          placeholder="Routine Plus Inc."
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => handleChange('phone', e.target.value)}
-            placeholder="(555) 123-4567"
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="phone" className="text-gray-300">Phone</Label>
+        <Input
+          id="phone"
+          type="tel"
+          value={formData.phone}
+          onChange={(e) => handleChange('phone', e.target.value)}
+          placeholder="(555) 123-4567"
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleChange('email', e.target.value)}
-            placeholder="contact@routineplus.com"
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="email" className="text-gray-300">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => handleChange('email', e.target.value)}
+          placeholder="contact@routineplus.com"
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="address">Address</Label>
-          <Input
-            id="address"
-            type="text"
-            value={formData.address}
-            onChange={(e) => handleChange('address', e.target.value)}
-            placeholder="123 Main St, City, Province"
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="address" className="text-gray-300">Address</Label>
+        <Input
+          id="address"
+          type="text"
+          value={formData.address}
+          onChange={(e) => handleChange('address', e.target.value)}
+          placeholder="123 Main St, City, Province"
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="website">Website</Label>
-          <Input
-            id="website"
-            type="url"
-            value={formData.website}
-            onChange={(e) => handleChange('website', e.target.value)}
-            placeholder="https://www.routineplus.com"
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="website" className="text-gray-300">Website</Label>
+        <Input
+          id="website"
+          type="url"
+          value={formData.website}
+          onChange={(e) => handleChange('website', e.target.value)}
+          placeholder="https://www.routineplus.com"
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="default_hourly_rate">Default Hourly Rate ($)</Label>
-          <Input
-            id="default_hourly_rate"
-            type="number"
-            step="0.01"
-            min="0"
-            value={formData.defaultHourlyRate}
-            onChange={(e) => handleChange('defaultHourlyRate', e.target.value)}
-            placeholder="25.00"
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="default_hourly_rate" className="text-gray-300">Default Hourly Rate ($)</Label>
+        <Input
+          id="default_hourly_rate"
+          type="number"
+          step="0.01"
+          min="0"
+          value={formData.defaultHourlyRate}
+          onChange={(e) => handleChange('defaultHourlyRate', e.target.value)}
+          placeholder="25.00"
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="tax_number">Tax Number</Label>
-          <Input
-            id="tax_number"
-            type="text"
-            value={formData.taxNumber}
-            onChange={(e) => handleChange('taxNumber', e.target.value)}
-            placeholder="123456789RT0001"
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="tax_number" className="text-gray-300">Tax Number</Label>
+        <Input
+          id="tax_number"
+          type="text"
+          value={formData.taxNumber}
+          onChange={(e) => handleChange('taxNumber', e.target.value)}
+          placeholder="123456789RT0001"
+          className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+        />
+      </div>
 
-        <Button onClick={handleSave} disabled={saving} className="w-full">
-          {saving ? 'Saving...' : 'Save Company Information'}
-        </Button>
-      </CardContent>
-    </Card>
+      <Button onClick={handleSave} disabled={saving} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+        {saving ? 'Saving...' : 'Save Company Information'}
+      </Button>
+    </div>
   )
 }

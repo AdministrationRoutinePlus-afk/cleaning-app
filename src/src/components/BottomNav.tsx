@@ -32,11 +32,11 @@ interface BottomNavProps {
 // Navigation items for each profile
 const navigationConfig: Record<UserProfile, NavItem[]> = {
   EMPLOYER: [
+    { label: 'Dashboard', href: '/employer/dashboard', icon: LayoutDashboard },
     { label: 'Jobs', href: '/employer/jobs', icon: Briefcase },
     { label: 'Users', href: '/employer/users', icon: Users },
     { label: 'Schedule', href: '/employer/schedule', icon: Calendar },
     { label: 'Messages', href: '/employer/messages', icon: MessageSquare },
-    { label: 'Settings', href: '/employer/settings', icon: Settings },
   ],
   EMPLOYEE: [
     { label: 'Dashboard', href: '/employee/dashboard', icon: LayoutDashboard },
@@ -58,8 +58,8 @@ export function BottomNav({ profile }: BottomNavProps) {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false)
   const supabase = createClient()
 
-  // Use dark theme styling for EMPLOYEE profile
-  const isDarkTheme = profile === 'EMPLOYEE'
+  // Use dark theme styling for EMPLOYEE and EMPLOYER profiles
+  const isDarkTheme = profile === 'EMPLOYEE' || profile === 'EMPLOYER'
 
   // Check for unread messages for employee profile
   useEffect(() => {

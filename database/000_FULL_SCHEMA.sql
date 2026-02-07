@@ -2,7 +2,7 @@
 -- CLEANING APP - COMPLETE DATABASE SCHEMA
 -- =============================================
 -- Run this entire file in Supabase SQL Editor
--- Total: 24 Tables + 11 Enums + 2 Storage Buckets
+-- Total: 27 Tables + 14 Enums + 2 Storage Buckets
 -- =============================================
 
 -- =============================================
@@ -49,6 +49,15 @@ CREATE TYPE day_of_week AS ENUM ('MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'
 
 -- Theme
 CREATE TYPE theme_type AS ENUM ('LIGHT', 'DARK');
+
+-- Employer Note Type
+CREATE TYPE employer_note_type AS ENUM ('ILLNESS', 'ABSENCE', 'PERFORMANCE', 'OTHER');
+
+-- Todo Priority
+CREATE TYPE todo_priority AS ENUM ('LOW', 'MEDIUM', 'HIGH');
+
+-- Job Session Note Type
+CREATE TYPE job_session_note_type AS ENUM ('CLIENT_FEEDBACK', 'INTERNAL', 'FOLLOW_UP');
 
 
 -- =============================================
@@ -679,9 +688,74 @@ CREATE POLICY "Employees can delete their own documents" ON storage.objects FOR 
 
 
 -- =============================================
+-- PART 13: EMPLOYER DASHBOARD TABLES (3 tables)
+-- =============================================
+
+-- 25. EMPLOYER NOTES (illness, absence, performance notes about employees)
+CREATE TABLE employer_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employer_id UUID NOT NULL REFERENCES employers(id) ON DELETE CASCADE,
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  note_type employer_note_type NOT NULL DEFAULT 'OTHER',
+  title TEXT NOT NULL,
+  content TEXT,
+  note_date DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_employer_notes_employer_id ON employer_notes(employer_id);
+CREATE INDEX idx_employer_notes_employee_id ON employer_notes(employee_id);
+CREATE INDEX idx_employer_notes_note_date ON employer_notes(note_date);
+CREATE INDEX idx_employer_notes_note_type ON employer_notes(note_type);
+
+-- 26. EMPLOYER TODOS (to-do list items)
+CREATE TABLE employer_todos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employer_id UUID NOT NULL REFERENCES employers(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  due_date DATE,
+  is_completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  priority todo_priority NOT NULL DEFAULT 'MEDIUM',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_employer_todos_employer_id ON employer_todos(employer_id);
+CREATE INDEX idx_employer_todos_is_completed ON employer_todos(is_completed);
+CREATE INDEX idx_employer_todos_due_date ON employer_todos(due_date);
+CREATE INDEX idx_employer_todos_priority ON employer_todos(priority);
+
+-- 27. JOB SESSION NOTES (notes attached to specific job sessions)
+CREATE TABLE job_session_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_session_id UUID NOT NULL REFERENCES job_sessions(id) ON DELETE CASCADE,
+  employer_id UUID NOT NULL REFERENCES employers(id) ON DELETE CASCADE,
+  note_type job_session_note_type NOT NULL DEFAULT 'INTERNAL',
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_job_session_notes_session_id ON job_session_notes(job_session_id);
+CREATE INDEX idx_job_session_notes_employer_id ON job_session_notes(employer_id);
+CREATE INDEX idx_job_session_notes_note_type ON job_session_notes(note_type);
+
+-- RLS for employer dashboard tables
+ALTER TABLE employer_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employer_todos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_session_notes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Employers can manage their notes" ON employer_notes FOR ALL USING (employer_id IN (SELECT id FROM employers WHERE user_id = auth.uid()));
+CREATE POLICY "Employers can manage their todos" ON employer_todos FOR ALL USING (employer_id IN (SELECT id FROM employers WHERE user_id = auth.uid()));
+CREATE POLICY "Employers can manage their job session notes" ON job_session_notes FOR ALL USING (employer_id IN (SELECT id FROM employers WHERE user_id = auth.uid()));
+
+
+-- =============================================
 -- SCHEMA COMPLETE!
 -- =============================================
--- Total: 24 Tables, 11 Enums, 2 Storage Buckets
+-- Total: 27 Tables, 14 Enums, 2 Storage Buckets
 -- All RLS policies configured
 -- All indexes created
 -- =============================================

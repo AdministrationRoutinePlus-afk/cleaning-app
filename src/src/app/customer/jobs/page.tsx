@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
+import { useEffect, useState, useRef } from 'react'
 import type { JobTemplate, JobStep, Customer, JobSession } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { JobDetailCard } from '@/components/customer/JobDetailCard'
@@ -21,10 +22,14 @@ export default function CustomerJobsPage() {
   const [sessionCounts, setSessionCounts] = useState<Record<string, SessionCount>>({})
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadCustomerData()
+    return () => { isMountedRef.current = false }
   }, [])
 
   useEffect(() => {
@@ -36,8 +41,8 @@ export default function CustomerJobsPage() {
   const loadCustomerData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        alert('Please log in to view jobs')
+      if (!user || !isMountedRef.current) {
+        if (user === null) toast.error('Please log in to view jobs')
         return
       }
 
@@ -49,12 +54,16 @@ export default function CustomerJobsPage() {
         .single()
 
       if (customerError) throw customerError
-      setCustomer(customerData)
+      if (isMountedRef.current) {
+        setCustomer(customerData)
+      }
     } catch (error) {
       console.error('Error loading customer data:', error)
-      alert('Failed to load customer profile')
+      if (isMountedRef.current) toast.error('Failed to load customer profile')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -118,6 +127,7 @@ export default function CustomerJobsPage() {
       }
     } catch (error) {
       console.error('Error loading job templates:', error)
+      toast.error('Failed to load your jobs')
     }
   }
 

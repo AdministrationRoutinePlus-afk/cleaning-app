@@ -10,6 +10,7 @@ import { EmployeeChatView } from '@/components/employee/EmployeeChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
 import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, ChevronLeft, CheckSquare } from 'lucide-react'
+import { toast } from 'sonner'
 
 // Extended type for schedule messages with job details
 interface ScheduleMessageWithDetails extends ScheduleMessage {
@@ -63,9 +64,12 @@ export default function EmployeeMessagesPage() {
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadCurrentEmployee()
+    return () => { isMountedRef.current = false }
   }, [])
 
   useEffect(() => {
@@ -163,6 +167,7 @@ export default function EmployeeMessagesPage() {
       setCurrentEmployee(data)
     } catch (error) {
       console.error('Error loading employee:', error)
+      toast.error('Failed to load your profile')
     } finally {
       setLoading(false)
     }
@@ -203,6 +208,7 @@ export default function EmployeeMessagesPage() {
       }
     } catch (error) {
       console.error('Error loading employer conversation:', error)
+      toast.error('Failed to load conversation')
     } finally {
       setLoadingConversation(false)
     }
@@ -272,6 +278,7 @@ export default function EmployeeMessagesPage() {
       })
     } catch (error) {
       console.error('Error creating employer conversation:', error)
+      toast.error('Failed to start conversation')
     } finally {
       setCreatingConversation(false)
       setLoadingConversation(false)
@@ -303,6 +310,7 @@ export default function EmployeeMessagesPage() {
       setAnnouncements(userAnnouncements)
     } catch (error) {
       console.error('Error loading announcements:', error)
+      toast.error('Failed to load announcements')
     }
   }
 
@@ -333,6 +341,7 @@ export default function EmployeeMessagesPage() {
       setCoworkerConversation(groupConv || null)
     } catch (error) {
       console.error('Error loading coworker conversation:', error)
+      toast.error('Failed to load group conversation')
     }
   }
 
@@ -356,6 +365,7 @@ export default function EmployeeMessagesPage() {
       setJobMessages((data as ScheduleMessageWithDetails[]) || [])
     } catch (error) {
       console.error('Error loading job messages:', error)
+      toast.error('Failed to load job messages')
     }
   }
 
@@ -427,6 +437,7 @@ export default function EmployeeMessagesPage() {
       setProcedures(proceduresArray)
     } catch (error) {
       console.error('Error loading procedures:', error)
+      toast.error('Failed to load procedures')
     } finally {
       setLoadingProcedures(false)
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import type { JobSessionFull } from '@/types/database'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { Calendar, Clock, MapPin, User, X, ArrowLeftRight } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +32,8 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [showExchangeDialog, setShowExchangeDialog] = useState(false)
   const [imageError, setImageError] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const { job_template, status, scheduled_date, scheduled_time } = jobSession
   const { job_code, title, address, customer, image_url } = job_template
@@ -135,7 +137,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       }
     } catch (error) {
       console.error('Error canceling interest:', error)
-      alert('Failed to cancel. Please try again.')
+      toast.error('Failed to cancel. Please try again.')
     } finally {
       setLoading(false)
       setShowCancelDialog(false)
@@ -169,14 +171,14 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
       if (error) throw error
 
-      alert('Job posted to exchange board! Other employees can now request it.')
+      toast.success('Job posted to exchange board! Other employees can now request it.')
 
       if (onStatusChange) {
         onStatusChange()
       }
     } catch (error) {
       console.error('Error requesting exchange:', error)
-      alert('Failed to request exchange. Please try again.')
+      toast.error('Failed to request exchange. Please try again.')
     } finally {
       setLoading(false)
       setShowExchangeDialog(false)
@@ -206,7 +208,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
       }
     } catch (error) {
       console.error('Error starting job:', error)
-      alert('Failed to start job. Please try again.')
+      toast.error('Failed to start job. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -447,11 +449,14 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         )}
       </CardContent>
 
-      {renderActionButtons() && (
-        <CardFooter className="pt-3 relative z-10">
-          {renderActionButtons()}
-        </CardFooter>
-      )}
+      {(() => {
+        const actionButtons = renderActionButtons()
+        return actionButtons ? (
+          <CardFooter className="pt-3 relative z-10">
+            {actionButtons}
+          </CardFooter>
+        ) : null
+      })()}
 
       {/* Cancel Interest Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

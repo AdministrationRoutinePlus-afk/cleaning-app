@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef } from 'react'
 import type { Message } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ArrowLeft, Send } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface ChatViewProps {
   conversationId: string
@@ -25,7 +26,6 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
     loadMessages()
     getCurrentUser()
 
-    // Subscribe to new messages
     const channel = supabase
       .channel(`conversation-${conversationId}`)
       .on(
@@ -67,7 +67,6 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
       if (error) throw error
       setMessages(data || [])
 
-      // Mark messages as read
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         await supabase
@@ -110,23 +109,21 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
 
       if (error) {
         console.error('Error sending message:', error)
-        alert(`Failed to send: ${error.message}`)
+        toast.error(`Failed to send: ${error.message}`)
         return
       }
 
       setNewMessage('')
 
-      // Manually add message if realtime doesn't work
       if (data) {
         setMessages(prev => {
-          // Check if message already exists (from realtime)
           if (prev.some(m => m.id === data.id)) return prev
           return [...prev, data]
         })
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      toast.error('Failed to send message')
     } finally {
       setSending(false)
     }
@@ -161,33 +158,39 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-12 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+      <div className="bg-white/5 rounded-xl border border-white/10 p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-white/10 rounded w-1/4"></div>
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-12 bg-white/10 rounded"></div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className="flex flex-col h-[calc(100vh-12rem)]">
-      <CardHeader className="border-b">
+    <div className="bg-white/5 rounded-xl border border-white/10 flex flex-col h-[calc(100vh-12rem)]">
+      {/* Header */}
+      <div className="border-b border-white/10 p-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            ← Back
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="text-gray-400 hover:text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
           </Button>
-          <CardTitle className="text-lg">Chat</CardTitle>
+          <h3 className="text-lg font-semibold text-white">Chat</h3>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             No messages yet. Start the conversation!
@@ -197,7 +200,7 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
             <div key={message.id}>
               {shouldShowDateSeparator(index) && (
                 <div className="flex justify-center my-4">
-                  <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                  <span className="text-xs text-gray-500 bg-white/10 px-3 py-1 rounded-full">
                     {formatDate(message.sent_at)}
                   </span>
                 </div>
@@ -207,10 +210,10 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
                 className={`flex ${message.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                  className={`max-w-[70%] rounded-xl px-4 py-2 ${
                     message.sender_id === currentUserId
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-900'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/10 text-gray-200'
                   }`}
                 >
                   {message.is_system && (
@@ -219,7 +222,7 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
                   <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                   <p
                     className={`text-xs mt-1 ${
-                      message.sender_id === currentUserId ? 'text-blue-100' : 'text-gray-500'
+                      message.sender_id === currentUserId ? 'text-blue-200' : 'text-gray-500'
                     }`}
                   >
                     {formatTime(message.sent_at)}
@@ -230,22 +233,27 @@ export function ChatView({ conversationId, onBack }: ChatViewProps) {
           ))
         )}
         <div ref={messagesEndRef} />
-      </CardContent>
+      </div>
 
-      <CardFooter className="border-t p-4">
+      {/* Input */}
+      <div className="border-t border-white/10 p-4">
         <form onSubmit={handleSendMessage} className="flex gap-2 w-full">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             disabled={sending}
-            className="flex-1"
+            className="flex-1 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
           />
-          <Button type="submit" disabled={sending || !newMessage.trim()}>
-            {sending ? 'Sending...' : 'Send'}
+          <Button
+            type="submit"
+            disabled={sending || !newMessage.trim()}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Send className="w-4 h-4" />
           </Button>
         </form>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   )
 }

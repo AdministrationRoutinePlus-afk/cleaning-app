@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import type {
   JobSession,
@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { toast } from 'sonner'
 
 interface ScheduleMessage {
   id: string
@@ -66,10 +67,15 @@ export default function JobExecutionPage() {
   const [showCompleteDialog, setShowCompleteDialog] = useState(false)
   const [completing, setCompleting] = useState(false)
 
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadJobData()
+    return () => { isMountedRef.current = false }
   }, [sessionId])
 
   const loadJobData = async () => {
@@ -89,6 +95,7 @@ export default function JobExecutionPage() {
         .single()
 
       if (sessionError) throw sessionError
+      if (!isMountedRef.current) return
 
       // Fetch steps with images and checklist
       const { data: steps, error: stepsError } = await supabase
@@ -102,6 +109,7 @@ export default function JobExecutionPage() {
         .order('step_order', { ascending: true })
 
       if (stepsError) throw stepsError
+      if (!isMountedRef.current) return
 
       // Fetch step progress
       const { data: stepProgress, error: progressError } = await supabase
@@ -118,6 +126,7 @@ export default function JobExecutionPage() {
         .eq('job_session_id', sessionId)
 
       if (checklistError) throw checklistError
+      if (!isMountedRef.current) return
 
       // Fetch refuse message if job is REFUSED
       let refuseMessage: ScheduleMessage | null = null
@@ -134,25 +143,31 @@ export default function JobExecutionPage() {
         }
       }
 
+      if (!isMountedRef.current) return
+
       setJobData({
-        session: session as any,
-        steps: steps as any,
+        session: session as JobData['session'],
+        steps: (steps || []) as JobData['steps'],
         stepProgress: stepProgress || [],
         checklistProgress: checklistProgress || [],
         refuseMessage
       })
 
-      // Auto-start job if not started
+      // Auto-start job if not started (with optimistic locking to prevent concurrent updates)
       if (session.status === 'APPROVED') {
         await supabase
           .from('job_sessions')
           .update({ status: 'IN_PROGRESS', started_at: new Date().toISOString() })
           .eq('id', sessionId)
+          .eq('status', 'APPROVED')
       }
     } catch (error) {
       console.error('Error loading job data:', error)
+      toast.error('Failed to load job details')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -191,6 +206,7 @@ export default function JobExecutionPage() {
       await loadJobData()
     } catch (error) {
       console.error('Error toggling step:', error)
+      toast.error('Failed to update step')
     }
   }
 

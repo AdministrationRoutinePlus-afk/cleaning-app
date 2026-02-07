@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Calendar } from '@/components/ui/calendar'
 import { CalendarDays, Clock } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface AvailabilityEditorProps {
   employeeId: string
@@ -136,7 +137,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       }
     } catch (error) {
       console.error('Error updating availability:', error)
-      alert('Failed to update availability')
+      toast.error('Failed to update availability')
     } finally {
       setSaving(false)
     }
@@ -161,7 +162,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       }))
     } catch (error) {
       console.error('Error updating time:', error)
-      alert('Failed to update time')
+      toast.error('Failed to update time')
     } finally {
       setSaving(false)
     }
@@ -246,7 +247,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       setNewDateNote('')
     } catch (error) {
       console.error('Error saving date:', error)
-      alert('Failed to save date availability')
+      toast.error('Failed to save date availability')
     } finally {
       setSaving(false)
     }
@@ -275,7 +276,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
       }
     } catch (error) {
       console.error('Error removing date:', error)
-      alert('Failed to remove date')
+      toast.error('Failed to remove date')
     } finally {
       setSaving(false)
     }
