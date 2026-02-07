@@ -34,31 +34,33 @@ export function CustomerCard({
   }
 
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden w-full">
+    <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 overflow-hidden w-full">
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-500/30">
               <Building2 className="w-5 h-5 text-purple-400" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <Badge className="bg-white/10 text-gray-300 border border-white/20 font-mono text-xs">
+                <span className="inline-block bg-gray-800/80 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30 font-mono">
                   {customer.customer_code}
-                </Badge>
+                </span>
                 {getStatusBadge(customer.status)}
               </div>
-              <h3 className="font-semibold text-lg text-white">{customer.full_name}</h3>
+              <h3 className="font-bold text-lg text-white">{customer.full_name}</h3>
               <p className="text-sm text-gray-400">{customer.email}</p>
             </div>
           </div>
         </div>
       </div>
       <div className="px-4 pb-3 space-y-3">
-        <div className="text-sm text-gray-400">
-          {customer.phone && <p>Phone: {customer.phone}</p>}
-          {customer.address && <p>Address: {customer.address}</p>}
-        </div>
+        {(customer.phone || customer.address) && (
+          <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20 space-y-1">
+            {customer.phone && <p className="text-sm text-gray-300">Phone: {customer.phone}</p>}
+            {customer.address && <p className="text-sm text-gray-300">Address: {customer.address}</p>}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 pt-2">
           {onEdit && (

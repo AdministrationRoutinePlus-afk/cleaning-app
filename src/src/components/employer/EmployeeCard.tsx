@@ -43,15 +43,15 @@ export function EmployeeCard({
   }
 
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden w-full">
+    <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 overflow-hidden w-full">
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
               <User className="w-5 h-5 text-blue-400" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-lg text-white">{employee.full_name}</h3>
+              <h3 className="font-bold text-lg text-white">{employee.full_name}</h3>
               <p className="text-sm text-gray-400">{employee.email}</p>
             </div>
           </div>
@@ -59,11 +59,11 @@ export function EmployeeCard({
         </div>
       </div>
       <div className="px-4 pb-3 space-y-3">
-        <div className="text-sm text-gray-400">
-          <p>Created: {format(new Date(employee.created_at), 'MMM d, yyyy')}</p>
-          {employee.phone && <p>Phone: {employee.phone}</p>}
+        <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20 space-y-1">
+          <p className="text-sm text-gray-300">Created: {format(new Date(employee.created_at), 'MMM d, yyyy')}</p>
+          {employee.phone && <p className="text-sm text-gray-300">Phone: {employee.phone}</p>}
           {employee.activated_at && (
-            <p>Activated: {format(new Date(employee.activated_at), 'MMM d, yyyy')}</p>
+            <p className="text-sm text-gray-300">Activated: {format(new Date(employee.activated_at), 'MMM d, yyyy')}</p>
           )}
         </div>
 

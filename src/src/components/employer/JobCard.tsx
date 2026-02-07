@@ -221,60 +221,58 @@ export function JobCard({ job, onUpdate }: JobCardProps) {
   }
 
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden hover:bg-white/[0.07] transition-colors">
+    <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 overflow-hidden">
       {/* Header */}
       <div className="p-4 pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-mono text-gray-500">{job.job_code}</span>
-              {getStatusBadge()}
-            </div>
-            <h3 className="text-lg font-semibold text-white">{job.title}</h3>
-          </div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="inline-block bg-gray-800/80 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30 font-mono">
+            {job.job_code}
+          </span>
+          {getStatusBadge()}
         </div>
+        <h3 className="text-xl font-bold text-white leading-tight">{job.title}</h3>
+        {job.description && (
+          <p className="text-sm text-gray-400 mt-1 line-clamp-2">{job.description}</p>
+        )}
       </div>
 
       {/* Content */}
-      <div className="px-4 pb-3 space-y-2">
-        {job.description && (
-          <p className="text-sm text-gray-400 line-clamp-2">{job.description}</p>
-        )}
-
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <div>
-            <p className="text-xs text-gray-500">Duration</p>
-            <p className="text-sm font-medium text-gray-300">{formatDuration(job.duration_minutes)}</p>
+      <div className="px-4 pb-3 space-y-3">
+        {/* Duration & Rate Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-gray-800/60 rounded-xl p-3 text-center border border-white/20">
+            <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Duration</p>
+            <p className="text-white font-bold text-base">{formatDuration(job.duration_minutes)}</p>
           </div>
-          <div>
-            <p className="text-xs text-gray-500">Rate</p>
-            <p className="text-sm font-medium text-gray-300">
+          <div className="bg-gradient-to-br from-yellow-900/40 to-orange-900/40 rounded-xl p-3 text-center border border-yellow-500/40">
+            <p className="text-yellow-300 text-[10px] uppercase font-bold mb-1">Rate</p>
+            <p className="text-white font-bold text-base">
               {job.price_per_hour ? `$${job.price_per_hour}/hr` : 'Not set'}
             </p>
           </div>
         </div>
 
+        {/* Time Window */}
         {(job.time_window_start || job.time_window_end) && (
-          <div className="pt-2">
-            <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
-              <p className="text-xs text-blue-400 font-medium mb-1">Time Window</p>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-300">
-                  {job.time_window_start ? job.time_window_start.substring(0, 5) : 'Not set'}
-                </span>
-                <span className="text-gray-500">→</span>
-                <span className="text-gray-300">
-                  {job.time_window_end ? job.time_window_end.substring(0, 5) : 'Not set'}
-                </span>
-              </div>
+          <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/30">
+            <p className="text-blue-400 text-[10px] uppercase font-bold mb-1">Time Window</p>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-bold">
+                {job.time_window_start ? job.time_window_start.substring(0, 5) : 'Not set'}
+              </span>
+              <span className="text-gray-500">→</span>
+              <span className="text-white font-bold">
+                {job.time_window_end ? job.time_window_end.substring(0, 5) : 'Not set'}
+              </span>
             </div>
           </div>
         )}
 
+        {/* Address */}
         {job.address && (
-          <div className="pt-1">
-            <p className="text-xs text-gray-500">Address</p>
-            <p className="text-sm text-gray-300">{job.address}</p>
+          <div className="bg-gray-800/60 rounded-xl p-3 border border-white/20">
+            <p className="text-gray-400 text-[10px] uppercase font-bold mb-1">Address</p>
+            <p className="text-white text-sm">{job.address}</p>
           </div>
         )}
       </div>
@@ -298,7 +296,7 @@ export function JobCard({ job, onUpdate }: JobCardProps) {
                 variant="outline"
                 size="sm"
                 disabled={loading || job.status !== 'ACTIVE'}
-                className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                className="flex-1 bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
               >
                 <UserPlus className="w-3 h-3 mr-1" />
                 Assign
@@ -361,21 +359,19 @@ export function JobCard({ job, onUpdate }: JobCardProps) {
             </DialogContent>
           </Dialog>
         </div>
-        <div className="flex gap-2 w-full">
-          <Button
-            size="sm"
-            onClick={handleActivate}
-            disabled={loading}
-            className={`flex-1 ${
-              job.status === 'ACTIVE'
-                ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30 hover:bg-gray-500/30'
-                : 'bg-green-600 hover:bg-green-700 text-white'
-            }`}
-          >
-            {job.status === 'ACTIVE' ? <Pause className="w-3 h-3 mr-1" /> : <Play className="w-3 h-3 mr-1" />}
-            {loading ? '...' : job.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          onClick={handleActivate}
+          disabled={loading}
+          className={`w-full ${
+            job.status === 'ACTIVE'
+              ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30 hover:bg-gray-500/30'
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
+        >
+          {job.status === 'ACTIVE' ? <Pause className="w-3 h-3 mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+          {loading ? '...' : job.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+        </Button>
         <div className="flex gap-2 w-full">
           <Button
             variant="outline"
