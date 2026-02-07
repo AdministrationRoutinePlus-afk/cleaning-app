@@ -245,6 +245,7 @@ export default function JobExecutionPage() {
       await loadJobData()
     } catch (error) {
       console.error('Error toggling checklist item:', error)
+      toast.error('Failed to update checklist')
     }
   }
 
@@ -265,6 +266,7 @@ export default function JobExecutionPage() {
       router.push('/employee/jobs')
     } catch (error) {
       console.error('Error completing job:', error)
+      toast.error('Failed to complete job')
     } finally {
       setCompleting(false)
       setShowCompleteDialog(false)

@@ -16,6 +16,7 @@ import {
 import { ArrowLeft, Search, Star, Filter, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { toast } from 'sonner'
 
 interface CompletedJob {
   id: string
