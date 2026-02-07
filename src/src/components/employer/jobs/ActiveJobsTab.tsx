@@ -7,9 +7,15 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
 import { format, differenceInDays, parseISO } from 'date-fns'
-import { AlertTriangle, Calendar, User, Search, X, MapPin, Briefcase, Clock, Users, CalendarDays, Check } from 'lucide-react'
+import { AlertTriangle, Calendar, User, Search, X, MapPin, Briefcase, Clock, Users, CalendarDays, Check, ChevronDown, ChevronUp, Send } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import type { Employee } from '@/types/database'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
+import { sanitizeText } from '@/lib/utils/sanitize'
+import { addDays } from 'date-fns'
 
 type StatusFilter = 'all' | 'unclaimed' | 'pending' | 'scheduled' | 'in_progress' | 'issues'
 
@@ -26,6 +32,15 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const isMountedRef = useRef(true)
+
+  // Urgency banner state
+  const [urgencyExpanded, setUrgencyExpanded] = useState(false)
+  const [urgencyNotifySessionId, setUrgencyNotifySessionId] = useState<string | null>(null)
+  const [urgencyEmployees, setUrgencyEmployees] = useState<Employee[]>([])
+  const [urgencySelectedEmps, setUrgencySelectedEmps] = useState<string[]>([])
+  const [urgencyMessage, setUrgencyMessage] = useState('')
+  const [urgencySending, setUrgencySending] = useState(false)
+  const [urgencySelectAll, setUrgencySelectAll] = useState(false)
 
   // Filter state
   type FilterTab = 'employee' | 'customer' | 'dates' | null
@@ -181,18 +196,78 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
     })
   }, [sessions, statusFilter, searchQuery, filterEmployee, filterCustomer, filterDateFrom, filterDateTo])
 
-  // Unclaimed counts for alert
-  const unclaimedSessions = sessions.filter(s => s.status === 'OFFERED')
-  const urgentUnclaimed = unclaimedSessions.filter(s => {
+  // Urgency: only OFFERED jobs within next 7 days
+  const nextWeekUnclaimed = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const weekFromNow = format(addDays(new Date(), 7), 'yyyy-MM-dd')
+    return sessions.filter(s =>
+      s.status === 'OFFERED' &&
+      s.scheduled_date &&
+      s.scheduled_date >= today &&
+      s.scheduled_date <= weekFromNow
+    )
+  }, [sessions])
+
+  const urgentCount = nextWeekUnclaimed.filter(s => {
     if (!s.scheduled_date) return false
-    const days = differenceInDays(new Date(s.scheduled_date), new Date())
-    return days <= 2
-  })
-  const warningUnclaimed = unclaimedSessions.filter(s => {
-    if (!s.scheduled_date) return false
-    const days = differenceInDays(new Date(s.scheduled_date), new Date())
-    return days > 2 && days <= 4
-  })
+    return differenceInDays(new Date(s.scheduled_date), new Date()) <= 2
+  }).length
+
+  // Load employees for urgency notifications
+  const loadUrgencyEmployees = async () => {
+    if (urgencyEmployees.length > 0) return
+    const { data } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('status', 'ACTIVE')
+      .order('full_name')
+    if (data) setUrgencyEmployees(data)
+  }
+
+  const handleUrgencyNotify = async (sessionId: string) => {
+    setUrgencyNotifySessionId(sessionId)
+    setUrgencySelectedEmps([])
+    setUrgencySelectAll(false)
+    setUrgencyMessage('')
+    await loadUrgencyEmployees()
+  }
+
+  const handleUrgencySelectAll = (checked: boolean) => {
+    setUrgencySelectAll(checked)
+    setUrgencySelectedEmps(checked ? urgencyEmployees.map(e => e.id) : [])
+  }
+
+  const handleUrgencyToggleEmp = (id: string) => {
+    setUrgencySelectedEmps(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const handleSendUrgencyNotify = async () => {
+    if (!urgencyNotifySessionId || urgencySelectedEmps.length === 0 || !urgencyMessage.trim()) {
+      toast.error('Select employees and enter a message')
+      return
+    }
+    setUrgencySending(true)
+    try {
+      const sanitizedMessage = sanitizeText(urgencyMessage.trim())
+      const { error } = await supabase
+        .from('schedule_messages')
+        .insert(urgencySelectedEmps.map(empId => ({
+          job_session_id: urgencyNotifySessionId,
+          employee_id: empId,
+          message: sanitizedMessage,
+        })))
+      if (error) throw error
+      toast.success(`Notified ${urgencySelectedEmps.length} employee(s)`)
+      setUrgencyNotifySessionId(null)
+    } catch (error) {
+      console.error('Error sending notifications:', error)
+      toast.error('Failed to send notifications')
+    } finally {
+      setUrgencySending(false)
+    }
+  }
 
   // Status filter counts
   const statusCounts = {
@@ -257,30 +332,154 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
 
   return (
     <div className="space-y-4">
-      {/* Unclaimed Alert Banner */}
-      {unclaimedSessions.length > 0 && (
-        <div className={`rounded-xl p-4 border ${
-          urgentUnclaimed.length > 0
+      {/* Urgency Banner - OFFERED jobs within next 7 days */}
+      {nextWeekUnclaimed.length > 0 && (
+        <div className={`rounded-xl border overflow-hidden ${
+          urgentCount > 0
             ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/30'
             : 'bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border-orange-500/30'
         }`}>
-          <div className="flex items-center gap-3">
-            <AlertTriangle className={`h-5 w-5 shrink-0 ${urgentUnclaimed.length > 0 ? 'text-red-400' : 'text-orange-400'}`} />
+          <button
+            onClick={() => { setUrgencyExpanded(!urgencyExpanded); if (!urgencyExpanded) setUrgencyNotifySessionId(null) }}
+            className="w-full p-4 flex items-center gap-3 text-left"
+          >
+            <AlertTriangle className={`h-5 w-5 shrink-0 ${urgentCount > 0 ? 'text-red-400' : 'text-orange-400'}`} />
             <div className="flex-1">
               <p className="font-medium text-white">
-                {unclaimedSessions.length} unclaimed job{unclaimedSessions.length !== 1 ? 's' : ''}
+                {nextWeekUnclaimed.length} unclaimed job{nextWeekUnclaimed.length !== 1 ? 's' : ''} this week
               </p>
               <p className="text-sm text-gray-300">
-                {urgentUnclaimed.length > 0 && (
-                  <span className="text-red-300 font-medium">{urgentUnclaimed.length} urgent (within 2 days)</span>
-                )}
-                {urgentUnclaimed.length > 0 && warningUnclaimed.length > 0 && ' · '}
-                {warningUnclaimed.length > 0 && (
-                  <span className="text-orange-300">{warningUnclaimed.length} coming soon (within 4 days)</span>
+                {urgentCount > 0 && <span className="text-red-300 font-medium">{urgentCount} within 2 days</span>}
+                {urgentCount > 0 && nextWeekUnclaimed.length - urgentCount > 0 && ' · '}
+                {nextWeekUnclaimed.length - urgentCount > 0 && (
+                  <span className="text-orange-300">{nextWeekUnclaimed.length - urgentCount} later this week</span>
                 )}
               </p>
             </div>
-          </div>
+            {urgencyExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          </button>
+
+          {urgencyExpanded && (
+            <div className="border-t border-white/10 px-4 pb-4 space-y-2">
+              {nextWeekUnclaimed.map(session => {
+                const jobTemplate = session.job_template as JobTemplate & { customer: Customer | null }
+                const daysUntil = session.scheduled_date ? differenceInDays(new Date(session.scheduled_date), new Date()) : null
+                const isNotifying = urgencyNotifySessionId === session.id
+
+                return (
+                  <div key={session.id} className="bg-black/20 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3 p-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                            {session.full_job_code || session.session_code}
+                          </span>
+                          <span className="text-sm font-medium text-white truncate">{jobTemplate?.title}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {session.scheduled_date && format(new Date(session.scheduled_date + 'T12:00:00'), 'EEE, MMM d')}
+                          </span>
+                          {jobTemplate?.customer && (
+                            <span className="flex items-center gap-1">
+                              <Briefcase className="w-3 h-3" />
+                              {jobTemplate.customer.full_name}
+                            </span>
+                          )}
+                          {jobTemplate?.address && (
+                            <span className="flex items-center gap-1 truncate hidden sm:flex">
+                              <MapPin className="w-3 h-3 shrink-0" />
+                              {jobTemplate.address}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {daysUntil !== null && (
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                            daysUntil <= 1 ? 'bg-red-500/20 text-red-300' : daysUntil <= 3 ? 'bg-orange-500/20 text-orange-300' : 'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `${daysUntil}d`}
+                          </span>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); isNotifying ? setUrgencyNotifySessionId(null) : handleUrgencyNotify(session.id) }}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            isNotifying ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                          }`}
+                          title="Notify employees"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSessionClick(session) }}
+                          className="p-1.5 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20 transition-colors"
+                          title="View details"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inline notify form */}
+                    {isNotifying && (
+                      <div className="border-t border-white/10 p-3 space-y-3">
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-2 max-h-32 overflow-y-auto space-y-1">
+                          <div className="flex items-center space-x-2 pb-1.5 border-b border-white/10">
+                            <Checkbox
+                              id={`ua-${session.id}`}
+                              checked={urgencySelectAll}
+                              onCheckedChange={(c) => handleUrgencySelectAll(!!c)}
+                            />
+                            <label htmlFor={`ua-${session.id}`} className="text-xs font-medium text-gray-300 cursor-pointer">
+                              All ({urgencyEmployees.length})
+                            </label>
+                          </div>
+                          {urgencyEmployees.map(emp => (
+                            <div key={emp.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`ue-${session.id}-${emp.id}`}
+                                checked={urgencySelectedEmps.includes(emp.id)}
+                                onCheckedChange={() => handleUrgencyToggleEmp(emp.id)}
+                              />
+                              <label htmlFor={`ue-${session.id}-${emp.id}`} className="text-xs text-gray-300 cursor-pointer">
+                                {emp.full_name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <Textarea
+                          value={urgencyMessage}
+                          onChange={(e) => setUrgencyMessage(e.target.value)}
+                          placeholder="e.g., This job needs to be claimed ASAP!"
+                          rows={2}
+                          className="text-sm bg-white/5 border-white/20 text-white placeholder:text-gray-500"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={handleSendUrgencyNotify}
+                            disabled={urgencySending || urgencySelectedEmps.length === 0 || !urgencyMessage.trim()}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                          >
+                            {urgencySending ? 'Sending...' : `Send to ${urgencySelectedEmps.length}`}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => setUrgencyNotifySessionId(null)}
+                            className="bg-white/10 border border-white/20 text-white hover:bg-white/20 text-xs"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
