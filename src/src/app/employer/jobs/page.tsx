@@ -77,10 +77,10 @@ export default function EmployerJobsPage() {
         return
       }
 
-      // Fetch job templates
+      // Fetch job templates with customer names
       const { data: jobs, error: jobsError } = await supabase
         .from('job_templates')
-        .select('*')
+        .select('*, customer:customers(full_name)')
         .eq('created_by', employer.id)
         .order('created_at', { ascending: false })
 
@@ -280,7 +280,7 @@ export default function EmployerJobsPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {draftJobs.map(job => (
-                <JobCard key={job.id} job={job} onUpdate={fetchData} />
+                <JobCard key={job.id} job={job} customerName={(job as any).customer?.full_name || null} onUpdate={fetchData} />
               ))}
             </div>
           )}
@@ -307,7 +307,7 @@ export default function EmployerJobsPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activeJobs.map(job => (
-                <JobCard key={job.id} job={job} onUpdate={fetchData} />
+                <JobCard key={job.id} job={job} customerName={(job as any).customer?.full_name || null} onUpdate={fetchData} />
               ))}
             </div>
           )}

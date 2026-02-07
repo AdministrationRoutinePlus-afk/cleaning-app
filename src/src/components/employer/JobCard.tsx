@@ -28,10 +28,11 @@ import { Edit2, Copy, Trash2, Play, Pause, UserPlus } from 'lucide-react'
 
 interface JobCardProps {
   job: JobTemplate
+  customerName?: string | null
   onUpdate: () => void
 }
 
-export function JobCard({ job, onUpdate }: JobCardProps) {
+export function JobCard({ job, customerName, onUpdate }: JobCardProps) {
   const [loading, setLoading] = useState(false)
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -224,11 +225,16 @@ export function JobCard({ job, onUpdate }: JobCardProps) {
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-xl border border-white/20 overflow-hidden">
       {/* Header */}
       <div className="p-4 pb-3">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="inline-block bg-gray-800/80 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30 font-mono">
-            {job.job_code}
-          </span>
-          {getStatusBadge()}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-block bg-gray-800/80 text-white font-bold text-xs px-3 py-1.5 rounded-full shadow-lg border border-white/30 font-mono">
+              {job.job_code}
+            </span>
+            {getStatusBadge()}
+          </div>
+          {customerName && (
+            <span className="text-sm text-gray-400 truncate">{customerName}</span>
+          )}
         </div>
         <h3 className="text-xl font-bold text-white leading-tight">{job.title}</h3>
         {job.description && (

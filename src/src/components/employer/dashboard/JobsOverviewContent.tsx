@@ -201,7 +201,12 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
                     {session.job_template?.title}
                   </p>
                 </div>
-                {getStatusBadge(session.status)}
+                <div className="flex items-center gap-2 shrink-0">
+                  {session.job_template?.customer && (
+                    <span className="text-sm text-gray-400">{session.job_template.customer.full_name}</span>
+                  )}
+                  {getStatusBadge(session.status)}
+                </div>
               </div>
 
               {/* Details */}
@@ -215,10 +220,10 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
                     )}
                   </div>
                 )}
-                {session.job_template?.customer && (
+                {session.job_template?.address && (
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-500" />
-                    <span>{session.job_template.customer.full_name}</span>
+                    <span>{session.job_template.address}</span>
                   </div>
                 )}
                 {session.employee && (
