@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
-import { X, Plus, Calendar, ArrowLeft, Trash2, Briefcase, DollarSign, ListChecks, FileText } from 'lucide-react'
+import { X, Plus, Calendar, ArrowLeft, Trash2, Briefcase, DollarSign, ListChecks, FileText, Upload, ImageIcon, Video, FileSpreadsheet } from 'lucide-react'
+import Image from 'next/image'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
@@ -37,6 +38,12 @@ export default function EditJobPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [job, setJob] = useState<JobTemplate | null>(null)
   const [steps, setSteps] = useState<Step[]>([])
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [videoPreview, setVideoPreview] = useState<string | null>(null)
+  const [pptxFile, setPptxFile] = useState<File | null>(null)
+  const [pptxFileName, setPptxFileName] = useState<string | null>(null)
 
   // Scheduling state
   const [newSpecificDate, setNewSpecificDate] = useState('')
@@ -134,6 +141,12 @@ export default function EditJobPage() {
       }
 
       setJob(jobData)
+
+      // Load existing image/video previews
+      if (jobData.image_url) setImagePreview(jobData.image_url)
+      if (jobData.video_url) setVideoPreview(jobData.video_url)
+      if (jobData.pptx_url) setPptxFileName(jobData.pptx_url.split('/').pop() || 'procedures.pptx')
+
       setFormData({
         title: jobData.title || '',
         description: jobData.description || '',
@@ -302,6 +315,127 @@ export default function EditJobPage() {
     }, nextNum, formData.preferred_employee_id || undefined)
   }
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const uploadImage = async (jobTemplateId: string): Promise<string | null> => {
+    if (!imageFile) return null
+    try {
+      const fileExt = imageFile.name.split('.').pop()
+      const fileName = `${jobTemplateId}.${fileExt}`
+      const filePath = `job-images/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('job-images')
+        .upload(filePath, imageFile, { upsert: true })
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError)
+        return null
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('job-images')
+        .getPublicUrl(filePath)
+
+      return publicUrl
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      return null
+    }
+  }
+
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(t('Video must be less than 50MB'))
+        return
+      }
+      setVideoFile(file)
+      const url = URL.createObjectURL(file)
+      setVideoPreview(url)
+    }
+  }
+
+  const uploadVideo = async (jobTemplateId: string): Promise<string | null> => {
+    if (!videoFile) return null
+    try {
+      const fileExt = videoFile.name.split('.').pop()
+      const fileName = `${jobTemplateId}.${fileExt}`
+      const filePath = `job-videos/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('job-images')
+        .upload(filePath, videoFile, {
+          upsert: true,
+          contentType: videoFile.type || 'video/mp4',
+        })
+
+      if (uploadError) {
+        console.error('Error uploading video:', uploadError)
+        return null
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('job-images')
+        .getPublicUrl(filePath)
+
+      return publicUrl
+    } catch (error) {
+      console.error('Error uploading video:', error)
+      return null
+    }
+  }
+
+  const handlePptxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(t('File must be less than 50MB'))
+        return
+      }
+      setPptxFile(file)
+      setPptxFileName(file.name)
+    }
+  }
+
+  const uploadPptx = async (jobTemplateId: string): Promise<string | null> => {
+    if (!pptxFile) return null
+    try {
+      const fileExt = pptxFile.name.split('.').pop()
+      const fileName = `${jobTemplateId}.${fileExt}`
+      const filePath = `job-pptx/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('job-images')
+        .upload(filePath, pptxFile, { upsert: true })
+
+      if (uploadError) {
+        console.error('Error uploading PPTX:', uploadError)
+        return null
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('job-images')
+        .getPublicUrl(filePath)
+
+      return publicUrl
+    } catch (error) {
+      console.error('Error uploading PPTX:', error)
+      return null
+    }
+  }
+
   const handleSubmit = async (status: 'DRAFT' | 'ACTIVE') => {
     try {
       setLoading(true)
@@ -354,6 +488,34 @@ export default function EditJobPage() {
         // Legacy fields (keep for backward compatibility)
         available_days: [],
         frequency_per_week: null,
+        // Image, video & PPTX (defaults to keeping existing)
+        image_url: job.image_url,
+        video_url: job.video_url,
+        pptx_url: job.pptx_url,
+      }
+
+      // Handle image: upload new, keep existing, or remove
+      if (imageFile) {
+        const imageUrl = await uploadImage(jobId)
+        if (imageUrl) updateData.image_url = imageUrl
+      } else if (!imagePreview) {
+        updateData.image_url = null
+      }
+
+      // Handle video: upload new, keep existing, or remove
+      if (videoFile) {
+        const videoUrl = await uploadVideo(jobId)
+        if (videoUrl) updateData.video_url = videoUrl
+      } else if (!videoPreview) {
+        updateData.video_url = null
+      }
+
+      // Handle PPTX: upload new, keep existing, or remove
+      if (pptxFile) {
+        const pptxUrl = await uploadPptx(jobId)
+        if (pptxUrl) updateData.pptx_url = pptxUrl
+      } else if (!pptxFileName) {
+        updateData.pptx_url = null
       }
 
       // Update job template
@@ -599,6 +761,135 @@ export default function EditJobPage() {
               placeholder={t('123 Main St, City, Province')}
               className="bg-white/5 border-white/20 text-white placeholder:text-gray-500"
             />
+          </div>
+
+          {/* Job Image */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">{t('Job Image')}</Label>
+            <div className="flex gap-4 items-start">
+              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5">
+                {imagePreview ? (
+                  <Image
+                    src={imagePreview}
+                    alt="Job preview"
+                    width={96}
+                    height={96}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-gray-500" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 px-4 py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-colors w-fit text-gray-300">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm">{imageFile || imagePreview ? t('Change image') : t('Upload image')}</span>
+                  </div>
+                </label>
+                <p className="text-xs text-gray-500">
+                  {t('This image will be shown to employees in the marketplace')}
+                </p>
+                {(imageFile || imagePreview) && (
+                  <button
+                    type="button"
+                    onClick={() => { setImageFile(null); setImagePreview(null) }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    {t('Remove image')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Job Video */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">{t('Job Video')}</Label>
+            <div className="flex gap-4 items-start">
+              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5">
+                {videoPreview ? (
+                  <video
+                    src={videoPreview}
+                    className="w-full h-full object-cover"
+                    muted
+                  />
+                ) : (
+                  <Video className="h-8 w-8 text-gray-500" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    onChange={handleVideoChange}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 px-4 py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-colors w-fit text-gray-300">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm">{videoFile || videoPreview ? t('Change video') : t('Upload video')}</span>
+                  </div>
+                </label>
+                <p className="text-xs text-gray-500">
+                  {t('This video gives employees a preview of the job')}
+                </p>
+                {(videoFile || videoPreview) && (
+                  <button
+                    type="button"
+                    onClick={() => { setVideoFile(null); setVideoPreview(null) }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    {t('Remove video')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Procedures File (PPTX) */}
+          <div className="space-y-2">
+            <Label className="text-gray-300 text-sm">{t('Procedures File')}</Label>
+            <div className="flex gap-4 items-start">
+              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5">
+                <FileSpreadsheet className={`h-8 w-8 ${pptxFileName ? 'text-orange-400' : 'text-gray-500'}`} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pptx,.ppt"
+                    onChange={handlePptxChange}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 px-4 py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-colors w-fit text-gray-300">
+                    <Upload className="h-4 w-4" />
+                    <span className="text-sm">{pptxFile || pptxFileName ? t('Change file') : t('Upload PPTX')}</span>
+                  </div>
+                </label>
+                <p className="text-xs text-gray-500">
+                  {t('Upload a PowerPoint file with step-by-step procedures')}
+                </p>
+                {pptxFileName && (
+                  <p className="text-xs text-orange-300">{pptxFileName}</p>
+                )}
+                {(pptxFile || pptxFileName) && (
+                  <button
+                    type="button"
+                    onClick={() => { setPptxFile(null); setPptxFileName(null) }}
+                    className="text-xs text-red-400 hover:underline"
+                  >
+                    {t('Remove file')}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

@@ -33,6 +33,11 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Field validation errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  // Password strength: 0=none, 1=weak, 2=medium, 3=strong
+  const [passwordStrength, setPasswordStrength] = useState(0)
+
   // Username availability check
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -91,6 +96,77 @@ export default function RegisterPage() {
     }
   }, [])
 
+  // Validation helpers
+  const getPasswordStrength = (password: string): number => {
+    if (!password) return 0
+    let score = 0
+    if (password.length >= 6) score++
+    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++
+    if (/[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) score++
+    return score
+  }
+
+  const validateField = (field: string, value: string) => {
+    const errors = { ...fieldErrors }
+
+    switch (field) {
+      case 'fullName':
+        if (value && value.trim().length < 2) {
+          errors.fullName = t('Name is too short')
+        } else {
+          delete errors.fullName
+        }
+        break
+      case 'email':
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          errors.email = t('Invalid email format')
+        } else {
+          delete errors.email
+        }
+        break
+      case 'phone':
+        if (value && !/^[\d\s\-()+ ]+$/.test(value)) {
+          errors.phone = t('Invalid phone format')
+        } else {
+          delete errors.phone
+        }
+        break
+      case 'password': {
+        const strength = getPasswordStrength(value)
+        setPasswordStrength(strength)
+        if (value && value.length < 6) {
+          errors.password = t('Password must be at least 6 characters')
+        } else if (value && strength < 2) {
+          errors.password = t('Password is too weak')
+        } else {
+          delete errors.password
+        }
+        break
+      }
+    }
+
+    setFieldErrors(errors)
+  }
+
+  const getPasswordStrengthLabel = (): string => {
+    if (!data.password) return ''
+    if (passwordStrength <= 1) return t('Weak')
+    if (passwordStrength === 2) return t('Medium')
+    return t('Strong')
+  }
+
+  const getPasswordStrengthColor = (): string => {
+    if (passwordStrength <= 1) return 'text-red-400'
+    if (passwordStrength === 2) return 'text-yellow-400'
+    return 'text-green-400'
+  }
+
+  const getPasswordStrengthBarColor = (): string => {
+    if (passwordStrength <= 1) return 'bg-red-500'
+    if (passwordStrength === 2) return 'bg-yellow-500'
+    return 'bg-green-500'
+  }
+
   // Form data
   const [data, setData] = useState<RegistrationData>({
     fullName: '',
@@ -148,6 +224,28 @@ export default function RegisterPage() {
     setError(null)
 
     try {
+      // Run all validations
+      const errors: Record<string, string> = {}
+      if (!data.fullName || data.fullName.trim().length < 2) {
+        errors.fullName = t('Name is too short')
+      }
+      if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+        errors.email = t('Invalid email format')
+      }
+      if (data.phone && !/^[\d\s\-()+ ]+$/.test(data.phone)) {
+        errors.phone = t('Invalid phone format')
+      }
+      if (data.password && data.password.length >= 6 && getPasswordStrength(data.password) < 2) {
+        errors.password = t('Password is too weak')
+      }
+
+      if (Object.keys(errors).length > 0) {
+        setFieldErrors(errors)
+        setError(Object.values(errors)[0])
+        setLoading(false)
+        return
+      }
+
       // Validation
       if (!data.fullName || !data.username || !data.password) {
         setError(t('Please provide at least name, username, and password'))
@@ -253,9 +351,15 @@ export default function RegisterPage() {
               placeholder="John Doe"
               value={data.fullName}
               onChange={(e) => setData({ ...data, fullName: e.target.value })}
+              onBlur={(e) => validateField('fullName', e.target.value)}
               disabled={loading}
-              className="w-full px-3 py-4 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`w-full px-3 py-4 rounded-md bg-white/5 border text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                fieldErrors.fullName ? 'border-red-500/50' : 'border-white/20'
+              }`}
             />
+            {fieldErrors.fullName && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.fullName}</p>
+            )}
           </div>
         )
 
@@ -315,9 +419,15 @@ export default function RegisterPage() {
               placeholder="you@example.com"
               value={data.email}
               onChange={(e) => setData({ ...data, email: e.target.value })}
+              onBlur={(e) => validateField('email', e.target.value)}
               disabled={loading}
-              className="w-full px-3 py-4 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`w-full px-3 py-4 rounded-md bg-white/5 border text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                fieldErrors.email ? 'border-red-500/50' : 'border-white/20'
+              }`}
             />
+            {fieldErrors.email && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+            )}
           </div>
         )
 
@@ -331,9 +441,15 @@ export default function RegisterPage() {
               placeholder="(555) 123-4567"
               value={data.phone}
               onChange={(e) => setData({ ...data, phone: e.target.value })}
+              onBlur={(e) => validateField('phone', e.target.value)}
               disabled={loading}
-              className="w-full px-3 py-4 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`w-full px-3 py-4 rounded-md bg-white/5 border text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                fieldErrors.phone ? 'border-red-500/50' : 'border-white/20'
+              }`}
             />
+            {fieldErrors.phone && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.phone}</p>
+            )}
           </div>
         )
 
@@ -346,10 +462,34 @@ export default function RegisterPage() {
               type="password"
               placeholder={t('At least 6 characters')}
               value={data.password}
-              onChange={(e) => setData({ ...data, password: e.target.value })}
+              onChange={(e) => {
+                setData({ ...data, password: e.target.value })
+                setPasswordStrength(getPasswordStrength(e.target.value))
+              }}
+              onBlur={(e) => validateField('password', e.target.value)}
               disabled={loading}
-              className="w-full px-3 py-4 rounded-md bg-white/5 border border-white/20 text-white placeholder:text-gray-500 text-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className={`w-full px-3 py-4 rounded-md bg-white/5 border text-white placeholder:text-gray-500 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                fieldErrors.password ? 'border-red-500/50' : 'border-white/20'
+              }`}
             />
+            {data.password && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${getPasswordStrengthBarColor()}`}
+                      style={{ width: `${(passwordStrength / 3) * 100}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-medium ${getPasswordStrengthColor()}`}>
+                    {getPasswordStrengthLabel()}
+                  </span>
+                </div>
+              </div>
+            )}
+            {fieldErrors.password && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.password}</p>
+            )}
             <input
               id="confirmPassword"
               type="password"

@@ -10,7 +10,7 @@ import { QuickPublishDialog } from '@/components/employer/jobs/QuickPublishDialo
 import { BulkSchedulerDialog } from '@/components/employer/jobs/BulkSchedulerDialog'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { Edit2, Copy, Trash2, Play, Pause, Send, CalendarPlus } from 'lucide-react'
+import { Edit2, Copy, Trash2, Play, Pause, Send, CalendarPlus, Video, FileSpreadsheet } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobCardProps {
@@ -221,6 +221,24 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
                   {job.time_window_end ? job.time_window_end.substring(0, 5) : t('Not set')}
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* Media Badges */}
+          {(job.video_url || job.pptx_url) && (
+            <div className="flex items-center gap-2">
+              {job.video_url && (
+                <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  <Video className="w-3 h-3 mr-1" />
+                  {t('Video')}
+                </Badge>
+              )}
+              {job.pptx_url && (
+                <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                  <FileSpreadsheet className="w-3 h-3 mr-1" />
+                  PPTX
+                </Badge>
+              )}
             </div>
           )}
 

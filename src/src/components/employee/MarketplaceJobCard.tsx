@@ -1,7 +1,8 @@
 'use client'
 
 import { parseISO } from 'date-fns'
-import { ChevronDown, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
+import { ChevronDown, Clock, DollarSign, Calendar, FileText, Video, FileSpreadsheet, CalendarRange } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { JobSession, JobTemplate, Customer } from '@/types/database'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -64,6 +65,23 @@ export function MarketplaceJobCard({
   // Get customer name from the nested customer object
   const customerName = job_template.customer?.full_name || job_template.customer?.customer_code || ''
 
+  // Multi-day detection
+  const isMultiDay = jobSession.scheduled_date && jobSession.scheduled_end_date &&
+    jobSession.scheduled_end_date !== jobSession.scheduled_date
+
+  // Format date range for multi-day jobs
+  const formatDateRange = () => {
+    if (!jobSession.scheduled_date) return t('Flexible')
+    const start = parseISO(jobSession.scheduled_date)
+    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (isMultiDay) {
+      const end = parseISO(jobSession.scheduled_end_date!)
+      const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      return `${startStr} → ${endStr}`
+    }
+    return start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  }
+
   return (
     <div
       className={`bg-white/10 rounded-2xl border overflow-hidden ${
@@ -76,6 +94,12 @@ export function MarketplaceJobCard({
           {/* Header - Customer name centered */}
           <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg px-3 py-2 flex items-center justify-center border border-white/10">
             <p className="text-white font-bold text-base">{customerName}</p>
+            {isMultiDay && (
+              <Badge className="ml-2 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                <CalendarRange className="w-3 h-3 mr-1" />
+                {t('Multi-day')}
+              </Badge>
+            )}
           </div>
 
           {/* Row 1: Job & Duration */}
@@ -141,13 +165,7 @@ export function MarketplaceJobCard({
           <div className="bg-white/5 rounded-lg p-3">
             <p className="text-gray-400 text-xs mb-1">{t('Scheduled')}</p>
             <p className="text-white font-semibold text-sm">
-              {jobSession.scheduled_date
-                ? parseISO(jobSession.scheduled_date).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric'
-                  })
-                : t('Flexible')}
+              {formatDateRange()}
             </p>
           </div>
 
@@ -165,6 +183,34 @@ export function MarketplaceJobCard({
               <p className="text-gray-400 text-xs mb-1">{t('Location')}</p>
               <p className="text-white text-sm">{job_template.address}</p>
             </div>
+          )}
+
+          {/* Video Player */}
+          {job_template.video_url && (
+            <div className="bg-white/5 rounded-lg overflow-hidden">
+              <video
+                controls
+                playsInline
+                className="w-full max-h-48 bg-black"
+                preload="metadata"
+              >
+                <source src={job_template.video_url} type="video/mp4" />
+                <source src={job_template.video_url} type="video/webm" />
+              </video>
+            </div>
+          )}
+
+          {/* PPTX Procedures */}
+          {job_template.pptx_url && (
+            <a
+              href={job_template.pptx_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg px-3 py-2 text-sm font-medium hover:bg-orange-500/30 transition-colors"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {t('View Procedures')}
+            </a>
           )}
 
           {/* Skip Button */}

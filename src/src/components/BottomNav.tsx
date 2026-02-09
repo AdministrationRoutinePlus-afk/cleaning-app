@@ -47,6 +47,7 @@ const navigationConfig: Record<UserProfile, NavItem[]> = {
     { label: 'Messages', href: '/employee/messages', icon: MessageSquare },
   ],
   CUSTOMER: [
+    { label: 'Dashboard', href: '/customer/dashboard', icon: LayoutDashboard },
     { label: 'Reviews', href: '/customer/reviews', icon: Star },
     { label: 'My Jobs', href: '/customer/jobs', icon: Briefcase },
     { label: 'Messages', href: '/customer/messages', icon: MessageSquare },
@@ -61,7 +62,7 @@ export function BottomNav({ profile }: BottomNavProps) {
   const supabase = createClient()
 
   // Use dark theme styling for EMPLOYEE and EMPLOYER profiles
-  const isDarkTheme = profile === 'EMPLOYEE' || profile === 'EMPLOYER'
+  const isDarkTheme = profile === 'EMPLOYEE' || profile === 'EMPLOYER' || profile === 'CUSTOMER'
 
   // Check for unread messages for employee profile
   useEffect(() => {

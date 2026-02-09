@@ -74,7 +74,7 @@ export default function EmployeeDashboardPage() {
   const loadEarnings = async (employeeId: string) => {
     try {
       // Get all completed/evaluated sessions with their job template price info
-      const { data: sessions, error } = await supabase
+      let { data: sessions, error } = await supabase
         .from('job_sessions')
         .select(`
           id,
@@ -83,10 +83,26 @@ export default function EmployeeDashboardPage() {
           price_override,
           job_template:job_templates(price_per_hour, duration_minutes)
         `)
-        .eq('assigned_to', employeeId)
+        .or(`assigned_to.eq.${employeeId},split_with.eq.${employeeId}`)
         .in('status', ['COMPLETED', 'EVALUATED'])
 
-      if (error) throw error
+      // Fallback if split_with column doesn't exist yet
+      if (error) {
+        const fallback = await supabase
+          .from('job_sessions')
+          .select(`
+            id,
+            status,
+            completed_at,
+            price_override,
+            job_template:job_templates(price_per_hour, duration_minutes)
+          `)
+          .eq('assigned_to', employeeId)
+          .in('status', ['COMPLETED', 'EVALUATED'])
+
+        if (fallback.error) throw fallback.error
+        sessions = fallback.data
+      }
       if (!isMountedRef.current) return
 
       const now = new Date()

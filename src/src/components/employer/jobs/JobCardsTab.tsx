@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { JobCard } from '@/components/employer/JobCard'
 import { ChevronDown, ChevronRight, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import { JobCardsTabSkeleton } from '@/components/skeletons/JobCardSkeleton'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
@@ -26,37 +26,52 @@ interface JobCardsTabProps {
   employerId: string
 }
 
+const PAGE_SIZE = 20
+
 export function JobCardsTab({ employerId }: JobCardsTabProps) {
   const { t } = useTranslation()
   const [jobs, setJobs] = useState<JobWithCustomer[]>([])
   const [sessionCounts, setSessionCounts] = useState<Record<string, { unclaimed: number; total: number }>>({})
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const isMountedRef = useRef(true)
 
-  const fetchData = async () => {
+  const fetchData = async (loadMore = false) => {
     try {
-      setLoading(true)
+      if (loadMore) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
 
+      const offset = loadMore ? jobs.length : 0
       const { data: jobsData, error: jobsError } = await supabase
         .from('job_templates')
         .select('*, customer:customers(full_name, customer_code)')
         .eq('created_by', employerId)
         .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1)
 
       if (jobsError) throw jobsError
       if (!isMountedRef.current) return
 
-      setJobs(jobsData || [])
+      const newJobs = jobsData || []
+      const allJobs = loadMore ? [...jobs, ...newJobs] : newJobs
+      setJobs(allJobs)
+      setHasMore(newJobs.length === PAGE_SIZE)
 
-      // Start with all customers collapsed
-      setExpandedCustomers(new Set())
+      if (!loadMore) {
+        // Start with all customers collapsed
+        setExpandedCustomers(new Set())
+      }
 
       // Fetch session counts for active jobs
-      const activeJobIds = (jobsData || []).filter(j => j.status === 'ACTIVE').map(j => j.id)
+      const activeJobIds = allJobs.filter(j => j.status === 'ACTIVE').map(j => j.id)
       if (activeJobIds.length > 0) {
         const { data: sessionsData } = await supabase
           .from('job_sessions')
@@ -82,7 +97,10 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
       console.error('Error fetching jobs:', error)
       if (isMountedRef.current) toast.error(t('Failed to load jobs'))
     } finally {
-      if (isMountedRef.current) setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }
 
@@ -139,7 +157,7 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
   const activeCount = jobs.filter(j => j.status === 'ACTIVE').length
 
   if (loading) {
-    return <div className="py-12"><LoadingSpinner /></div>
+    return <JobCardsTabSkeleton />
   }
 
   return (
@@ -228,7 +246,7 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
                           key={job.id}
                           job={job}
                           customerName={(job as any).customer?.full_name || null}
-                          onUpdate={fetchData}
+                          onUpdate={() => fetchData()}
                           sessionCounts={sessionCounts[job.id]}
                         />
                       ))}
@@ -238,6 +256,17 @@ export function JobCardsTab({ employerId }: JobCardsTabProps) {
               </div>
             )
           })}
+
+          {/* Load More */}
+          {hasMore && (
+            <button
+              onClick={() => fetchData(true)}
+              disabled={loadingMore}
+              className="w-full py-3 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+            >
+              {loadingMore ? t('Loading...') : t('Load More')}
+            </button>
+          )}
         </div>
       )}
     </div>

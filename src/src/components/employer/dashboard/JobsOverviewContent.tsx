@@ -46,7 +46,7 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
         .select(`
           *,
           job_template:job_templates(*, customer:customers(*)),
-          employee:employees(*)
+          employee:employees!job_sessions_assigned_to_fkey(*)
         `)
         .order('scheduled_date', { ascending: true })
 

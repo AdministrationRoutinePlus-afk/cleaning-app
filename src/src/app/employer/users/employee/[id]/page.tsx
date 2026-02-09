@@ -21,7 +21,7 @@
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import type { Employee, Strike, Evaluation, JobSession } from '@/types/database'
+import type { Employee, Strike, Evaluation, JobSession, JobTemplate, EmployeeJobTraining } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -43,7 +43,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { format } from 'date-fns'
-import { ArrowLeft, AlertTriangle, MapPin, Edit2 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { ArrowLeft, AlertTriangle, MapPin, Edit2, GraduationCap } from 'lucide-react'
 import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -65,13 +66,23 @@ export default function EmployeeProfilePage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
+  const JOB_HISTORY_PAGE_SIZE = 20
+
   const [loading, setLoading] = useState(true)
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [strikes, setStrikes] = useState<Strike[]>([])
   const [evaluations, setEvaluations] = useState<Evaluation[]>([])
   const [jobHistory, setJobHistory] = useState<JobWithTemplate[]>([])
+  const [jobHistoryHasMore, setJobHistoryHasMore] = useState(false)
+  const [jobHistoryLoadingMore, setJobHistoryLoadingMore] = useState(false)
   const [employerId, setEmployerId] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'history' | 'evaluations' | 'strikes'>('history')
+  const [activeTab, setActiveTab] = useState<'history' | 'evaluations' | 'strikes' | 'training'>('history')
+
+  // Training state
+  const [trainingRecords, setTrainingRecords] = useState<EmployeeJobTraining[]>([])
+  const [jobTemplates, setJobTemplates] = useState<JobTemplate[]>([])
+  const [expandedTrainingNotes, setExpandedTrainingNotes] = useState<string | null>(null)
+  const [trainingNotesInput, setTrainingNotesInput] = useState<Record<string, string>>({})
 
   // Performance metrics
   const [perfMetrics, setPerfMetrics] = useState<{
@@ -196,9 +207,39 @@ export default function EmployeeProfilePage() {
         `)
         .eq('assigned_to', employeeId)
         .order('scheduled_date', { ascending: false })
-        .limit(50)
+        .range(0, JOB_HISTORY_PAGE_SIZE - 1)
 
       setJobHistory(jobsData || [])
+      setJobHistoryHasMore((jobsData || []).length === JOB_HISTORY_PAGE_SIZE)
+
+      // Load training data
+      const { data: trainingData } = await supabase
+        .from('employee_job_training')
+        .select('*')
+        .eq('employee_id', employeeId)
+
+      setTrainingRecords(trainingData || [])
+
+      // Load all active job templates for this employer
+      const { data: templatesData } = await supabase
+        .from('job_templates')
+        .select('*')
+        .eq('created_by', employer.id)
+        .eq('status', 'ACTIVE')
+        .order('job_code', { ascending: true })
+
+      setJobTemplates(templatesData || [])
+
+      // Initialize training notes input from existing records
+      const notesMap: Record<string, string> = {}
+      if (trainingData) {
+        for (const rec of trainingData) {
+          if (rec.notes) {
+            notesMap[rec.job_template_id] = rec.notes
+          }
+        }
+      }
+      setTrainingNotesInput(notesMap)
 
       // Calculate performance metrics
       const allSessions = jobsData || []
@@ -229,6 +270,31 @@ export default function EmployeeProfilePage() {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMoreJobHistory = async () => {
+    setJobHistoryLoadingMore(true)
+    try {
+      const offset = jobHistory.length
+      const { data: moreJobs } = await supabase
+        .from('job_sessions')
+        .select(`
+          *,
+          job_template:job_templates(title, job_code, address)
+        `)
+        .eq('assigned_to', employeeId)
+        .order('scheduled_date', { ascending: false })
+        .range(offset, offset + JOB_HISTORY_PAGE_SIZE - 1)
+
+      const newJobs = moreJobs || []
+      setJobHistory(prev => [...prev, ...newJobs])
+      setJobHistoryHasMore(newJobs.length === JOB_HISTORY_PAGE_SIZE)
+    } catch (error) {
+      console.error('Error loading more job history:', error)
+      toast.error(t('Failed to load job history'))
+    } finally {
+      setJobHistoryLoadingMore(false)
     }
   }
 
@@ -401,6 +467,95 @@ export default function EmployeeProfilePage() {
       await loadData()
     } catch (error) {
       console.error('Error saving notes:', error)
+      toast.error(t('Failed to save notes'))
+    }
+  }
+
+  /**
+   * Upserts training record when toggling trained/can_coach switches
+   */
+  const handleTrainingToggle = async (jobTemplateId: string, field: 'is_trained' | 'can_coach', value: boolean) => {
+    try {
+      const existing = trainingRecords.find(r => r.job_template_id === jobTemplateId)
+
+      const record: Record<string, unknown> = {
+        employee_id: employeeId,
+        job_template_id: jobTemplateId,
+        [field]: value,
+        updated_at: new Date().toISOString(),
+      }
+
+      // If toggling trained on, set trained_at
+      if (field === 'is_trained' && value) {
+        record.trained_at = new Date().toISOString()
+      }
+      // If toggling trained off, also disable can_coach
+      if (field === 'is_trained' && !value) {
+        record.can_coach = false
+      }
+
+      if (existing) {
+        const { error } = await supabase
+          .from('employee_job_training')
+          .update(record)
+          .eq('id', existing.id)
+        if (error) throw error
+      } else {
+        record.is_trained = field === 'is_trained' ? value : false
+        record.can_coach = field === 'can_coach' ? value : false
+        const { error } = await supabase
+          .from('employee_job_training')
+          .insert(record)
+        if (error) throw error
+      }
+
+      // Refresh training records
+      const { data: trainingData } = await supabase
+        .from('employee_job_training')
+        .select('*')
+        .eq('employee_id', employeeId)
+      setTrainingRecords(trainingData || [])
+    } catch (error) {
+      console.error('Error updating training:', error)
+      toast.error(t('Failed to save'))
+    }
+  }
+
+  /**
+   * Updates notes on a training record
+   */
+  const handleTrainingNotes = async (jobTemplateId: string, notes: string) => {
+    try {
+      const existing = trainingRecords.find(r => r.job_template_id === jobTemplateId)
+
+      if (existing) {
+        const { error } = await supabase
+          .from('employee_job_training')
+          .update({ notes: notes || null, updated_at: new Date().toISOString() })
+          .eq('id', existing.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('employee_job_training')
+          .insert({
+            employee_id: employeeId,
+            job_template_id: jobTemplateId,
+            notes: notes || null,
+            is_trained: false,
+            can_coach: false,
+            updated_at: new Date().toISOString(),
+          })
+        if (error) throw error
+      }
+
+      // Refresh training records
+      const { data: trainingData } = await supabase
+        .from('employee_job_training')
+        .select('*')
+        .eq('employee_id', employeeId)
+      setTrainingRecords(trainingData || [])
+    } catch (error) {
+      console.error('Error saving training notes:', error)
       toast.error(t('Failed to save notes'))
     }
   }
@@ -754,6 +909,7 @@ export default function EmployeeProfilePage() {
               { key: 'history' as const, label: t('Job History'), count: jobHistory.length },
               { key: 'evaluations' as const, label: t('Evaluations'), count: evaluations.length },
               { key: 'strikes' as const, label: t('Strikes'), count: strikes.length },
+              { key: 'training' as const, label: t('Training'), count: trainingRecords.filter(r => r.is_trained).length },
             ]).map(({ key, label, count }) => (
               <button
                 key={key}
@@ -775,35 +931,46 @@ export default function EmployeeProfilePage() {
               {jobHistory.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">{t('No job history')}</p>
               ) : (
-                jobHistory.map((job) => (
-                  <div key={job.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                            {job.full_job_code}
-                          </span>
-                          <Badge className={getSessionStatusBadge(job.status)}>
-                            {job.status}
-                          </Badge>
+                <>
+                  {jobHistory.map((job) => (
+                    <div key={job.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                              {job.full_job_code}
+                            </span>
+                            <Badge className={getSessionStatusBadge(job.status)}>
+                              {job.status}
+                            </Badge>
+                          </div>
+                          <p className="font-medium text-white">{job.job_template?.title || t('Unknown Job')}</p>
+                          {job.job_template?.address && (
+                            <p className="text-xs text-gray-400 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {job.job_template.address}
+                            </p>
+                          )}
+                          {job.scheduled_date && (
+                            <p className="text-xs text-gray-500">
+                              {format(new Date(job.scheduled_date), 'MMM d, yyyy')}
+                              {job.scheduled_time && ` at ${job.scheduled_time}`}
+                            </p>
+                          )}
                         </div>
-                        <p className="font-medium text-white">{job.job_template?.title || t('Unknown Job')}</p>
-                        {job.job_template?.address && (
-                          <p className="text-xs text-gray-400 flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {job.job_template.address}
-                          </p>
-                        )}
-                        {job.scheduled_date && (
-                          <p className="text-xs text-gray-500">
-                            {format(new Date(job.scheduled_date), 'MMM d, yyyy')}
-                            {job.scheduled_time && ` at ${job.scheduled_time}`}
-                          </p>
-                        )}
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {jobHistoryHasMore && (
+                    <button
+                      onClick={loadMoreJobHistory}
+                      disabled={jobHistoryLoadingMore}
+                      className="w-full py-3 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+                    >
+                      {jobHistoryLoadingMore ? t('Loading...') : t('Load More')}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -927,6 +1094,95 @@ export default function EmployeeProfilePage() {
                     )}
                   </div>
                 ))
+              )}
+            </div>
+          )}
+
+          {/* Training Tab */}
+          {activeTab === 'training' && (
+            <div className="mt-4 space-y-3">
+              {jobTemplates.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">{t('No job templates available')}</p>
+              ) : (
+                jobTemplates.map((template) => {
+                  const record = trainingRecords.find(r => r.job_template_id === template.id)
+                  const isTrained = record?.is_trained ?? false
+                  const canCoach = record?.can_coach ?? false
+                  const isNotesExpanded = expandedTrainingNotes === template.id
+
+                  return (
+                    <div key={template.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                              {template.job_code}
+                            </span>
+                            <GraduationCap className="w-4 h-4 text-gray-500" />
+                          </div>
+                          <p className="font-medium text-white truncate">{template.title}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isTrained}
+                            onCheckedChange={(checked) => handleTrainingToggle(template.id, 'is_trained', checked)}
+                            className="data-[state=checked]:bg-green-500"
+                          />
+                          <span className={`text-sm ${isTrained ? 'text-green-300' : 'text-gray-500'}`}>
+                            {t('Trained')}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={canCoach}
+                            disabled={!isTrained}
+                            onCheckedChange={(checked) => handleTrainingToggle(template.id, 'can_coach', checked)}
+                            className="data-[state=checked]:bg-blue-500"
+                          />
+                          <span className={`text-sm ${canCoach ? 'text-blue-300' : 'text-gray-500'}`}>
+                            {t('Can Coach')}
+                          </span>
+                          {!isTrained && (
+                            <span className="text-xs text-gray-600 italic">
+                              {t('Mark as trained to enable coaching')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Notes toggle */}
+                      <div className="mt-2">
+                        <button
+                          onClick={() => setExpandedTrainingNotes(isNotesExpanded ? null : template.id)}
+                          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                          {t('Training Notes')} {record?.notes ? '(1)' : ''}
+                        </button>
+                        {isNotesExpanded && (
+                          <div className="mt-2 space-y-2">
+                            <Textarea
+                              value={trainingNotesInput[template.id] ?? record?.notes ?? ''}
+                              onChange={(e) => setTrainingNotesInput(prev => ({ ...prev, [template.id]: e.target.value }))}
+                              placeholder={t('Training Notes')}
+                              rows={2}
+                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-600 text-sm"
+                            />
+                            <button
+                              onClick={() => handleTrainingNotes(template.id, trainingNotesInput[template.id] ?? '')}
+                              className="px-3 py-1 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                            >
+                              {t('Save')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
               )}
             </div>
           )}

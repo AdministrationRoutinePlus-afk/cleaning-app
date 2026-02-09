@@ -30,6 +30,14 @@ export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED'
 
 export type ExchangeStatus = 'PENDING' | 'APPROVED' | 'DENIED'
 
+export type JobSplitStatus =
+  | 'PENDING_PARTNER'
+  | 'PENDING_EMPLOYER'
+  | 'APPROVED'
+  | 'DENIED_PARTNER'
+  | 'DENIED_EMPLOYER'
+  | 'CANCELLED'
+
 export type StrikeSeverity = 'MINOR' | 'MAJOR' | 'CRITICAL'
 
 export type StrikeTargetType = 'CUSTOMER' | 'EMPLOYEE'
@@ -129,6 +137,8 @@ export interface JobTemplate extends BaseTable {
   created_by: string // FK to employers
   updated_at: string
   image_url: string | null // Main job image for marketplace display
+  video_url: string | null // Overview video for job preview
+  pptx_url: string | null // Procedures PowerPoint file
   // Scheduling fields
   specific_dates: string[] | null // Array of specific dates for one-time jobs (YYYY-MM-DD format)
   start_date: string | null // Start date for recurring job scheduling
@@ -172,6 +182,7 @@ export interface JobSession extends BaseTable {
   scheduled_end_date: string | null // DATE - end of window (for multi-day jobs)
   scheduled_time: string | null // TIME - start time
   assigned_to: string | null // FK to employees
+  split_with: string | null // FK to employees - split job partner
   status: JobSessionStatus
   price_override: number | null
   started_at: string | null
@@ -259,6 +270,22 @@ export interface JobExchange {
   requested_at: string
   decided_at: string | null
   decided_by: string | null // FK to employers
+}
+
+export interface JobSplit extends BaseTable {
+  job_session_id: string // FK to job_sessions
+  requested_by: string // FK to employees (initiator)
+  partner_id: string // FK to employees (target)
+  status: JobSplitStatus
+  updated_at: string
+  decided_at: string | null
+}
+
+export interface JobSplitConfirmation {
+  id: string
+  job_session_id: string // FK to job_sessions
+  employee_id: string // FK to employees
+  confirmed_at: string
 }
 
 export interface Notification extends BaseTable {
@@ -479,6 +506,16 @@ export interface JobSessionNote {
   note_type: JobSessionNoteType
   content: string
   created_at: string
+}
+
+export interface EmployeeJobTraining extends BaseTable {
+  employee_id: string
+  job_template_id: string
+  is_trained: boolean
+  can_coach: boolean
+  notes: string | null
+  trained_at: string | null
+  updated_at: string
 }
 
 // Helper types for new records

@@ -1,10 +1,10 @@
 'use client'
 
-import { toast } from 'sonner'
 import { useEffect, useState, useRef } from 'react'
-import type { JobTemplate, JobStep, Customer, JobSession } from '@/types/database'
+import type { JobTemplate, JobStep } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { JobDetailCard } from '@/components/customer/JobDetailCard'
+import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobTemplateWithSteps extends JobTemplate {
@@ -22,12 +22,15 @@ interface SessionCount {
   completed: number
 }
 
-export default function CustomerJobsPage() {
+interface DashboardJobsContentProps {
+  customerId: string
+}
+
+export function DashboardJobsContent({ customerId }: DashboardJobsContentProps) {
   const { t } = useTranslation()
   const [jobTemplates, setJobTemplates] = useState<JobTemplateWithSteps[]>([])
   const [sessionCounts, setSessionCounts] = useState<Record<string, SessionCount>>({})
   const [upcomingSessions, setUpcomingSessions] = useState<Record<string, UpcomingSession[]>>({})
-  const [customer, setCustomer] = useState<Customer | null>(null)
   const [loading, setLoading] = useState(true)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -35,65 +38,27 @@ export default function CustomerJobsPage() {
 
   useEffect(() => {
     isMountedRef.current = true
-    loadCustomerData()
+    loadJobTemplates()
     return () => { isMountedRef.current = false }
-  }, [])
-
-  useEffect(() => {
-    if (customer) {
-      loadJobTemplates()
-    }
-  }, [customer])
-
-  const loadCustomerData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !isMountedRef.current) {
-        if (user === null) toast.error(t('Please log in to view jobs'))
-        return
-      }
-
-      // Get customer profile
-      const { data: customerData, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      if (customerError) throw customerError
-      if (isMountedRef.current) {
-        setCustomer(customerData)
-      }
-    } catch (error) {
-      console.error('Error loading customer data:', error)
-      if (isMountedRef.current) toast.error(t('Failed to load customer profile'))
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
-    }
-  }
+  }, [customerId])
 
   const loadJobTemplates = async () => {
-    if (!customer) return
-
     try {
-      // Get job templates for this customer
       const { data: templates, error: templatesError } = await supabase
         .from('job_templates')
         .select(`
           *,
           job_steps(*)
         `)
-        .eq('customer_id', customer.id)
+        .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
 
       if (templatesError) throw templatesError
 
       const templatesData = (templates as JobTemplateWithSteps[]) || []
+      if (!isMountedRef.current) return
       setJobTemplates(templatesData)
 
-      // Get session counts and upcoming dates for each template
       if (templatesData.length > 0) {
         const templateIds = templatesData.map((t) => t.id)
 
@@ -106,7 +71,6 @@ export default function CustomerJobsPage() {
 
         const today = new Date().toISOString().split('T')[0]
 
-        // Count upcoming and completed sessions per template
         const counts: Record<string, SessionCount> = {}
         const upcoming: Record<string, UpcomingSession[]> = {}
         templatesData.forEach((template) => {
@@ -130,7 +94,6 @@ export default function CustomerJobsPage() {
 
           if (['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS'].includes(session.status)) {
             counts[session.job_template_id].upcoming++
-            // Collect upcoming sessions with dates >= today
             if (session.scheduled_date && session.scheduled_date >= today) {
               upcoming[session.job_template_id].push({
                 scheduled_date: session.scheduled_date,
@@ -142,77 +105,57 @@ export default function CustomerJobsPage() {
           }
         })
 
-        // Sort upcoming sessions by date
         Object.keys(upcoming).forEach((templateId) => {
           upcoming[templateId].sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
         })
 
-        setSessionCounts(counts)
-        setUpcomingSessions(upcoming)
+        if (isMountedRef.current) {
+          setSessionCounts(counts)
+          setUpcomingSessions(upcoming)
+        }
       }
     } catch (error) {
       console.error('Error loading job templates:', error)
       toast.error(t('Failed to load your jobs'))
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
   if (loading) {
     return (
-      <div className="p-4">
-        <div className="max-w-lg mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-white/10 rounded w-1/4"></div>
-            <div className="space-y-3">
-              {[...Array(2)].map((_, i) => (
-                <div key={i} className="h-64 bg-white/10 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="animate-pulse space-y-3">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="h-48 bg-white/5 rounded-xl"></div>
+        ))}
       </div>
     )
   }
 
-  if (!customer) {
+  if (jobTemplates.length === 0) {
     return (
-      <div className="p-4">
-        <div className="max-w-lg mx-auto">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-            <p className="text-center text-gray-400">
-              {t('Customer profile not found. Please contact support.')}
-            </p>
-          </div>
-        </div>
+      <div className="text-center py-8">
+        <p className="text-gray-400">{t('No jobs found')}</p>
+        <p className="text-sm text-gray-500 mt-1">
+          {t('Jobs assigned to you will appear here')}
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="p-4 pb-24">
-      <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-6">{t('My Jobs')}</h1>
-
-        {jobTemplates.length === 0 ? (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
-            <p className="text-gray-400">{t('No jobs found')}</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {t('Jobs assigned to you will appear here')}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {jobTemplates.map((template) => (
-              <JobDetailCard
-                key={template.id}
-                jobTemplate={template}
-                upcomingSessions={sessionCounts[template.id]?.upcoming || 0}
-                completedSessions={sessionCounts[template.id]?.completed || 0}
-                upcomingSessionDates={upcomingSessions[template.id] || []}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="space-y-4">
+      {jobTemplates.map((template) => (
+        <JobDetailCard
+          key={template.id}
+          jobTemplate={template}
+          upcomingSessions={sessionCounts[template.id]?.upcoming || 0}
+          completedSessions={sessionCounts[template.id]?.completed || 0}
+          upcomingSessionDates={upcomingSessions[template.id] || []}
+        />
+      ))}
     </div>
   )
 }

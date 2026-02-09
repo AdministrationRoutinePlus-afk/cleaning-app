@@ -4,13 +4,15 @@ import { toast } from 'sonner'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
-import type { JobSession, JobTemplate, Customer, Employee, JobExchange } from '@/types/database'
+import type { JobSession, JobTemplate, Customer, Employee, JobExchange, JobSplit } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
+import { MarketplacePageSkeleton } from '@/components/skeletons/MarketplaceCardSkeleton'
 import { parseISO, startOfDay } from 'date-fns'
-import { ShoppingBag, Users, ArrowRightLeft, Clock, DollarSign, Calendar, FileText } from 'lucide-react'
+import { ShoppingBag, Users, ArrowRightLeft, Clock, DollarSign, Calendar, CalendarRange, FileText, UserPlus } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { SplitRequestCard } from '@/components/employee/SplitRequestCard'
 
 type JobSessionWithDetails = JobSession & {
   job_template: JobTemplate & {
@@ -21,6 +23,11 @@ type JobSessionWithDetails = JobSession & {
 type ExchangeWithDetails = JobExchange & {
   job_session: JobSessionWithDetails
   from_employee: Employee
+}
+
+type SplitRequestWithDetails = JobSplit & {
+  requested_by_employee: Employee
+  job_session: JobSessionWithDetails
 }
 
 type SwipeAction = {
@@ -36,6 +43,7 @@ export default function EmployeeMarketplacePage() {
   const [interestedJobs, setInterestedJobs] = useState<JobSessionWithDetails[]>([])
   const [skippedJobs, setSkippedJobs] = useState<JobSessionWithDetails[]>([])
   const [swapJobs, setSwapJobs] = useState<ExchangeWithDetails[]>([])
+  const [splitRequests, setSplitRequests] = useState<SplitRequestWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [swapLoading, setSwapLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -129,8 +137,17 @@ export default function EmployeeMarketplacePage() {
       setMarketplaceJobs(availableJobs)
 
       // Deduplicate claimed jobs by ID (in case of duplicates) + filter out orphaned
+      // Also filter out past REFUSED jobs (their date has passed, no longer relevant)
+      const todayStr = new Date().toISOString().split('T')[0]
       const uniqueClaimedJobs = (claimedJobs || [])
         .filter(job => job.job_template !== null)
+        .filter(job => {
+          // Hide REFUSED jobs whose scheduled date has passed
+          if (job.status === 'REFUSED' && job.scheduled_date && job.scheduled_date < todayStr) {
+            return false
+          }
+          return true
+        })
         .filter((job, index, self) => index === self.findIndex(j => j.id === job.id)
       ) as JobSessionWithDetails[]
       setInterestedJobs(uniqueClaimedJobs)
@@ -199,6 +216,30 @@ export default function EmployeeMarketplacePage() {
       ) as ExchangeWithDetails[]
 
       setSwapJobs(validExchanges)
+
+      // Load incoming split requests (where current employee is the partner)
+      const { data: splits, error: splitError } = await supabase
+        .from('job_splits')
+        .select(`
+          *,
+          requested_by_employee:employees!job_splits_requested_by_fkey(*),
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          )
+        `)
+        .eq('partner_id', employeeId)
+        .eq('status', 'PENDING_PARTNER')
+
+      if (!splitError) {
+        const validSplits = (splits || []).filter(
+          s => s.job_session && s.job_session.job_template
+        ) as SplitRequestWithDetails[]
+        setSplitRequests(validSplits)
+      }
     } catch (error) {
       console.error('Error loading swap jobs:', error)
       toast.error(t('Failed to load swap jobs'))
@@ -239,6 +280,35 @@ export default function EmployeeMarketplacePage() {
     }
   }, [userId, loadData])
 
+  // Supabase Realtime: watch job_sessions for claimed jobs
+  useEffect(() => {
+    const channel = supabase
+      .channel('marketplace-updates')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'job_sessions',
+        filter: 'status=neq.OFFERED'
+      }, (payload) => {
+        // Remove the job from marketplace if it was previously OFFERED
+        if (!isMountedRef.current) return
+        setMarketplaceJobs(prev => {
+          const existed = prev.some(j => j.id === payload.old?.id)
+          if (existed) {
+            toast(t('A job was just claimed by another employee'), {
+              duration: 3000,
+            })
+          }
+          return prev.filter(j => j.id !== payload.old?.id)
+        })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, t])
+
   const loadUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!isMountedRef.current) return
@@ -266,7 +336,18 @@ export default function EmployeeMarketplacePage() {
     const history = localStorage.getItem('swipeHistory')
     if (!history) return []
     try {
-      return JSON.parse(history) as SwipeAction[]
+      const parsed = JSON.parse(history) as SwipeAction[]
+      // Filter out entries older than 7 days
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+      const valid = parsed.filter(entry => {
+        if (!entry.timestamp) return false
+        return new Date(entry.timestamp).getTime() > sevenDaysAgo
+      })
+      // Clean up expired entries from storage
+      if (valid.length !== parsed.length) {
+        localStorage.setItem('swipeHistory', JSON.stringify(valid))
+      }
+      return valid
     } catch {
       // Corrupted data - clear and return empty
       localStorage.removeItem('swipeHistory')
@@ -515,13 +596,13 @@ export default function EmployeeMarketplacePage() {
             <ArrowRightLeft className={`w-10 h-10 mb-2 ${mainTab === 'swap' ? 'text-white' : 'text-gray-400'}`} />
             <span>{t('Swap with Team')}</span>
             <span className={`text-xs rounded-full px-3 py-1 mt-2 min-h-[24px] ${
-              swapJobs.length > 0
+              (swapJobs.length + splitRequests.length) > 0
                 ? mainTab === 'swap'
                   ? 'bg-white/20 text-white'
                   : 'bg-white/10 text-gray-400'
                 : 'opacity-0'
             }`}>
-              {swapJobs.length > 0 ? `${swapJobs.length}` : '-'}
+              {(swapJobs.length + splitRequests.length) > 0 ? `${swapJobs.length + splitRequests.length}` : '-'}
             </span>
           </button>
         </div>
@@ -577,7 +658,7 @@ export default function EmployeeMarketplacePage() {
             {/* MARKETPLACE TAB */}
             {activeTab === 'marketplace' && (
               loading ? (
-                <LoadingSpinner size="md" />
+                <MarketplacePageSkeleton />
               ) : employeeStatus === 'PENDING' ? (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-8 text-center">
                   <div className="text-4xl mb-4">⏳</div>
@@ -687,7 +768,7 @@ export default function EmployeeMarketplacePage() {
 
             {swapLoading ? (
               <LoadingSpinner size="md" />
-            ) : swapJobs.length === 0 ? (
+            ) : (swapJobs.length === 0 && splitRequests.length === 0) ? (
               <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
                 <ArrowRightLeft className="w-16 h-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-white mb-2">
@@ -699,13 +780,41 @@ export default function EmployeeMarketplacePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {swapJobs.map(exchange => (
-                  <SwapCard
-                    key={exchange.id}
-                    exchange={exchange}
-                    onClaim={() => handleClaimSwap(exchange)}
-                  />
-                ))}
+                {/* Split Requests */}
+                {splitRequests.length > 0 && (
+                  <>
+                    <h3 className="text-sm font-semibold text-purple-300 flex items-center gap-2">
+                      <UserPlus className="w-4 h-4" />
+                      {t('Split Requests')}
+                    </h3>
+                    {splitRequests.map(split => (
+                      <SplitRequestCard
+                        key={split.id}
+                        split={split}
+                        onUpdate={loadSwapJobs}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* Exchange Swaps */}
+                {swapJobs.length > 0 && (
+                  <>
+                    {splitRequests.length > 0 && (
+                      <h3 className="text-sm font-semibold text-blue-300 flex items-center gap-2 mt-4">
+                        <ArrowRightLeft className="w-4 h-4" />
+                        {t('Job Exchanges')}
+                      </h3>
+                    )}
+                    {swapJobs.map(exchange => (
+                      <SwapCard
+                        key={exchange.id}
+                        exchange={exchange}
+                        onClaim={() => handleClaimSwap(exchange)}
+                      />
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -729,6 +838,10 @@ function JobListCard({
   const { job_template } = job
   const customerName = job_template.customer?.full_name || job_template.customer?.customer_code || ''
 
+  // Multi-day detection
+  const isMultiDay = job.scheduled_date && job.scheduled_end_date &&
+    job.scheduled_end_date !== job.scheduled_date
+
   const formatDuration = (minutes: number | null) => {
     if (!minutes) return '—'
     const hours = Math.floor(minutes / 60)
@@ -750,12 +863,45 @@ function JobListCard({
     return `${start?.slice(0, 5) || '—'} - ${end?.slice(0, 5) || '—'}`
   }
 
+  const formatScheduledDate = (dateStr: string | null) => {
+    if (!dateStr) return '—'
+    if (isMultiDay) {
+      const start = parseISO(job.scheduled_date!)
+      const end = parseISO(job.scheduled_end_date!)
+      const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      return `${startStr} → ${endStr}`
+    }
+    const date = parseISO(dateStr)
+    const today = startOfDay(new Date())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const dateDay = startOfDay(date)
+
+    if (dateDay.getTime() === today.getTime()) return t('Today')
+    if (dateDay.getTime() === tomorrow.getTime()) return t('Tomorrow')
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
   return (
     <div className="bg-white/10 rounded-2xl border border-white/10 overflow-hidden p-4">
       <div className="space-y-2">
         {/* Header - Customer name with status */}
         <div className="bg-gradient-to-r from-amber-600/20 to-orange-600/20 rounded-lg px-3 py-2 flex items-center justify-between border border-white/10">
-          <p className="text-white font-bold text-base">{customerName}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-white font-bold text-base">{customerName}</p>
+            {isMultiDay && (
+              <span className="bg-indigo-500/20 text-indigo-300 text-xs font-semibold px-2 py-1 rounded-full border border-indigo-500/30 flex items-center gap-1">
+                <CalendarRange className="w-3 h-3" />
+                {t('Multi-day')}
+              </span>
+            )}
+          </div>
           {status === 'pending' && job.status === 'CLAIMED' && (
             <span className="bg-yellow-500/20 text-yellow-300 text-xs font-semibold px-2 py-1 rounded-full">
               {t('Pending')}
@@ -771,6 +917,15 @@ function JobListCard({
               {t('Refused')}
             </span>
           )}
+        </div>
+
+        {/* Scheduled Date */}
+        <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <div>
+            <p className="text-gray-300 text-xs">{t('Scheduled Date')}</p>
+            <p className="text-white font-semibold text-sm">{formatScheduledDate(job.scheduled_date)}</p>
+          </div>
         </div>
 
         {/* Row 1: Job & Duration */}

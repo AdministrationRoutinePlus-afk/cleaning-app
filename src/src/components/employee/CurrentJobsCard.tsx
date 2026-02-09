@@ -32,7 +32,7 @@ export function CurrentJobsCard({ employeeId }: CurrentJobsCardProps) {
 
   const loadCurrentJobs = async () => {
     try {
-      // Get APPROVED and IN_PROGRESS jobs assigned to this employee
+      // Get APPROVED and IN_PROGRESS jobs assigned to or split with this employee
       const { data, error } = await supabase
         .from('job_sessions')
         .select(`
@@ -41,9 +41,9 @@ export function CurrentJobsCard({ employeeId }: CurrentJobsCardProps) {
             *,
             customer:customers(*)
           ),
-          employee:employees(*)
+          employee:employees!job_sessions_assigned_to_fkey(*)
         `)
-        .eq('assigned_to', employeeId)
+        .or(`assigned_to.eq.${employeeId},split_with.eq.${employeeId}`)
         .in('status', ['APPROVED', 'IN_PROGRESS'])
         .order('scheduled_date', { ascending: true })
 

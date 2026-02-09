@@ -57,8 +57,8 @@ export default function EmployeeSchedulePage() {
 
       if (!employee) return
 
-      // Fetch job sessions that are APPROVED or IN_PROGRESS
-      const { data, error } = await supabase
+      // Fetch job sessions that are APPROVED or IN_PROGRESS (include split_with)
+      let { data, error } = await supabase
         .from('job_sessions')
         .select(`
           *,
@@ -67,12 +67,31 @@ export default function EmployeeSchedulePage() {
             customer:customers(*)
           )
         `)
-        .eq('assigned_to', employee.id)
+        .or(`assigned_to.eq.${employee.id},split_with.eq.${employee.id}`)
         .in('status', ['APPROVED', 'IN_PROGRESS'])
         .not('scheduled_date', 'is', null)
         .order('scheduled_date', { ascending: true })
 
-      if (error) throw error
+      // Fallback if split_with column doesn't exist yet
+      if (error) {
+        const fallback = await supabase
+          .from('job_sessions')
+          .select(`
+            *,
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          `)
+          .eq('assigned_to', employee.id)
+          .in('status', ['APPROVED', 'IN_PROGRESS'])
+          .not('scheduled_date', 'is', null)
+          .order('scheduled_date', { ascending: true })
+
+        data = fallback.data
+        error = fallback.error
+        if (error) throw error
+      }
 
       setSessions((data as JobSessionWithDetails[]) || [])
     } catch (error) {

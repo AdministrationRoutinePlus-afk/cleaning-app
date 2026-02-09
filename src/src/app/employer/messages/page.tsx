@@ -14,7 +14,7 @@
 
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
-import type { JobExchange, JobSession, Employee, Conversation, Message, ScheduleMessage } from '@/types/database'
+import type { JobExchange, JobSession, Employee, Conversation, Message, ScheduleMessage, JobSplit } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,8 +23,10 @@ import { ConversationList } from '@/components/employer/ConversationList'
 import { ChatView } from '@/components/employer/ChatView'
 import { AnnouncementForm } from '@/components/employer/AnnouncementForm'
 import { ExchangeRequestCard } from '@/components/employer/ExchangeRequestCard'
+import { SplitApprovalCard } from '@/components/employer/SplitApprovalCard'
 import { format } from 'date-fns'
-import { MessageSquare, Megaphone, Users, Briefcase, ArrowLeftRight, Plus, ArrowLeft } from 'lucide-react'
+import { MessageSquare, Megaphone, Users, Briefcase, ArrowLeftRight, Plus, ArrowLeft, UserCircle } from 'lucide-react'
+import { CustomerChatList } from '@/components/employer/CustomerChatList'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
 // Extended type for job exchanges with related data
@@ -63,8 +65,21 @@ export default function EmployerMessagesPage() {
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
 
+  // Split request type for employer view
+  interface JobSplitWithDetails extends JobSplit {
+    job_session: JobSession & {
+      job_template?: {
+        job_code: string
+        title: string
+      }
+    }
+    requested_by_employee: Employee
+    partner_employee: Employee
+  }
+
   // Data state
   const [exchanges, setExchanges] = useState<JobExchangeWithDetails[]>([])
+  const [splitRequests, setSplitRequests] = useState<JobSplitWithDetails[]>([])
   const [announcements, setAnnouncements] = useState<ConversationWithDetails[]>([])
   const [groupMessages, setGroupMessages] = useState<Message[]>([])
   const [scheduleMessages, setScheduleMessages] = useState<ScheduleMessageWithDetails[]>([])
@@ -114,6 +129,25 @@ export default function EmployerMessagesPage() {
 
       if (error) throw error
       setExchanges((data as JobExchangeWithDetails[]) || [])
+
+      // Also load pending split requests (PENDING_EMPLOYER)
+      const { data: splits, error: splitError } = await supabase
+        .from('job_splits')
+        .select(`
+          *,
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(job_code, title)
+          ),
+          requested_by_employee:employees!job_splits_requested_by_fkey(*),
+          partner_employee:employees!job_splits_partner_id_fkey(*)
+        `)
+        .eq('status', 'PENDING_EMPLOYER')
+        .order('created_at', { ascending: false })
+
+      if (!splitError) {
+        setSplitRequests((splits as JobSplitWithDetails[]) || [])
+      }
     } catch (error) {
       console.error('Error loading exchanges:', error)
       toast.error(t('Failed to load exchange requests'))
@@ -337,7 +371,8 @@ export default function EmployerMessagesPage() {
     { value: 'announcements', label: t('News'), icon: Megaphone },
     { value: 'group', label: t('Team'), icon: Users },
     { value: 'job-messages', label: t('Jobs'), icon: Briefcase },
-    { value: 'exchanges', label: t('Swap'), icon: ArrowLeftRight, badge: exchanges.length },
+    { value: 'exchanges', label: t('Swap'), icon: ArrowLeftRight, badge: exchanges.length + splitRequests.length },
+    { value: 'customers', label: t('Clients'), icon: UserCircle },
   ]
 
   // Skeleton loader for dark theme
@@ -357,12 +392,15 @@ export default function EmployerMessagesPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-6">{t('Messages')}</h1>
 
-        {/* Tab Navigation - 5 tabs */}
+        {/* Tab Navigation - 6 tabs */}
         <div className="flex gap-1 mb-6 bg-white/5 rounded-xl p-1 border border-white/10">
           {tabs.map(tab => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => {
+                setActiveTab(tab.value)
+                setSelectedConversation(null)
+              }}
               className={`flex-1 py-2 px-1 rounded-lg text-[10px] sm:text-sm font-medium transition-colors relative flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 ${
                 activeTab === tab.value
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
@@ -605,29 +643,68 @@ export default function EmployerMessagesPage() {
           </div>
         )}
 
-        {/* TAB 5: Exchange Requests */}
+        {/* TAB 6: Customer Chat */}
+        {activeTab === 'customers' && (
+          <>
+            {selectedConversation ? (
+              <ChatView
+                conversationId={selectedConversation}
+                onBack={() => setSelectedConversation(null)}
+              />
+            ) : (
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-4">{t('Clients')}</h2>
+                <CustomerChatList onSelectConversation={setSelectedConversation} />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* TAB 5: Exchange & Split Requests */}
         {activeTab === 'exchanges' && (
           <div>
-            <h2 className="text-lg font-semibold text-white mb-4">{t('Pending Exchange Requests')}</h2>
+            <h2 className="text-lg font-semibold text-white mb-4">{t('Pending Requests')}</h2>
 
             {loadingExchanges ? (
               <SkeletonLoader count={2} />
-            ) : exchanges.length === 0 ? (
+            ) : (exchanges.length === 0 && splitRequests.length === 0) ? (
               <div className="text-center py-12 bg-white/5 rounded-xl border border-white/10">
-                <p className="text-gray-400">{t('No pending exchange requests')}</p>
+                <p className="text-gray-400">{t('No pending requests')}</p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {t('Requests will appear here when employees request job exchanges')}
+                  {t('Requests will appear here when employees request job exchanges or splits')}
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {exchanges.map((exchange) => (
-                  <ExchangeRequestCard
-                    key={exchange.id}
-                    exchange={exchange}
-                    onUpdate={loadExchanges}
-                  />
-                ))}
+                {/* Split Requests */}
+                {splitRequests.length > 0 && (
+                  <>
+                    <h3 className="text-sm font-semibold text-purple-300">{t('Job Splits')}</h3>
+                    {splitRequests.map((split) => (
+                      <SplitApprovalCard
+                        key={split.id}
+                        split={split}
+                        onUpdate={loadExchanges}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* Exchange Requests */}
+                {exchanges.length > 0 && (
+                  <>
+                    {splitRequests.length > 0 && (
+                      <h3 className="text-sm font-semibold text-blue-300 mt-4">{t('Job Exchanges')}</h3>
+                    )}
+                    {exchanges.map((exchange) => (
+                      <ExchangeRequestCard
+                        key={exchange.id}
+                        exchange={exchange}
+                        onUpdate={loadExchanges}
+                      />
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -48,7 +48,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
         .select(`
           *,
           job_template:job_templates(*),
-          employee:employees(*)
+          employee:employees!job_sessions_assigned_to_fkey(*)
         `)
         .in('status', ['COMPLETED', 'EVALUATED'])
         .not('assigned_to', 'is', null)

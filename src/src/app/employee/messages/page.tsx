@@ -61,6 +61,7 @@ export default function EmployeeMessagesPage() {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
   const [selectedJob, setSelectedJob] = useState<JobTemplateWithSteps | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithJobs | null>(null)
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -867,10 +868,23 @@ export default function EmployeeMessagesPage() {
                     <p className="text-sm text-purple-200">{selectedJob.job_code}</p>
                   </div>
                 </div>
+              ) : selectedCustomer ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedCustomer(null)}
+                    className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-white" />
+                  </button>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">{selectedCustomer.customer.full_name || selectedCustomer.customer.customer_code}</h2>
+                    <p className="text-sm text-purple-200">{selectedCustomer.jobs.length} {t('jobs')}</p>
+                  </div>
+                </div>
               ) : (
                 <>
                   <h2 className="text-lg font-bold text-white text-center">{t('Job Procedures')}</h2>
-                  <p className="text-sm text-purple-200 text-center mt-1">{t('Tap a job to see details')}</p>
+                  <p className="text-sm text-purple-200 text-center mt-1">{t('Select a client')}</p>
                 </>
               )}
             </div>
@@ -888,35 +902,18 @@ export default function EmployeeMessagesPage() {
                   <p className="text-gray-400">{t('No procedures available')}</p>
                 </div>
               ) : selectedJob ? (
-                /* DETAILED VIEW - Single Job */
+                /* LEVEL 3 - Job Details */
                 <div className="space-y-4">
-                  {/* Job Description */}
                   {selectedJob.description && (
                     <div className="p-3 bg-white/5 rounded-xl border border-white/10">
                       <p className="text-sm text-gray-300">{selectedJob.description}</p>
                     </div>
                   )}
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
-                      <p className="text-xl font-bold text-purple-400">{selectedJob.job_steps?.length || 0}</p>
-                      <p className="text-xs text-gray-400">{t('Steps')}</p>
-                    </div>
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
-                      <p className="text-xl font-bold text-purple-400">
-                        {selectedJob.job_steps?.reduce((acc, step) => acc + (step.job_step_checklist?.length || 0), 0) || 0}
-                      </p>
-                      <p className="text-xs text-gray-400">{t('Checklist Items')}</p>
-                    </div>
-                  </div>
-
-                  {/* All Steps */}
                   {selectedJob.job_steps && selectedJob.job_steps.length > 0 ? (
                     <div className="space-y-3">
                       {selectedJob.job_steps.map((step, stepIndex) => (
                         <div key={step.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                          {/* Step Header */}
                           <div className="flex items-start gap-3 mb-3">
                             <span className="w-8 h-8 rounded-full bg-purple-600 text-white text-sm flex items-center justify-center font-bold flex-shrink-0">
                               {stepIndex + 1}
@@ -929,7 +926,6 @@ export default function EmployeeMessagesPage() {
                             </div>
                           </div>
 
-                          {/* Products Needed */}
                           {step.products_needed && (
                             <div className="ml-11 mb-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                               <p className="text-xs font-semibold text-amber-400 mb-1">{t('Products Needed:')}</p>
@@ -937,7 +933,6 @@ export default function EmployeeMessagesPage() {
                             </div>
                           )}
 
-                          {/* Checklist Items */}
                           {step.job_step_checklist && step.job_step_checklist.length > 0 && (
                             <div className="ml-11 space-y-2">
                               <p className="text-xs font-semibold text-gray-500">{t('Checklist:')}</p>
@@ -958,66 +953,45 @@ export default function EmployeeMessagesPage() {
                     </div>
                   )}
                 </div>
+              ) : selectedCustomer ? (
+                /* LEVEL 2 - Jobs for selected customer */
+                <div className="space-y-2">
+                  {selectedCustomer.jobs.map(job => {
+                    const totalSteps = job.job_steps?.length || 0
+                    return (
+                      <button
+                        key={job.id}
+                        onClick={() => setSelectedJob(job)}
+                        className="w-full p-4 flex items-center justify-between bg-white/5 hover:bg-purple-500/10 rounded-xl border border-white/10 transition-colors text-left"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-white">{job.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{job.job_code}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-purple-400">{totalSteps} {t('steps')}</span>
+                          <ChevronRight className="w-4 h-4 text-gray-500" />
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               ) : (
-                /* SUMMARY VIEW - Jobs List */
-                <div className="space-y-4">
-                  {/* Total Stats */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-purple-400">
-                        {procedures.reduce((acc, p) => acc + p.jobs.length, 0)}
-                      </p>
-                      <p className="text-xs text-gray-400">{t('Jobs')}</p>
-                    </div>
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-purple-400">
-                        {procedures.reduce((acc, p) => acc + p.jobs.reduce((a, j) => a + (j.job_steps?.length || 0), 0), 0)}
-                      </p>
-                      <p className="text-xs text-gray-400">{t('Steps')}</p>
-                    </div>
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-purple-400">
-                        {procedures.reduce((acc, p) => acc + p.jobs.reduce((a, j) => a + (j.job_steps?.reduce((s, step) => s + (step.job_step_checklist?.length || 0), 0) || 0), 0), 0)}
-                      </p>
-                      <p className="text-xs text-gray-400">{t('Checklist Items')}</p>
-                    </div>
-                  </div>
-
-                  {/* Jobs List by Customer */}
-                  <div className="space-y-2">
-                    {procedures.map(({ customer, jobs }) => (
-                      <div key={customer.id} className="border border-white/10 rounded-xl overflow-hidden">
-                        <div className="p-3 bg-white/5">
-                          <p className="font-semibold text-white">{customer.full_name || customer.customer_code}</p>
-                        </div>
-                        <div className="divide-y divide-white/5">
-                          {jobs.map(job => {
-                            const totalSteps = job.job_steps?.length || 0
-                            const totalItems = job.job_steps?.reduce((acc, step) => acc + (step.job_step_checklist?.length || 0), 0) || 0
-                            return (
-                              <button
-                                key={job.id}
-                                onClick={() => setSelectedJob(job)}
-                                className="w-full p-3 flex items-center justify-between hover:bg-purple-500/10 transition-colors text-left"
-                              >
-                                <div>
-                                  <p className="text-sm font-medium text-white">{job.title}</p>
-                                  <p className="text-xs text-gray-500">{job.job_code}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="text-right">
-                                    <p className="text-sm text-purple-400">{totalSteps} steps</p>
-                                    <p className="text-xs text-gray-500">{totalItems} items</p>
-                                  </div>
-                                  <ChevronRight className="w-4 h-4 text-gray-500" />
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
+                /* LEVEL 1 - Customer List */
+                <div className="space-y-2">
+                  {procedures.map((entry) => (
+                    <button
+                      key={entry.customer.id}
+                      onClick={() => setSelectedCustomer(entry)}
+                      className="w-full p-4 flex items-center justify-between bg-white/5 hover:bg-purple-500/10 rounded-xl border border-white/10 transition-colors text-left"
+                    >
+                      <p className="font-semibold text-white">{entry.customer.full_name || entry.customer.customer_code}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-purple-400">{entry.jobs.length} {t('jobs')}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-500" />
                       </div>
-                    ))}
-                  </div>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import type { JobSessionFull } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
-import { Calendar, Clock, MapPin, User, X, ArrowLeftRight } from 'lucide-react'
+import { Calendar, CalendarRange, Clock, MapPin, User, X, ArrowLeftRight, Star, Users, Video, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 import {
@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { SplitJobDialog } from '@/components/employee/SplitJobDialog'
 
 interface MyJobCardProps {
   jobSession: JobSessionFull
@@ -32,13 +33,38 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const [loading, setLoading] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [showExchangeDialog, setShowExchangeDialog] = useState(false)
+  const [showSplitDialog, setShowSplitDialog] = useState(false)
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null)
   const [imageError, setImageError] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [evalRating, setEvalRating] = useState<number | null>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
   const { job_template, status, scheduled_date, scheduled_time } = jobSession
-  const { job_code, title, address, customer, image_url } = job_template
+
+  // Fetch evaluation rating for EVALUATED sessions
+  useEffect(() => {
+    if (status === 'EVALUATED') {
+      supabase
+        .from('evaluations')
+        .select('rating')
+        .eq('job_session_id', jobSession.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setEvalRating(data.rating)
+        })
+    }
+
+    // Load current employee ID for split feature
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from('employees').select('id').eq('user_id', user.id).single()
+          .then(({ data }) => { if (data) setCurrentEmployeeId(data.id) })
+      }
+    })
+  }, [jobSession.id, status])
+  const { job_code, title, address, customer, image_url, video_url, pptx_url } = job_template
   const hasImage = image_url && !imageError
 
   // Check if current time is within the job's time window
@@ -231,21 +257,33 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
     switch (status) {
       case 'CLAIMED': // Pending approval
         return (
-          <div className="flex gap-2">
-            <Button
-              onClick={handleViewDetails}
-              className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
-            >
-              {t('View')}
-            </Button>
-            <Button
-              onClick={() => setShowCancelDialog(true)}
-              disabled={loading}
-              className="flex-1 bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
-            >
-              <X className="w-4 h-4 mr-1" />
-              {t('Cancel')}
-            </Button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Button
+                onClick={handleViewDetails}
+                className="flex-1 bg-white/10 text-white border border-white/20 hover:bg-white/20"
+              >
+                {t('View')}
+              </Button>
+              <Button
+                onClick={() => setShowCancelDialog(true)}
+                disabled={loading}
+                className="flex-1 bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30"
+              >
+                <X className="w-4 h-4 mr-1" />
+                {t('Cancel')}
+              </Button>
+            </div>
+            {currentEmployeeId && (
+              <Button
+                onClick={() => setShowSplitDialog(true)}
+                disabled={loading}
+                className="w-full bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30"
+              >
+                <Users className="w-4 h-4 mr-1" />
+                {t('Split Job')}
+              </Button>
+            )}
           </div>
         )
       case 'APPROVED':
@@ -267,14 +305,32 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
             >
               {loading ? t('Starting...') : t('Start Job')}
             </Button>
-            <Button
-              onClick={() => setShowExchangeDialog(true)}
-              disabled={loading}
-              className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
-            >
-              <ArrowLeftRight className="w-4 h-4 mr-1" />
-              {t('Request Exchange')}
-            </Button>
+            {!jobSession.split_with && (
+              <Button
+                onClick={() => setShowExchangeDialog(true)}
+                disabled={loading}
+                className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20"
+              >
+                <ArrowLeftRight className="w-4 h-4 mr-1" />
+                {t('Request Exchange')}
+              </Button>
+            )}
+            {currentEmployeeId && !jobSession.split_with && (
+              <Button
+                onClick={() => setShowSplitDialog(true)}
+                disabled={loading}
+                className="w-full bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30"
+              >
+                <Users className="w-4 h-4 mr-1" />
+                {t('Split Job')}
+              </Button>
+            )}
+            {jobSession.split_with && (
+              <div className="text-xs text-purple-300 text-center p-2 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                <Users className="w-3 h-3 inline mr-1" />
+                {t('Split job - shared with teammate')}
+              </div>
+            )}
           </div>
         )
       case 'IN_PROGRESS':
@@ -377,6 +433,25 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           <Badge className={getStatusColor(status)}>
             {status.replace('_', ' ')}
           </Badge>
+          {jobSession.scheduled_end_date && jobSession.scheduled_date &&
+            jobSession.scheduled_end_date !== jobSession.scheduled_date && (
+            <Badge className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <CalendarRange className="w-3 h-3 mr-1" />
+              {t('Multi-day')}
+            </Badge>
+          )}
+          {video_url && (
+            <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              <Video className="w-3 h-3 mr-1" />
+              {t('Video')}
+            </Badge>
+          )}
+          {pptx_url && (
+            <Badge className="bg-orange-500/20 text-orange-300 border border-orange-500/30">
+              <FileSpreadsheet className="w-3 h-3 mr-1" />
+              PPTX
+            </Badge>
+          )}
         </div>
 
         {/* Main Info */}
@@ -449,6 +524,33 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
         )}
       </div>
 
+      {/* Evaluation Rating for EVALUATED sessions */}
+      {status === 'EVALUATED' && evalRating && (
+        <div className="px-4 pb-2 relative z-10">
+          <div className="bg-gradient-to-br from-yellow-900/30 to-amber-900/20 rounded-xl p-3 border border-yellow-500/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-yellow-400" />
+                <span className="text-sm font-medium text-gray-300">{t('Customer Review')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span
+                      key={star}
+                      className={`text-lg ${star <= evalRating ? 'text-yellow-400' : 'text-gray-600'}`}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <span className="text-white font-bold text-sm ml-1">{evalRating}/5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {(() => {
         const actionButtons = renderActionButtons()
         return actionButtons ? (
@@ -501,6 +603,17 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Split Job Dialog */}
+      {currentEmployeeId && (
+        <SplitJobDialog
+          open={showSplitDialog}
+          onOpenChange={setShowSplitDialog}
+          jobSessionId={jobSession.id}
+          currentEmployeeId={currentEmployeeId}
+          onSuccess={onStatusChange}
+        />
+      )}
     </div>
   )
 }

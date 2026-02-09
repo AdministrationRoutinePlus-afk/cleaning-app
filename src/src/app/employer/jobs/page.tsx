@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Plus, LayoutGrid, Zap, History } from 'lucide-react'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import { JobsPageSkeleton } from '@/components/skeletons/JobsPageSkeleton'
 import { JobCardsTab } from '@/components/employer/jobs/JobCardsTab'
 import { ActiveJobsTab } from '@/components/employer/jobs/ActiveJobsTab'
 import { HistoryTab } from '@/components/employer/jobs/HistoryTab'
@@ -73,7 +73,7 @@ function EmployerJobsPageContent() {
   }, [])
 
   if (loading) {
-    return <LoadingSpinner fullScreen />
+    return <JobsPageSkeleton />
   }
 
   if (!employerId) {
@@ -130,7 +130,7 @@ function EmployerJobsPageContent() {
 
 export default function EmployerJobsPage() {
   return (
-    <Suspense fallback={<LoadingSpinner fullScreen />}>
+    <Suspense fallback={<JobsPageSkeleton />}>
       <EmployerJobsPageContent />
     </Suspense>
   )

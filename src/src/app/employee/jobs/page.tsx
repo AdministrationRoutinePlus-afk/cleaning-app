@@ -46,8 +46,8 @@ export default function EmployeeJobsPage() {
         return
       }
 
-      // Fetch job sessions with related data
-      const { data, error } = await supabase
+      // Fetch job sessions with related data (include split_with jobs)
+      let { data, error } = await supabase
         .from('job_sessions')
         .select(`
           *,
@@ -56,8 +56,26 @@ export default function EmployeeJobsPage() {
             customer:customers(*)
           )
         `)
-        .eq('assigned_to', employeeData.id)
+        .or(`assigned_to.eq.${employeeData.id},split_with.eq.${employeeData.id}`)
         .order('scheduled_date', { ascending: true })
+
+      // Fallback if split_with column doesn't exist yet
+      if (error) {
+        const fallback = await supabase
+          .from('job_sessions')
+          .select(`
+            *,
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          `)
+          .eq('assigned_to', employeeData.id)
+          .order('scheduled_date', { ascending: true })
+
+        data = fallback.data
+        error = fallback.error
+      }
 
       if (error) {
         console.error('Error fetching jobs:', error)

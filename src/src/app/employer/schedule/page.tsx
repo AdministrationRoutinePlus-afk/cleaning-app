@@ -38,7 +38,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; b
   EVALUATED: { label: 'Evaluated', bg: 'bg-teal-500/20', text: 'text-teal-300', border: 'border-teal-500/30', dot: 'bg-teal-500' },
   CANCELLED: { label: 'Cancelled', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-500' },
   MISSED: { label: 'Missed', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
-  OVERDUE: { label: 'Overdue', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
+  OVERDUE: { label: 'Missed', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
 }
 
 // Color palette for employees
@@ -103,7 +103,7 @@ export default function EmployerSchedulePage() {
         .select(`
           *,
           job_template:job_templates!inner(*, customer:customers(*)),
-          employee:employees(*)
+          employee:employees!job_sessions_assigned_to_fkey(*)
         `)
         .eq('job_template.created_by', employer.id)
         .order('scheduled_date', { ascending: true })

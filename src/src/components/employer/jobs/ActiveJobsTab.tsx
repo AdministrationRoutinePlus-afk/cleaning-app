@@ -6,8 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
-import { format, differenceInDays, parseISO } from 'date-fns'
-import { AlertTriangle, Calendar, User, Search, X, MapPin, Briefcase, Clock, Users, CalendarDays, Check, ChevronDown, ChevronUp, Send } from 'lucide-react'
+import { format, differenceInDays, differenceInMinutes, parseISO } from 'date-fns'
+import { AlertTriangle, Calendar, User, Search, X, MapPin, Briefcase, Clock, Users, CalendarDays, Check, ChevronDown, ChevronUp, Send, Timer } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -80,10 +80,12 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
         .select(`
           *,
           job_template:job_templates(
-            *,
-            customer:customers(*)
+            id, title, job_code, client_code, customer_id, address, description,
+            price_per_hour, duration_minutes, time_window_start, time_window_end,
+            window_start_day, window_end_day,
+            customer:customers(id, full_name, customer_code)
           ),
-          employee:employees(*)
+          employee:employees!job_sessions_assigned_to_fkey(id, full_name, email, phone, status)
         `)
         .in('job_template_id', templateIds)
         .in('status', ['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS', 'MISSED', 'OVERDUE'])
@@ -150,6 +152,46 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       }
     }
     return session.status
+  }
+
+  // Calculate time remaining until deadline for APPROVED/IN_PROGRESS sessions
+  const getDeadlineWarning = (session: JobSessionFull): { label: string; level: 'amber' | 'orange' | 'red' } | null => {
+    if (session.status !== 'APPROVED' && session.status !== 'IN_PROGRESS') return null
+    if (!session.scheduled_date) return null
+
+    const now = new Date()
+    const jobTemplate = session.job_template as JobTemplate & { customer: Customer | null }
+
+    let deadline: Date
+    if (jobTemplate?.time_window_end) {
+      const [endH, endM] = jobTemplate.time_window_end.split(':').map(Number)
+      deadline = new Date(session.scheduled_end_date || session.scheduled_date)
+      deadline.setHours(endH, endM, 0, 0)
+    } else {
+      deadline = new Date(session.scheduled_end_date || session.scheduled_date)
+      deadline.setHours(23, 59, 59, 999)
+    }
+
+    if (now >= deadline) return null // Already past deadline
+
+    const minsLeft = differenceInMinutes(deadline, now)
+    if (minsLeft > 360) return null // More than 6 hours, no warning
+
+    if (minsLeft <= 30) {
+      const label = minsLeft <= 1 ? `1${t('min')}` : `${minsLeft}${t('min')}`
+      return { label: `${label} ${t('left')}`, level: 'red' }
+    }
+    if (minsLeft <= 120) {
+      const hrs = Math.floor(minsLeft / 60)
+      const mins = minsLeft % 60
+      const label = hrs > 0 && mins > 0 ? `${hrs}h${mins}${t('min')}` : hrs > 0 ? `${hrs}h` : `${mins}${t('min')}`
+      return { label: `${label} ${t('left')}`, level: 'orange' }
+    }
+    // 2h < remaining <= 6h
+    const hrs = Math.floor(minsLeft / 60)
+    const mins = minsLeft % 60
+    const label = mins > 0 ? `${hrs}h${mins}${t('min')}` : `${hrs}h`
+    return { label: `${label} ${t('left')}`, level: 'amber' }
   }
 
   const filteredSessions = useMemo(() => {
@@ -224,10 +266,10 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
     if (urgencyEmployees.length > 0) return
     const { data } = await supabase
       .from('employees')
-      .select('*')
+      .select('id, full_name')
       .eq('status', 'ACTIVE')
       .order('full_name')
-    if (data) setUrgencyEmployees(data)
+    if (data) setUrgencyEmployees(data as Employee[])
   }
 
   const handleUrgencyNotify = async (sessionId: string) => {
@@ -307,7 +349,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       case 'APPROVED': return t('Scheduled')
       case 'IN_PROGRESS': return t('In Progress')
       case 'MISSED': return t('Missed')
-      case 'OVERDUE': return t('Overdue')
+      case 'OVERDUE': return t('Missed')
       default: return status
     }
   }
@@ -806,9 +848,26 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                       </span>
                     )}
                   </div>
-                  <Badge className={`${getStatusBadge(displayStatus)} text-xs`}>
-                    {getStatusLabel(displayStatus)}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {(() => {
+                      const warning = getDeadlineWarning(session)
+                      if (!warning) return null
+                      const badgeClass = warning.level === 'red'
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse'
+                        : warning.level === 'orange'
+                          ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${badgeClass}`}>
+                          <Timer className="w-3 h-3" />
+                          {warning.label}
+                        </span>
+                      )
+                    })()}
+                    <Badge className={`${getStatusBadge(displayStatus)} text-xs`}>
+                      {getStatusLabel(displayStatus)}
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Middle row: job info */}

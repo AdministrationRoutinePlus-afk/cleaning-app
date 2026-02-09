@@ -23,7 +23,11 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
   const supabase = createClient()
 
   useEffect(() => {
-    initializeChat()
+    if (employer?.user_id) {
+      initializeChat()
+    } else {
+      setLoading(false)
+    }
   }, [customer, employer])
 
   useEffect(() => {
@@ -227,6 +231,17 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
             ))}
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (!employer.user_id) {
+    return (
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+        <p className="text-center text-gray-400">{t('Chat Not Available')}</p>
+        <p className="text-center text-gray-500 text-sm mt-2">
+          {t('Unable to load messaging. Please contact support.')}
+        </p>
       </div>
     )
   }

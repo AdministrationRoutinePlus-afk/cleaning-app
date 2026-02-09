@@ -7,13 +7,14 @@ import { JobsOverviewContent } from '@/components/employer/dashboard/JobsOvervie
 import { PayrollContent } from '@/components/employer/dashboard/PayrollContent'
 import { EmployeeNotesContent } from '@/components/employer/dashboard/EmployeeNotesContent'
 import { TodoAndNotesContent } from '@/components/employer/dashboard/TodoAndNotesContent'
-import LoadingSpinner from '@/components/LoadingSpinner'
-import { Briefcase, DollarSign, FileText, ListTodo, Settings } from 'lucide-react'
+import { AnalyticsSection } from '@/components/employer/AnalyticsSection'
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
+import { Briefcase, DollarSign, FileText, ListTodo, BarChart3, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
-type DashboardSection = 'jobs' | 'payroll' | 'notes' | 'todos'
+type DashboardSection = 'jobs' | 'payroll' | 'notes' | 'todos' | 'analytics'
 
 export default function EmployerDashboardPage() {
   const { t } = useTranslation()
@@ -64,7 +65,7 @@ export default function EmployerDashboardPage() {
   }
 
   if (loading) {
-    return <LoadingSpinner fullScreen />
+    return <DashboardSkeleton />
   }
 
   if (!employer) {
@@ -101,6 +102,12 @@ export default function EmployerDashboardPage() {
       label: t('To-Do & Notes'),
       icon: ListTodo,
       color: 'amber',
+    },
+    {
+      id: 'analytics' as DashboardSection,
+      label: t('Analytics'),
+      icon: BarChart3,
+      color: 'cyan',
     }
   ]
 
@@ -111,6 +118,7 @@ export default function EmployerDashboardPage() {
       case 'blue': return 'bg-gradient-to-br from-blue-600 to-blue-800'
       case 'green': return 'bg-gradient-to-br from-green-600 to-green-800'
       case 'amber': return 'bg-gradient-to-br from-amber-600 to-amber-800'
+      case 'cyan': return 'bg-gradient-to-br from-cyan-600 to-cyan-800'
       default: return 'bg-gradient-to-br from-purple-600 to-purple-800'
     }
   }
@@ -122,6 +130,7 @@ export default function EmployerDashboardPage() {
       case 'blue': return 'shadow-lg shadow-blue-500/30'
       case 'green': return 'shadow-lg shadow-green-500/30'
       case 'amber': return 'shadow-lg shadow-amber-500/30'
+      case 'cyan': return 'shadow-lg shadow-cyan-500/30'
       default: return 'shadow-lg shadow-purple-500/30'
     }
   }
@@ -133,6 +142,7 @@ export default function EmployerDashboardPage() {
       case 'blue': return 'border-2 border-blue-400'
       case 'green': return 'border-2 border-green-400'
       case 'amber': return 'border-2 border-amber-400'
+      case 'cyan': return 'border-2 border-cyan-400'
       default: return 'border-2 border-purple-400'
     }
   }
@@ -187,6 +197,9 @@ export default function EmployerDashboardPage() {
           )}
           {activeSection === 'todos' && (
             <TodoAndNotesContent employerId={employer.id} />
+          )}
+          {activeSection === 'analytics' && (
+            <AnalyticsSection employerId={employer.id} />
           )}
         </div>
       </div>

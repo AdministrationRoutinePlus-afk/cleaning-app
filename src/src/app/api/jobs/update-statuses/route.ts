@@ -9,44 +9,70 @@ import { NextResponse } from 'next/server'
 //   3. OFFERED sessions past their deadline -> CANCELLED
 //   4. CLAIMED sessions idle for 48+ hours -> reverted to OFFERED (back to marketplace)
 //
-// TIMEZONE LIMITATION: All date/time calculations assume a single timezone
-// (the server's local timezone). This will produce incorrect results for
-// jobs spanning multiple timezones. A per-job or per-employer timezone
-// field would be needed for multi-timezone support.
+// Each job uses the timezone from its job_template for accurate local time comparisons.
+
+const DEFAULT_TIMEZONE = 'America/Toronto'
 
 /**
- * Computes the deadline for a job session.
+ * Gets the current time in a specific timezone as a Date object.
+ * Uses the Intl API to convert UTC to the target timezone.
+ */
+function getLocalTime(timezone: string): Date {
+  const now = new Date()
+  const localStr = now.toLocaleString('en-US', { timeZone: timezone })
+  return new Date(localStr)
+}
+
+/**
+ * Computes the deadline for a job session in the job's local timezone.
  * If time_window_end is set, uses that time on the end date.
  * Otherwise, falls back to 23:59:59 on the end date (end of day).
+ *
+ * The returned Date represents the deadline in the job's local timezone
+ * (built using the same toLocaleString trick so it can be compared against getLocalTime).
  */
 function computeDeadline(
   scheduledDate: string,
   scheduledEndDate: string | null,
-  timeWindowEnd: string | null
+  timeWindowEnd: string | null,
+  timezone: string
 ): Date {
   const endDate = scheduledEndDate || scheduledDate
-  const deadline = new Date(endDate)
+
+  // Parse the date parts from the endDate string (YYYY-MM-DD)
+  const [year, month, day] = endDate.split('-').map(Number)
+
+  let hours = 23
+  let minutes = 59
+  let seconds = 59
 
   if (timeWindowEnd) {
     const [endH, endM] = timeWindowEnd.split(':').map(Number)
-    deadline.setHours(endH, endM, 0, 0)
-  } else {
-    // No time_window_end configured — use end of day as the deadline
-    deadline.setHours(23, 59, 59, 0)
+    hours = endH
+    minutes = endM
+    seconds = 0
   }
 
-  return deadline
+  // Construct the deadline as a wall-clock time (no timezone offset).
+  // Since we compare this against getLocalTime(timezone), both sides represent
+  // wall-clock times in the same timezone, so the comparison is correct.
+  const deadlineStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  return new Date(deadlineStr)
 }
 
 /**
- * Extracts time_window_end from the joined job_template relation.
+ * Extracts time_window_end and timezone from the joined job_template relation.
  * Supabase may return the join as a single object or an array.
  */
-function getTimeWindowEnd(
+function getJobTemplateFields(
   jobTemplate: unknown
-): string | null {
+): { timeWindowEnd: string | null; timezone: string } {
   const resolved = Array.isArray(jobTemplate) ? jobTemplate[0] : jobTemplate
-  return (resolved as { time_window_end: string | null } | null)?.time_window_end ?? null
+  const record = resolved as { time_window_end: string | null; timezone: string | null } | null
+  return {
+    timeWindowEnd: record?.time_window_end ?? null,
+    timezone: record?.timezone || DEFAULT_TIMEZONE,
+  }
 }
 
 export async function POST(request: Request) {
@@ -71,8 +97,7 @@ export async function POST(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
-    const now = new Date()
-    const nowISO = now.toISOString()
+    const nowISO = new Date().toISOString()
 
     let missedCount = 0
     let overdueCount = 0
@@ -90,7 +115,8 @@ export async function POST(request: Request) {
         scheduled_end_date,
         status,
         job_template:job_templates(
-          time_window_end
+          time_window_end,
+          timezone
         )
       `)
       .eq('status', 'APPROVED')
@@ -99,10 +125,11 @@ export async function POST(request: Request) {
     if (approvedError) throw approvedError
 
     for (const job of approvedJobs || []) {
-      const timeWindowEnd = getTimeWindowEnd(job.job_template)
-      const deadline = computeDeadline(job.scheduled_date, job.scheduled_end_date, timeWindowEnd)
+      const { timeWindowEnd, timezone } = getJobTemplateFields(job.job_template)
+      const localNow = getLocalTime(timezone)
+      const deadline = computeDeadline(job.scheduled_date, job.scheduled_end_date, timeWindowEnd, timezone)
 
-      if (now > deadline) {
+      if (localNow > deadline) {
         const { error: updateError } = await supabase
           .from('job_sessions')
           .update({ status: 'MISSED', updated_at: nowISO })
@@ -123,7 +150,8 @@ export async function POST(request: Request) {
         scheduled_end_date,
         status,
         job_template:job_templates(
-          time_window_end
+          time_window_end,
+          timezone
         )
       `)
       .eq('status', 'IN_PROGRESS')
@@ -132,10 +160,11 @@ export async function POST(request: Request) {
     if (inProgressError) throw inProgressError
 
     for (const job of inProgressJobs || []) {
-      const timeWindowEnd = getTimeWindowEnd(job.job_template)
-      const deadline = computeDeadline(job.scheduled_date, job.scheduled_end_date, timeWindowEnd)
+      const { timeWindowEnd, timezone } = getJobTemplateFields(job.job_template)
+      const localNow = getLocalTime(timezone)
+      const deadline = computeDeadline(job.scheduled_date, job.scheduled_end_date, timeWindowEnd, timezone)
 
-      if (now > deadline) {
+      if (localNow > deadline) {
         const { error: updateError } = await supabase
           .from('job_sessions')
           .update({ status: 'OVERDUE', updated_at: nowISO })
@@ -157,7 +186,8 @@ export async function POST(request: Request) {
         scheduled_end_date,
         status,
         job_template:job_templates(
-          time_window_end
+          time_window_end,
+          timezone
         )
       `)
       .eq('status', 'OFFERED')
@@ -166,10 +196,11 @@ export async function POST(request: Request) {
     if (offeredError) throw offeredError
 
     for (const job of offeredJobs || []) {
-      const timeWindowEnd = getTimeWindowEnd(job.job_template)
-      const deadline = computeDeadline(job.scheduled_date, job.scheduled_end_date, timeWindowEnd)
+      const { timeWindowEnd, timezone } = getJobTemplateFields(job.job_template)
+      const localNow = getLocalTime(timezone)
+      const deadline = computeDeadline(job.scheduled_date, job.scheduled_end_date, timeWindowEnd, timezone)
 
-      if (now > deadline) {
+      if (localNow > deadline) {
         const { error: updateError } = await supabase
           .from('job_sessions')
           .update({ status: 'CANCELLED', updated_at: nowISO })
@@ -185,7 +216,7 @@ export async function POST(request: Request) {
     //    stays CLAIMED for over 48 hours without approval, it is
     //    returned to the marketplace so other workers can claim it.
     // ---------------------------------------------------------------
-    const claimedCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString()
+    const claimedCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
 
     const { data: staleClaimed, error: claimedError } = await supabase
       .from('job_sessions')

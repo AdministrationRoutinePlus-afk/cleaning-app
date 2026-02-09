@@ -10,7 +10,10 @@ import type {
   JobStepChecklist,
   JobSessionProgress,
   JobSessionChecklistProgress,
-  Customer
+  Customer,
+  Evaluation,
+  Employee,
+  JobSplitConfirmation
 } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { StepCard } from '@/components/employee/StepCard'
@@ -31,7 +34,14 @@ import {
   Play,
   Timer,
   Package,
-  StickyNote
+  StickyNote,
+  Star,
+  MessageSquare,
+  User,
+  Users,
+  FileSpreadsheet,
+  ExternalLink,
+  Download
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -93,6 +103,11 @@ export default function JobExecutionPage() {
   const [employeeNotes, setEmployeeNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [completionDuration, setCompletionDuration] = useState<number | null>(null)
+  const [evaluation, setEvaluation] = useState<(Evaluation & { customer?: { full_name: string } }) | null>(null)
+  const [splitPartner, setSplitPartner] = useState<Employee | null>(null)
+  const [splitConfirmations, setSplitConfirmations] = useState<JobSplitConfirmation[]>([])
+  const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null)
+  const [confirmingSplit, setConfirmingSplit] = useState(false)
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -134,6 +149,40 @@ export default function JobExecutionPage() {
       }
     }
   }, [sessionId])
+
+  // Real-time subscription for split confirmations
+  useEffect(() => {
+    if (!jobData?.session.split_with) return
+
+    const channel = supabase
+      .channel(`split-confirmations-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'job_split_confirmations',
+          filter: `job_session_id=eq.${sessionId}`,
+        },
+        () => {
+          // Reload confirmations when partner confirms
+          supabase
+            .from('job_split_confirmations')
+            .select('*')
+            .eq('job_session_id', sessionId)
+            .then(({ data }) => {
+              if (isMountedRef.current && data) {
+                setSplitConfirmations(data)
+              }
+            })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [sessionId, jobData?.session.split_with])
 
   const loadJobData = async () => {
     setLoading(true)
@@ -220,6 +269,55 @@ export default function JobExecutionPage() {
         const start = new Date(session.started_at).getTime()
         const end = new Date(session.completed_at).getTime()
         setCompletionDuration(Math.floor((end - start) / 1000))
+      }
+
+      // If evaluated, fetch the evaluation
+      if (session.status === 'EVALUATED') {
+        const { data: evalData } = await supabase
+          .from('evaluations')
+          .select('*, customer:customers(full_name)')
+          .eq('job_session_id', sessionId)
+          .maybeSingle()
+
+        if (isMountedRef.current && evalData) {
+          setEvaluation(evalData as any)
+        }
+      }
+
+      // Load split partner info if this is a split job
+      if (session.split_with) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: emp } = await supabase
+            .from('employees')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+          if (isMountedRef.current && emp) {
+            setCurrentEmployeeId(emp.id)
+          }
+        }
+
+        // Load partner employee details
+        const { data: partner } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('id', session.split_with)
+          .single()
+
+        if (isMountedRef.current && partner) {
+          setSplitPartner(partner as Employee)
+        }
+
+        // Load split confirmations
+        const { data: confirmations } = await supabase
+          .from('job_split_confirmations')
+          .select('*')
+          .eq('job_session_id', sessionId)
+
+        if (isMountedRef.current) {
+          setSplitConfirmations(confirmations || [])
+        }
       }
     } catch (error) {
       console.error('Error loading job data:', error)
@@ -334,6 +432,12 @@ export default function JobExecutionPage() {
   const handleCompleteJob = async () => {
     setCompleting(true)
     try {
+      // If this is a split job, use dual-confirm flow
+      if (jobData?.session.split_with && currentEmployeeId) {
+        await handleSplitConfirm()
+        return
+      }
+
       const completedAt = new Date().toISOString()
       // Calculate actual duration in minutes
       let actualDuration: number | null = null
@@ -363,6 +467,66 @@ export default function JobExecutionPage() {
     } finally {
       setCompleting(false)
       setShowCompleteDialog(false)
+    }
+  }
+
+  const handleSplitConfirm = async () => {
+    if (!currentEmployeeId) return
+    setConfirmingSplit(true)
+    try {
+      // UPSERT confirmation (idempotent)
+      const { error } = await supabase
+        .from('job_split_confirmations')
+        .upsert(
+          {
+            job_session_id: sessionId,
+            employee_id: currentEmployeeId,
+            confirmed_at: new Date().toISOString(),
+          },
+          { onConflict: 'job_session_id,employee_id' }
+        )
+
+      if (error) throw error
+
+      // Re-check how many confirmations exist
+      const { data: allConfirmations } = await supabase
+        .from('job_split_confirmations')
+        .select('*')
+        .eq('job_session_id', sessionId)
+
+      setSplitConfirmations(allConfirmations || [])
+
+      // If both have confirmed, mark the job as COMPLETED
+      if (allConfirmations && allConfirmations.length >= 2) {
+        const completedAt = new Date().toISOString()
+        let actualDuration: number | null = null
+        if (jobData?.session.started_at) {
+          const start = new Date(jobData.session.started_at).getTime()
+          const end = new Date(completedAt).getTime()
+          actualDuration = Math.round((end - start) / 60000)
+        }
+
+        await supabase
+          .from('job_sessions')
+          .update({
+            status: 'COMPLETED',
+            completed_at: completedAt,
+            actual_duration: actualDuration,
+          })
+          .eq('id', sessionId)
+
+        toast.success(t('Both confirmed! Job completed.'))
+        router.push('/employee/jobs')
+      } else {
+        toast.success(t('Your confirmation recorded. Waiting for your partner.'))
+        setShowCompleteDialog(false)
+      }
+    } catch (error) {
+      console.error('Error confirming split completion:', error)
+      toast.error(t('Failed to confirm completion'))
+    } finally {
+      setConfirmingSplit(false)
+      setCompleting(false)
     }
   }
 
@@ -479,11 +643,13 @@ export default function JobExecutionPage() {
                 isInProgress ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
                 jobData.session.status === 'REFUSED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
                 isApproved ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                jobData.session.status === 'EVALUATED' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
                 isCompleted ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
                 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
               }>
                 {isInProgress ? t('In Progress') :
                  isApproved ? t('Approved') :
+                 jobData.session.status === 'EVALUATED' ? t('Evaluated') :
                  isCompleted ? t('Completed') :
                  jobData.session.status}
               </Badge>
@@ -493,6 +659,44 @@ export default function JobExecutionPage() {
           <h1 className="text-xl font-bold text-white mb-2">
             {jobData.session.job_template.title}
           </h1>
+
+          {/* Video Player */}
+          {jobData.session.job_template.video_url && (
+            <div className="mb-4">
+              <video
+                controls
+                playsInline
+                className="w-full rounded-xl border border-white/20 max-h-64 bg-black"
+                preload="metadata"
+              >
+                <source src={jobData.session.job_template.video_url} type="video/mp4" />
+                <source src={jobData.session.job_template.video_url} type="video/webm" />
+              </video>
+            </div>
+          )}
+
+          {/* Procedures File (PPTX) */}
+          {jobData.session.job_template.pptx_url && (
+            <div className="mb-4 flex gap-2">
+              <a
+                href={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(jobData.session.job_template.pptx_url)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                {t('View Procedures')}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <a
+                href={jobData.session.job_template.pptx_url}
+                download
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+              </a>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3 text-sm text-gray-300 mb-4">
             {jobData.session.job_template.customer && (
@@ -553,6 +757,45 @@ export default function JobExecutionPage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Split Job Partner Banner */}
+      {splitPartner && (
+        <div className="max-w-6xl mx-auto p-4">
+          <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/30">
+            <div className="flex items-center gap-3">
+              <Users className="w-6 h-6 text-purple-400" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-purple-300">{t('Split Job')}</h3>
+                <p className="text-sm text-purple-200">
+                  {t('Shared with')} <span className="font-medium text-white">{splitPartner.full_name}</span>
+                </p>
+              </div>
+            </div>
+            {/* Confirmation status */}
+            {isInProgress && allStepsComplete && (
+              <div className="mt-3 pt-3 border-t border-purple-500/30 space-y-2">
+                <p className="text-xs text-gray-400">{t('Completion confirmations:')}</p>
+                <div className="flex gap-3">
+                  {/* Current employee */}
+                  <div className="flex items-center gap-1.5 text-sm">
+                    {splitConfirmations.some(c => c.employee_id === currentEmployeeId)
+                      ? <span className="text-green-400">&#10003; {t('You')}</span>
+                      : <span className="text-gray-400">&#9675; {t('You')}</span>
+                    }
+                  </div>
+                  {/* Partner */}
+                  <div className="flex items-center gap-1.5 text-sm">
+                    {splitConfirmations.some(c => c.employee_id === splitPartner.id)
+                      ? <span className="text-green-400">&#10003; {splitPartner.full_name}</span>
+                      : <span className="text-gray-400">&#9675; {splitPartner.full_name}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -770,23 +1013,53 @@ export default function JobExecutionPage() {
           </div>
         )}
 
-        {/* Complete Job Button */}
+        {/* Complete Job Button / Split Confirm Button */}
         {allStepsComplete && (
           <div className="p-6 mt-6 bg-green-500/10 rounded-xl border border-green-500/30">
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
               <div>
                 <h3 className="font-semibold text-green-300">{t('All steps completed!')}</h3>
-                <p className="text-sm text-green-400">{t('Ready to mark this job as complete.')}</p>
+                <p className="text-sm text-green-400">
+                  {jobData?.session.split_with
+                    ? t('Confirm completion. Both you and your partner must confirm.')
+                    : t('Ready to mark this job as complete.')}
+                </p>
               </div>
             </div>
-            <Button
-              onClick={() => setShowCompleteDialog(true)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
-              size="lg"
-            >
-              {t('Complete Job')}
-            </Button>
+            {/* Split confirmation status */}
+            {jobData?.session.split_with && splitPartner && (
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  {splitConfirmations.some(c => c.employee_id === currentEmployeeId)
+                    ? <span className="text-green-400">&#10003; {t('You')} - {t('Confirmed')}</span>
+                    : <span className="text-gray-400">&#9675; {t('You')} - {t('Not confirmed')}</span>
+                  }
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {splitConfirmations.some(c => c.employee_id === splitPartner.id)
+                    ? <span className="text-green-400">&#10003; {splitPartner.full_name} - {t('Confirmed')}</span>
+                    : <span className="text-gray-400">&#9675; {splitPartner.full_name} - {t('Not confirmed')}</span>
+                  }
+                </div>
+              </div>
+            )}
+            {splitConfirmations.some(c => c.employee_id === currentEmployeeId) ? (
+              <div className="text-center text-sm text-green-300 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                {t('You have confirmed. Waiting for your partner.')}
+              </div>
+            ) : (
+              <Button
+                onClick={() => setShowCompleteDialog(true)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                size="lg"
+                disabled={confirmingSplit}
+              >
+                {jobData?.session.split_with
+                  ? (confirmingSplit ? t('Confirming...') : t('Confirm Completion'))
+                  : t('Complete Job')}
+              </Button>
+            )}
           </div>
         )}
 
@@ -830,13 +1103,77 @@ export default function JobExecutionPage() {
 
       {/* Notes section for completed jobs */}
       {isCompleted && (
-        <div className="max-w-6xl mx-auto p-4">
+        <div className="max-w-6xl mx-auto p-4 space-y-4">
           {/* Completion Duration */}
           {completionDuration !== null && (
-            <div className="mb-4 p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
+            <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
               <div className="flex items-center gap-2 text-blue-300">
                 <Timer className="w-5 h-5" />
                 <span className="font-medium">{t('Duration')}: {formatDuration(completionDuration)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Customer Evaluation */}
+          {evaluation && (
+            <div className="bg-gradient-to-br from-yellow-900/20 to-amber-900/10 rounded-xl border border-yellow-500/30 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Star className="w-5 h-5 text-yellow-400" />
+                <h3 className="text-lg font-semibold text-white">{t('Customer Review')}</h3>
+              </div>
+
+              {/* Rating stars */}
+              <div className="bg-gray-900/60 rounded-xl p-4 border border-white/10 mb-3">
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span
+                      key={star}
+                      className={`text-3xl ${star <= evaluation.rating ? 'text-yellow-400' : 'text-gray-600'}`}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <p className="text-center text-white font-bold text-lg">{evaluation.rating}/5</p>
+              </div>
+
+              {/* Customer name */}
+              {evaluation.customer?.full_name && (
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-400">{t('Reviewed by')}</span>
+                  <span className="text-sm font-semibold text-white">{evaluation.customer.full_name}</span>
+                </div>
+              )}
+
+              {/* Comment */}
+              {evaluation.comment && (
+                <div className="bg-gray-900/60 rounded-xl p-4 border border-white/10 mt-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm font-medium text-gray-400">{t('Comments')}</span>
+                  </div>
+                  <p className="text-gray-200 text-sm whitespace-pre-wrap">{evaluation.comment}</p>
+                </div>
+              )}
+
+              {/* Submitted date */}
+              {evaluation.submitted_at && (
+                <p className="text-xs text-gray-500 mt-3">
+                  {t('Submitted')} {new Date(evaluation.submitted_at).toLocaleDateString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric'
+                  })}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Awaiting review notice for COMPLETED */}
+          {jobData.session.status === 'COMPLETED' && !evaluation && (
+            <div className="p-4 bg-amber-500/10 rounded-xl border border-amber-500/30">
+              <div className="flex items-center gap-2 text-amber-300">
+                <Star className="w-5 h-5" />
+                <span className="font-medium">{t('Awaiting customer review')}</span>
               </div>
             </div>
           )}

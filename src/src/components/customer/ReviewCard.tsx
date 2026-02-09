@@ -1,5 +1,6 @@
 'use client'
 
+import { User, Calendar } from 'lucide-react'
 import type { Evaluation } from '@/types/database'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
@@ -22,11 +23,10 @@ export function ReviewCard({ evaluation }: ReviewCardProps) {
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp)
     return date.toLocaleDateString('en-US', {
+      weekday: 'short',
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
+      year: 'numeric'
     })
   }
 
@@ -36,7 +36,7 @@ export function ReviewCard({ evaluation }: ReviewCardProps) {
         {[1, 2, 3, 4, 5].map((star) => (
           <span
             key={star}
-            className={`text-xl ${
+            className={`text-2xl ${
               star <= rating ? 'text-yellow-400' : 'text-gray-600'
             }`}
           >
@@ -71,50 +71,58 @@ export function ReviewCard({ evaluation }: ReviewCardProps) {
   }
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl">
-      <div className="p-4 pb-2">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="text-base font-semibold text-white">
-              {evaluation.job_session?.job_template?.job_code} - {evaluation.job_session?.job_template?.title}
-            </h3>
-            {evaluation.employee && (
-              <p className="text-sm text-gray-400 mt-1">
-                {t('Employee')}: {evaluation.employee.full_name}
-              </p>
-            )}
-          </div>
-          <span className={`px-2 py-0.5 rounded text-xs font-medium ${getRatingBadge(evaluation.rating)}`}>
-            {getRatingLabel(evaluation.rating)}
-          </span>
-        </div>
+    <div className="bg-gray-800/60 border border-white/20 rounded-xl p-4">
+      {/* Header: code + rating badge */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="bg-gray-800/80 text-white font-bold text-xs px-3 py-1 rounded-full border border-white/30">
+          {evaluation.job_session?.job_template?.job_code}
+        </span>
+        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${getRatingBadge(evaluation.rating)}`}>
+          {getRatingLabel(evaluation.rating)}
+        </span>
       </div>
 
-      <div className="p-4 space-y-3">
-        {/* Star Rating */}
-        <div className="flex items-center gap-3">
+      {/* Title */}
+      <h3 className="text-lg font-bold text-white mb-3">
+        {evaluation.job_session?.job_template?.title}
+      </h3>
+
+      {/* Info rows */}
+      <div className="space-y-2 mb-3">
+        {evaluation.employee && (
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-purple-400" />
+            <span className="text-sm text-gray-400">{t('Done by')}</span>
+            <span className="text-sm font-semibold text-white">{evaluation.employee.full_name}</span>
+          </div>
+        )}
+        {evaluation.submitted_at && (
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-400" />
+            <span className="text-sm text-gray-400">{t('Submitted on')}</span>
+            <span className="text-sm font-semibold text-white">{formatDate(evaluation.submitted_at)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Star Rating */}
+      <div className="bg-gray-900/60 border border-white/10 rounded-xl p-3 mb-3">
+        <div className="flex items-center justify-center gap-3">
           {renderStars(evaluation.rating)}
-          <span className="text-sm text-gray-300 font-medium">
+          <span className="text-lg font-bold text-white">
             {evaluation.rating}/5
           </span>
         </div>
-
-        {/* Comment */}
-        {evaluation.comment && (
-          <div className="bg-white/5 border border-white/10 p-3 rounded-lg">
-            <p className="text-sm text-gray-300 whitespace-pre-wrap">
-              {evaluation.comment}
-            </p>
-          </div>
-        )}
-
-        {/* Submitted Date */}
-        {evaluation.submitted_at && (
-          <p className="text-xs text-gray-500">
-            {t('Submitted on')} {formatDate(evaluation.submitted_at)}
-          </p>
-        )}
       </div>
+
+      {/* Comment */}
+      {evaluation.comment && (
+        <div className="bg-gray-900/60 border border-white/10 p-4 rounded-xl">
+          <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
+            {evaluation.comment}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

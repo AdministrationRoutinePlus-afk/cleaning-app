@@ -41,14 +41,15 @@ export default function CustomerMessagesPage() {
       setCustomer(customerData)
 
       // Get employer who created this customer
-      const { data: employerData, error: employerError } = await supabase
+      const { data: employerData } = await supabase
         .from('employers')
         .select('*')
         .eq('id', customerData.created_by)
-        .single()
+        .maybeSingle()
 
-      if (employerError) throw employerError
-      setEmployer(employerData)
+      if (isMountedRef.current && employerData) {
+        setEmployer(employerData)
+      }
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error(t('Failed to load customer or employer profile'))
@@ -59,8 +60,8 @@ export default function CustomerMessagesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-        <div className="max-w-4xl mx-auto">
+      <div className="p-4">
+        <div className="max-w-lg mx-auto">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-white/10 rounded w-1/4"></div>
             <div className="h-96 bg-white/10 rounded"></div>
@@ -70,12 +71,30 @@ export default function CustomerMessagesPage() {
     )
   }
 
-  if (!customer || !employer) {
+  if (!customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-        <div className="max-w-4xl mx-auto">
+      <div className="p-4">
+        <div className="max-w-lg mx-auto">
           <div className="bg-white/5 border border-white/10 rounded-xl p-6">
             <p className="text-center text-gray-400">
+              {t('Customer profile not found. Please contact support.')}
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!employer) {
+    return (
+      <div className="p-4">
+        <div className="max-w-lg mx-auto">
+          <h1 className="text-2xl font-bold text-white mb-6">{t('Messages')}</h1>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <p className="text-center text-gray-400">
+              {t('Chat Not Available')}
+            </p>
+            <p className="text-center text-gray-500 text-sm mt-2">
               {t('Unable to load messaging. Please contact support.')}
             </p>
           </div>
@@ -85,8 +104,8 @@ export default function CustomerMessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="p-4 pb-24">
+      <div className="max-w-lg mx-auto">
         <h1 className="text-2xl font-bold text-white mb-6">{t('Messages')}</h1>
         <CustomerChat customer={customer} employer={employer} />
       </div>

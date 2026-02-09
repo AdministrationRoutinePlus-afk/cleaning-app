@@ -71,23 +71,24 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const loadEmployees = async () => {
     const { data, error } = await supabase
       .from('employees')
-      .select('*')
+      .select('id, full_name, email, phone, status')
       .eq('status', 'ACTIVE')
       .order('full_name')
 
     if (!error && data) {
-      setAllEmployees(data)
+      const employees = data as Employee[]
+      setAllEmployees(employees)
       if (jobSession?.assigned_to) {
         setSelectedEmployeeIds([jobSession.assigned_to])
       }
       // Load availability for the session date
       if (jobSession?.scheduled_date) {
-        loadEmployeeAvailability(data, jobSession.scheduled_date)
+        loadEmployeeAvailability(employees, jobSession.scheduled_date)
       }
     }
   }
 
-  const loadEmployeeAvailability = async (employees: Employee[], date: string) => {
+  const loadEmployeeAvailability = async (employees: { id: string }[], date: string) => {
     const { data: sessionsOnDate } = await supabase
       .from('job_sessions')
       .select('assigned_to')
@@ -154,6 +155,13 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
     setLoading(true)
     try {
+      // Auto-cancel any pending splits
+      await supabase
+        .from('job_splits')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('job_session_id', jobSession.id)
+        .in('status', ['PENDING_PARTNER', 'PENDING_EMPLOYER'])
+
       const { error } = await supabase
         .from('job_sessions')
         .update({ status: 'CANCELLED' })
@@ -220,6 +228,13 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             message: `Your claim was refused: ${sanitizedReason}`
           })
       }
+
+      // Auto-cancel any pending splits for this session
+      await supabase
+        .from('job_splits')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('job_session_id', jobSession.id)
+        .in('status', ['PENDING_PARTNER', 'PENDING_EMPLOYER'])
 
       // Create a replacement OFFERED session so the job goes back to marketplace
       const nextNum = await getNextSessionNumber(supabase, jobSession.job_template_id)
@@ -649,6 +664,15 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               </div>
             ) : (
               <p className="text-gray-500 text-sm">{t('No employee assigned yet')}</p>
+            )}
+            {/* Split partner info */}
+            {jobSession.split_with && (
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <div className="flex items-center gap-2 text-sm text-purple-300">
+                  <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">{t('Split Job')}</Badge>
+                  <span className="text-gray-400">{t('Split partner assigned')}</span>
+                </div>
+              </div>
             )}
           </div>
 

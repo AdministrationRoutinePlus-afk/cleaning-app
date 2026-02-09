@@ -11,14 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Star, Filter, X, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Star, Filter, X, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 20
 
 interface CompletedJob {
   id: string
@@ -65,7 +65,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<CompletedJob[]>([])
   const [totalCount, setTotalCount] = useState(0)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [customers, setCustomers] = useState<{ id: string; full_name: string; customer_code: string }[]>([])
   const [employees, setEmployees] = useState<{ id: string; full_name: string }[]>([])
 
@@ -89,15 +89,15 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
     return () => { isMountedRef.current = false }
   }, [])
 
-  // Reset to page 1 when filters change
+  // Reset visible count when filters change
   useEffect(() => {
-    setCurrentPage(1)
+    setVisibleCount(PAGE_SIZE)
   }, [searchQuery, filterCustomer, filterEmployee, filterDateFrom, filterDateTo, filterRating, filterHasReview, filterStatus])
 
-  // Fetch data when page or filters change
+  // Fetch data when filters change
   useEffect(() => {
     fetchData()
-  }, [currentPage, searchQuery, filterCustomer, filterEmployee, filterDateFrom, filterDateTo, filterRating, filterHasReview, filterStatus])
+  }, [searchQuery, filterCustomer, filterEmployee, filterDateFrom, filterDateTo, filterRating, filterHasReview, filterStatus])
 
   const fetchFilterOptions = async () => {
     // Fetch customers for filter
@@ -148,7 +148,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
               customer_code
             )
           ),
-          employee:employees(
+          employee:employees!job_sessions_assigned_to_fkey(
             id,
             full_name
           )
@@ -218,14 +218,8 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
 
       if (!isMountedRef.current) return
 
-      const total = jobsWithEvaluations.length
-      setTotalCount(total)
-
-      // Apply pagination
-      const startIndex = (currentPage - 1) * PAGE_SIZE
-      const paginatedJobs = jobsWithEvaluations.slice(startIndex, startIndex + PAGE_SIZE)
-
-      setJobs(paginatedJobs)
+      setTotalCount(jobsWithEvaluations.length)
+      setJobs(jobsWithEvaluations)
       // Store all filtered jobs for CSV export
       allFilteredJobsRef.current = jobsWithEvaluations
     } catch (error) {
@@ -239,7 +233,8 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
   // Store all filtered jobs for CSV export (not just current page)
   const allFilteredJobsRef = useRef<CompletedJob[]>([])
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const visibleJobs = jobs.slice(0, visibleCount)
+  const hasMore = visibleCount < totalCount
 
   const clearFilters = () => {
     setSearchQuery('')
@@ -450,12 +445,12 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
 
       {/* Jobs List */}
       <div className="space-y-2">
-        {jobs.length === 0 ? (
+        {visibleJobs.length === 0 ? (
           <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center text-gray-400 text-sm">
             {hasActiveFilters ? t('No matches') : t('No history yet')}
           </div>
         ) : (
-          jobs.map(job => (
+          visibleJobs.map(job => (
             <div
               key={job.id}
               className="bg-white/5 border border-white/10 rounded-xl overflow-hidden"
@@ -540,33 +535,14 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
         )}
       </div>
 
-      {/* Pagination */}
-      {totalCount > PAGE_SIZE && (
-        <div className="flex items-center justify-between pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-            className="h-8 bg-white/5 border-white/20 text-gray-300 hover:bg-white/10 disabled:opacity-40"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            {t('Previous')}
-          </Button>
-          <span className="text-sm text-gray-400">
-            {t('Page')} {currentPage} {t('of')} {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-            className="h-8 bg-white/5 border-white/20 text-gray-300 hover:bg-white/10 disabled:opacity-40"
-          >
-            {t('Next')}
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+      {/* Load More */}
+      {hasMore && (
+        <button
+          onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+          className="w-full py-3 text-sm text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-colors"
+        >
+          {t('Load More')}
+        </button>
       )}
     </div>
   )
