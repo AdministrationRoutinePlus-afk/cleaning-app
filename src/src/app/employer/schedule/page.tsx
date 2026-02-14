@@ -18,7 +18,14 @@ import type { JobSession, JobTemplate, Employee, Customer, JobSessionStatus } fr
 import { createClient } from '@/lib/supabase/client'
 import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
-import { ChevronLeft, ChevronRight, AlertTriangle, Clock, Users, Briefcase, Eye, EyeOff, Calendar } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlertTriangle, Clock, Users, Briefcase, Eye, EyeOff, Calendar, GraduationCap, Star, Filter, X } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -28,17 +35,17 @@ interface JobSessionWithDetails extends JobSession {
   employee: Employee | null
 }
 
-// Status configuration
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
-  OFFERED: { label: 'Open', bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30', dot: 'bg-gray-500' },
-  CLAIMED: { label: 'Claimed', bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30', dot: 'bg-yellow-500' },
-  APPROVED: { label: 'Approved', bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30', dot: 'bg-blue-500' },
-  IN_PROGRESS: { label: 'In Progress', bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/30', dot: 'bg-purple-500' },
-  COMPLETED: { label: 'Completed', bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/30', dot: 'bg-green-500' },
-  EVALUATED: { label: 'Evaluated', bg: 'bg-teal-500/20', text: 'text-teal-300', border: 'border-teal-500/30', dot: 'bg-teal-500' },
-  CANCELLED: { label: 'Cancelled', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-500' },
-  MISSED: { label: 'Missed', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
-  OVERDUE: { label: 'Missed', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
+// Status configuration (styling only - labels resolved via t() at render time)
+const STATUS_STYLES: Record<string, { labelKey: string; bg: string; text: string; border: string; dot: string }> = {
+  OFFERED: { labelKey: 'Open', bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30', dot: 'bg-gray-500' },
+  CLAIMED: { labelKey: 'Claimed', bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30', dot: 'bg-yellow-500' },
+  APPROVED: { labelKey: 'Approved', bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30', dot: 'bg-blue-500' },
+  IN_PROGRESS: { labelKey: 'In Progress', bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/30', dot: 'bg-purple-500' },
+  COMPLETED: { labelKey: 'Completed', bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/30', dot: 'bg-green-500' },
+  EVALUATED: { labelKey: 'Evaluated', bg: 'bg-teal-500/20', text: 'text-teal-300', border: 'border-teal-500/30', dot: 'bg-teal-500' },
+  CANCELLED: { labelKey: 'Cancelled', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-500' },
+  MISSED: { labelKey: 'Missed', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
+  OVERDUE: { labelKey: 'Missed', bg: 'bg-red-500/20', text: 'text-red-300', border: 'border-red-500/30', dot: 'bg-red-600' },
 }
 
 // Color palette for employees
@@ -67,8 +74,26 @@ export default function EmployerSchedulePage() {
     return Math.min(Math.max(diff, 0), 6)
   })
   const [showCompleted, setShowCompleted] = useState(false)
+  const [statsFilter, setStatsFilter] = useState<'all' | 'unclaimed' | 'active' | 'issues' | null>(null)
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
   const [currentMonth, setCurrentMonth] = useState(() => new Date())
+
+  // Filter state
+  const [filterEmployee, setFilterEmployee] = useState('')
+  const [filterCustomer, setFilterCustomer] = useState('')
+  const [filterJobTemplate, setFilterJobTemplate] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Filter dropdown options (fetched once, independent of date range)
+  const [filterOptions, setFilterOptions] = useState<{
+    employees: { id: string; name: string }[]
+    customers: { id: string; name: string }[]
+    templates: { id: string; name: string }[]
+  }>({ employees: [], customers: [], templates: [] })
+
+  // Training lookup: key = `${employee_id}:${job_template_id}`
+  const [trainingLookup, setTrainingLookup] = useState<Record<string, { is_trained: boolean; can_coach: boolean }>>({})
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -98,6 +123,21 @@ export default function EmployerSchedulePage() {
 
       if (!employer || !isMountedRef.current) return
 
+      // Calculate date range based on current view with buffer
+      let rangeStart: string
+      let rangeEnd: string
+      if (viewMode === 'week') {
+        // Load 1 week before and after for multi-day jobs that overlap
+        rangeStart = format(addDays(startDate, -7), 'yyyy-MM-dd')
+        rangeEnd = format(addDays(startDate, 13), 'yyyy-MM-dd')
+      } else {
+        // Month view: load from start of calendar grid to end (with buffer)
+        const monthStart = startOfMonth(currentMonth)
+        const monthEnd = endOfMonth(currentMonth)
+        rangeStart = format(addDays(startOfWeek(monthStart, { weekStartsOn: 1 }), -7), 'yyyy-MM-dd')
+        rangeEnd = format(addDays(endOfWeek(monthEnd, { weekStartsOn: 1 }), 7), 'yyyy-MM-dd')
+      }
+
       const { data, error } = await supabase
         .from('job_sessions')
         .select(`
@@ -106,6 +146,8 @@ export default function EmployerSchedulePage() {
           employee:employees!job_sessions_assigned_to_fkey(*)
         `)
         .eq('job_template.created_by', employer.id)
+        .or(`scheduled_date.gte.${rangeStart},scheduled_end_date.gte.${rangeStart}`)
+        .or(`scheduled_date.lte.${rangeEnd},scheduled_end_date.lte.${rangeEnd}`)
         .order('scheduled_date', { ascending: true })
 
       if (error) {
@@ -117,6 +159,35 @@ export default function EmployerSchedulePage() {
       if (isMountedRef.current) {
         setJobSessions(data as JobSessionWithDetails[])
       }
+
+      // Fetch training data for all employee+template combinations in view
+      const pairs = new Set<string>()
+      for (const s of (data || [])) {
+        if (s.employee && s.job_template_id) {
+          const empId = typeof s.employee === 'object' && s.employee !== null && 'id' in s.employee ? (s.employee as Employee).id : null
+          if (empId) pairs.add(`${empId}:${s.job_template_id}`)
+        }
+      }
+      if (pairs.size > 0) {
+        const empIds = [...new Set([...pairs].map(p => p.split(':')[0]))]
+        const tmplIds = [...new Set([...pairs].map(p => p.split(':')[1]))]
+        const { data: trainingData } = await supabase
+          .from('employee_job_training')
+          .select('employee_id, job_template_id, is_trained, can_coach')
+          .in('employee_id', empIds)
+          .in('job_template_id', tmplIds)
+
+        if (trainingData && isMountedRef.current) {
+          const lookup: Record<string, { is_trained: boolean; can_coach: boolean }> = {}
+          for (const rec of trainingData) {
+            lookup[`${rec.employee_id}:${rec.job_template_id}`] = {
+              is_trained: rec.is_trained,
+              can_coach: rec.can_coach,
+            }
+          }
+          setTrainingLookup(lookup)
+        }
+      }
     } catch (error) {
       console.error('Error:', error)
       toast.error(t('Failed to load schedule'))
@@ -125,11 +196,60 @@ export default function EmployerSchedulePage() {
         setLoading(false)
       }
     }
-  }, [supabase])
+  }, [supabase, viewMode, startDate, currentMonth])
 
   useEffect(() => {
     fetchJobSessions()
   }, [fetchJobSessions])
+
+  // Fetch filter dropdown options once on mount (all employer's employees, customers, templates)
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !isMountedRef.current) return
+
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!employer || !isMountedRef.current) return
+
+      const [employeesRes, customersRes, templatesRes] = await Promise.all([
+        supabase
+          .from('employees')
+          .select('id, full_name')
+          .eq('created_by', employer.id)
+          .order('full_name'),
+        supabase
+          .from('customers')
+          .select('id, full_name')
+          .eq('created_by', employer.id)
+          .eq('status', 'ACTIVE')
+          .order('full_name'),
+        supabase
+          .from('job_templates')
+          .select('id, title, job_code')
+          .eq('created_by', employer.id)
+          .order('title'),
+      ])
+
+      if (isMountedRef.current) {
+        setFilterOptions({
+          employees: (employeesRes.data || []).map(e => ({ id: e.id, name: e.full_name })),
+          customers: (customersRes.data || []).map(c => ({ id: c.id, name: c.full_name })),
+          templates: (templatesRes.data || []).map(t => ({ id: t.id, name: t.title || t.job_code })),
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error)
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchFilterOptions()
+  }, [fetchFilterOptions])
 
   // Generate 7 days for the week
   const days = useMemo(() =>
@@ -204,6 +324,34 @@ export default function EmployerSchedulePage() {
     return 'normal'
   }
 
+  // Apply filters to a list of sessions
+  const applyFilters = useCallback((sessions: JobSessionWithDetails[]) => {
+    let result = sessions
+    if (filterEmployee) {
+      result = result.filter(s => s.employee?.id === filterEmployee)
+    }
+    if (filterCustomer) {
+      result = result.filter(s => s.job_template?.customer?.id === filterCustomer)
+    }
+    if (filterJobTemplate) {
+      result = result.filter(s => s.job_template_id === filterJobTemplate)
+    }
+    if (filterStatus) {
+      result = result.filter(s => {
+        const effective = isJobMissedOrOverdue(s) && s.status !== 'MISSED' && s.status !== 'OVERDUE'
+          ? (s.status === 'IN_PROGRESS' ? 'OVERDUE' : 'MISSED')
+          : s.status
+        return effective === filterStatus
+      })
+    }
+    return result
+  }, [filterEmployee, filterCustomer, filterJobTemplate, filterStatus])
+
+  // Filtered job count for a given day (used for calendar indicators)
+  const getFilteredJobsForDay = useCallback((day: Date) => {
+    return applyFilters(getJobsForDay(day))
+  }, [getJobsForDay, applyFilters])
+
   // Summary stats for the week
   const weekStats = useMemo(() => {
     let totalJobs = 0
@@ -212,7 +360,7 @@ export default function EmployerSchedulePage() {
     let inProgress = 0
 
     days.forEach(day => {
-      const dayJobs = getJobsForDay(day)
+      const dayJobs = getFilteredJobsForDay(day)
       totalJobs += dayJobs.length
       unclaimed += dayJobs.filter(s => s.status === 'OFFERED').length
       issues += dayJobs.filter(s => isJobMissedOrOverdue(s)).length
@@ -220,7 +368,7 @@ export default function EmployerSchedulePage() {
     })
 
     return { totalJobs, unclaimed, issues, inProgress }
-  }, [days, getJobsForDay])
+  }, [days, getFilteredJobsForDay])
 
   // Generate month calendar grid (6 rows x 7 cols)
   const monthDays = useMemo(() => {
@@ -251,7 +399,7 @@ export default function EmployerSchedulePage() {
 
     let day = monthStart
     while (day <= monthEnd) {
-      const dayJobs = getJobsForDay(day)
+      const dayJobs = getFilteredJobsForDay(day)
       totalJobs += dayJobs.length
       unclaimed += dayJobs.filter(s => s.status === 'OFFERED').length
       issues += dayJobs.filter(s => isJobMissedOrOverdue(s)).length
@@ -260,7 +408,7 @@ export default function EmployerSchedulePage() {
     }
 
     return { totalJobs, unclaimed, issues, inProgress }
-  }, [currentMonth, viewMode, getJobsForDay])
+  }, [currentMonth, viewMode, getFilteredJobsForDay])
 
   const activeStats = viewMode === 'week' ? weekStats : monthStats
 
@@ -288,10 +436,22 @@ export default function EmployerSchedulePage() {
 
   // Jobs for selected day, filtered
   const selectedDayJobs = useMemo(() => {
-    const jobs = getJobsForDay(selectedDay)
-    if (showCompleted) return jobs
-    return jobs.filter(s => !['COMPLETED', 'EVALUATED', 'CANCELLED'].includes(s.status))
-  }, [selectedDay, getJobsForDay, showCompleted])
+    let jobs = getJobsForDay(selectedDay)
+    if (!showCompleted) {
+      jobs = jobs.filter(s => !['COMPLETED', 'EVALUATED', 'CANCELLED'].includes(s.status))
+    }
+    // Apply stats filter
+    if (statsFilter === 'unclaimed') {
+      jobs = jobs.filter(s => s.status === 'OFFERED')
+    } else if (statsFilter === 'active') {
+      jobs = jobs.filter(s => s.status === 'IN_PROGRESS')
+    } else if (statsFilter === 'issues') {
+      jobs = jobs.filter(s => isJobMissedOrOverdue(s))
+    }
+    // Apply dropdown filters
+    jobs = applyFilters(jobs)
+    return jobs
+  }, [selectedDay, getJobsForDay, showCompleted, statsFilter, applyFilters])
 
   // Group jobs by employee for the selected day
   const jobsByEmployee = useMemo(() => {
@@ -334,6 +494,16 @@ export default function EmployerSchedulePage() {
     })
     return map
   }, [jobSessions])
+
+  const hasActiveFilters = filterEmployee || filterCustomer || filterJobTemplate || filterStatus
+  const activeFilterCount = [filterEmployee, filterCustomer, filterJobTemplate, filterStatus].filter(Boolean).length
+
+  const clearFilters = () => {
+    setFilterEmployee('')
+    setFilterCustomer('')
+    setFilterJobTemplate('')
+    setFilterStatus('')
+  }
 
   const handleSelectJob = (job: JobSessionWithDetails) => {
     setSelectedJob(job)
@@ -389,29 +559,113 @@ export default function EmployerSchedulePage() {
           </button>
         </div>
 
-        {/* Summary Stats Bar */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          <div className="bg-white/5 rounded-xl p-2 text-center border border-white/10">
-            <Briefcase className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-white">{activeStats.totalJobs}</div>
-            <div className="text-[10px] text-gray-500 uppercase">{viewMode === 'week' ? t('This Week') : t('This Month')}</div>
+        {/* Slim Stats Bar + Filter Toggle */}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-3 text-sm flex-wrap">
+            <button
+              onClick={() => setStatsFilter(statsFilter === 'all' ? null : 'all')}
+              className={`font-semibold transition-all ${statsFilter === 'all' ? 'text-blue-300 underline underline-offset-2' : 'text-blue-400 hover:text-blue-300'}`}
+            >
+              {activeStats.totalJobs} {t('jobs')}
+            </button>
+            <span className="text-gray-600">·</span>
+            <button
+              onClick={() => setStatsFilter(statsFilter === 'unclaimed' ? null : 'unclaimed')}
+              className={`transition-all ${statsFilter === 'unclaimed' ? 'text-orange-300 underline underline-offset-2 font-semibold' : activeStats.unclaimed > 0 ? 'text-orange-400 hover:text-orange-300' : 'text-gray-500'}`}
+            >
+              {activeStats.unclaimed} {t('unclaimed')}
+            </button>
+            <span className="text-gray-600">·</span>
+            <button
+              onClick={() => setStatsFilter(statsFilter === 'active' ? null : 'active')}
+              className={`transition-all ${statsFilter === 'active' ? 'text-purple-300 underline underline-offset-2 font-semibold' : activeStats.inProgress > 0 ? 'text-purple-400 hover:text-purple-300' : 'text-gray-500'}`}
+            >
+              {activeStats.inProgress} {t('Active').toLowerCase()}
+            </button>
+            <span className="text-gray-600">·</span>
+            <button
+              onClick={() => setStatsFilter(statsFilter === 'issues' ? null : 'issues')}
+              className={`transition-all ${statsFilter === 'issues' ? 'text-red-300 underline underline-offset-2 font-semibold' : activeStats.issues > 0 ? 'text-red-400 hover:text-red-300' : 'text-gray-500'}`}
+            >
+              {activeStats.issues} {activeStats.issues !== 1 ? t('Issues').toLowerCase() : t('Issue').toLowerCase()}
+            </button>
           </div>
-          <div className={`rounded-xl p-2 text-center border ${activeStats.unclaimed > 0 ? 'bg-orange-500/10 border-orange-500/20' : 'bg-white/5 border-white/10'}`}>
-            <Eye className="w-4 h-4 text-orange-400 mx-auto mb-1" />
-            <div className={`text-lg font-bold ${activeStats.unclaimed > 0 ? 'text-orange-400' : 'text-white'}`}>{activeStats.unclaimed}</div>
-            <div className="text-[10px] text-gray-500 uppercase">{t('Unclaimed')}</div>
-          </div>
-          <div className="bg-white/5 rounded-xl p-2 text-center border border-white/10">
-            <Clock className="w-4 h-4 text-purple-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-white">{activeStats.inProgress}</div>
-            <div className="text-[10px] text-gray-500 uppercase">{t('Active')}</div>
-          </div>
-          <div className={`rounded-xl p-2 text-center border ${activeStats.issues > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-white/5 border-white/10'}`}>
-            <AlertTriangle className="w-4 h-4 text-red-400 mx-auto mb-1" />
-            <div className={`text-lg font-bold ${activeStats.issues > 0 ? 'text-red-400' : 'text-white'}`}>{activeStats.issues}</div>
-            <div className="text-[10px] text-gray-500 uppercase">{t('Issues')}</div>
-          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`relative p-2 rounded-lg border transition-all ${
+              showFilters ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
+
+        {/* Collapsible Filter Bar */}
+        {showFilters && (
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={filterEmployee || '__all__'} onValueChange={v => setFilterEmployee(v === '__all__' ? '' : v)}>
+                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                  <SelectValue placeholder={t('Employee')} />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-white/20">
+                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Employees')}</SelectItem>
+                  {filterOptions.employees.map(e => (
+                    <SelectItem key={e.id} value={e.id} className="text-white hover:bg-white/10">{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterCustomer || '__all__'} onValueChange={v => setFilterCustomer(v === '__all__' ? '' : v)}>
+                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                  <SelectValue placeholder={t('Customer')} />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-white/20">
+                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Customers')}</SelectItem>
+                  {filterOptions.customers.map(c => (
+                    <SelectItem key={c.id} value={c.id} className="text-white hover:bg-white/10">{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterJobTemplate || '__all__'} onValueChange={v => setFilterJobTemplate(v === '__all__' ? '' : v)}>
+                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                  <SelectValue placeholder={t('Jobs')} />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-white/20">
+                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Jobs')}</SelectItem>
+                  {filterOptions.templates.map(tmpl => (
+                    <SelectItem key={tmpl.id} value={tmpl.id} className="text-white hover:bg-white/10">{tmpl.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus || '__all__'} onValueChange={v => setFilterStatus(v === '__all__' ? '' : v)}>
+                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                  <SelectValue placeholder={t('Status')} />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-white/20">
+                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Statuses')}</SelectItem>
+                  <SelectItem value="OFFERED" className="text-white hover:bg-white/10">{t('Open')}</SelectItem>
+                  <SelectItem value="CLAIMED" className="text-white hover:bg-white/10">{t('Claimed')}</SelectItem>
+                  <SelectItem value="APPROVED" className="text-white hover:bg-white/10">{t('Approved')}</SelectItem>
+                  <SelectItem value="IN_PROGRESS" className="text-white hover:bg-white/10">{t('In Progress')}</SelectItem>
+                  <SelectItem value="COMPLETED" className="text-white hover:bg-white/10">{t('Completed')}</SelectItem>
+                  <SelectItem value="EVALUATED" className="text-white hover:bg-white/10">{t('Evaluated')}</SelectItem>
+                  <SelectItem value="CANCELLED" className="text-white hover:bg-white/10">{t('Cancelled')}</SelectItem>
+                  <SelectItem value="MISSED" className="text-white hover:bg-white/10">{t('Missed')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                <X className="h-3 w-3" /> {t('Clear filters')}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Week View */}
         {viewMode === 'week' && (
@@ -448,7 +702,7 @@ export default function EmployerSchedulePage() {
           <div className="p-4">
             <div className="grid grid-cols-7 gap-2">
               {days.map((day, index) => {
-                const dayJobs = getJobsForDay(day)
+                const dayJobs = getFilteredJobsForDay(day)
                 const isToday = isSameDay(day, new Date())
                 const hasJobs = dayJobs.length > 0
                 const isSelected = selectedDayIndex === index
@@ -536,7 +790,7 @@ export default function EmployerSchedulePage() {
             <div className="grid grid-cols-7 gap-1 mb-1">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
                 <div key={d} className="text-center text-[10px] font-medium text-gray-500 py-1">
-                  {d}
+                  {t(d)}
                 </div>
               ))}
             </div>
@@ -544,7 +798,7 @@ export default function EmployerSchedulePage() {
             {/* Calendar days */}
             <div className="grid grid-cols-7 gap-1">
               {monthDays.map((day) => {
-                const dayJobs = getJobsForDay(day)
+                const dayJobs = getFilteredJobsForDay(day)
                 const isToday = isSameDay(day, new Date())
                 const isInMonth = isSameMonth(day, currentMonth)
                 const isSelected = isSameDay(day, monthSelectedDay)
@@ -586,14 +840,14 @@ export default function EmployerSchedulePage() {
                     {dayJobs.length > 0 && isInMonth && (
                       <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
                         {visibleDots.map(({ status, count }) => {
-                          const config = STATUS_CONFIG[status] || STATUS_CONFIG.OFFERED
+                          const config = STATUS_STYLES[status] || STATUS_STYLES.OFFERED
                           return (
                             <div
                               key={status}
                               className={`w-2 h-2 rounded-full ${config.dot} ${
                                 status === 'IN_PROGRESS' ? 'animate-pulse' : ''
                               }`}
-                              title={`${count} ${config.label}`}
+                              title={`${count} ${t(config.labelKey)}`}
                             />
                           )
                         })}
@@ -661,7 +915,7 @@ export default function EmployerSchedulePage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {jobsByEmployee.map((group, groupIndex) => {
                   const colorIdx = group.employee
                     ? employeeColorMap.get(group.employee.id) ?? 0
@@ -683,11 +937,11 @@ export default function EmployerSchedulePage() {
                             ? group.employee.full_name.charAt(0).toUpperCase()
                             : '?'}
                         </div>
-                        <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className={`font-semibold text-sm ${group.employee ? 'text-white' : 'text-orange-400'}`}>
                             {group.label}
                           </span>
-                          <span className="text-xs text-gray-500 ml-2">
+                          <span className="text-xs text-gray-500">
                             {group.jobs.length} {group.jobs.length !== 1 ? t('jobs') : t('job')}
                           </span>
                         </div>
@@ -697,7 +951,7 @@ export default function EmployerSchedulePage() {
                       <div className="space-y-2 ml-10">
                         {group.jobs.map(session => {
                           const effectiveStatus = getEffectiveStatus(session)
-                          const statusConfig = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.OFFERED
+                          const statusConfig = STATUS_STYLES[effectiveStatus] || STATUS_STYLES.OFFERED
                           const urgency = getUrgencyForOffered(session)
                           const isUrgent = urgency === 'urgent'
                           const isWarning = urgency === 'warning'
@@ -706,7 +960,7 @@ export default function EmployerSchedulePage() {
                             <button
                               key={session.id}
                               onClick={() => handleSelectJob(session)}
-                              className={`w-full text-left bg-white/5 rounded-xl p-3 border transition-all hover:bg-white/10 ${
+                              className={`w-full text-left bg-white/5 rounded-xl p-3.5 border transition-all hover:bg-white/10 ${
                                 isUrgent
                                   ? 'border-red-500/40 bg-red-500/5'
                                   : isWarning
@@ -724,15 +978,38 @@ export default function EmployerSchedulePage() {
                                   </span>
                                 </div>
                                 <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
-                                  {isUrgent && effectiveStatus === 'OFFERED' ? 'URGENT' :
-                                   isWarning && effectiveStatus === 'OFFERED' ? 'WARNING' :
-                                   statusConfig.label}
+                                  {isUrgent && effectiveStatus === 'OFFERED' ? t('URGENT') :
+                                   isWarning && effectiveStatus === 'OFFERED' ? t('WARNING') :
+                                   t(statusConfig.labelKey)}
                                 </span>
                               </div>
 
-                              <h4 className="text-white font-medium text-sm truncate">
-                                {session.job_template?.title || 'Untitled Job'}
-                              </h4>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="text-white font-medium text-sm truncate">
+                                  {session.job_template?.title || t('Untitled Job')}
+                                </h4>
+                                {session.employee && (() => {
+                                  const key = `${(session.employee as Employee).id}:${session.job_template_id}`
+                                  const tr = trainingLookup[key]
+                                  if (tr?.can_coach) return (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 flex-shrink-0">
+                                      <Star className="w-2.5 h-2.5" />
+                                      {t('Coach')}
+                                    </span>
+                                  )
+                                  if (tr?.is_trained) return (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 flex-shrink-0">
+                                      <GraduationCap className="w-2.5 h-2.5" />
+                                      {t('Trained')}
+                                    </span>
+                                  )
+                                  return (
+                                    <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex-shrink-0">
+                                      {t('Untrained')}
+                                    </span>
+                                  )
+                                })()}
+                              </div>
 
                               <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
                                 {session.job_template?.customer && (
@@ -775,24 +1052,6 @@ export default function EmployerSchedulePage() {
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-          <div className="flex flex-wrap gap-3 justify-center">
-            {[
-              { dot: 'bg-gray-500', label: t('Open') },
-              { dot: 'bg-yellow-500', label: t('Claimed') },
-              { dot: 'bg-blue-500', label: t('Approved') },
-              { dot: 'bg-purple-500', label: t('In Progress') },
-              { dot: 'bg-green-500', label: t('Completed') },
-              { dot: 'bg-red-500', label: t('Issue') },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-1.5">
-                <div className={`w-2.5 h-2.5 rounded-full ${item.dot}`} />
-                <span className="text-[10px] text-gray-400">{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Job Details Popup */}

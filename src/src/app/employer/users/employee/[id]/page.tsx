@@ -21,7 +21,7 @@
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import type { Employee, Strike, Evaluation, JobSession, JobTemplate, EmployeeJobTraining } from '@/types/database'
+import type { Employee, Strike, Evaluation, JobSession, JobTemplate, EmployeeJobTraining, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/select'
 import { format } from 'date-fns'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, AlertTriangle, MapPin, Edit2, GraduationCap } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, MapPin, Edit2, GraduationCap, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -80,9 +80,11 @@ export default function EmployeeProfilePage() {
 
   // Training state
   const [trainingRecords, setTrainingRecords] = useState<EmployeeJobTraining[]>([])
-  const [jobTemplates, setJobTemplates] = useState<JobTemplate[]>([])
+  const [jobTemplates, setJobTemplates] = useState<(JobTemplate & { customer: Customer | null })[]>([])
   const [expandedTrainingNotes, setExpandedTrainingNotes] = useState<string | null>(null)
   const [trainingNotesInput, setTrainingNotesInput] = useState<Record<string, string>>({})
+  const [trainingFilter, setTrainingFilter] = useState('')
+  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
 
   // Performance metrics
   const [perfMetrics, setPerfMetrics] = useState<{
@@ -220,15 +222,15 @@ export default function EmployeeProfilePage() {
 
       setTrainingRecords(trainingData || [])
 
-      // Load all active job templates for this employer
+      // Load all active job templates for this employer (with customer)
       const { data: templatesData } = await supabase
         .from('job_templates')
-        .select('*')
+        .select('*, customer:customers(*)')
         .eq('created_by', employer.id)
         .eq('status', 'ACTIVE')
         .order('job_code', { ascending: true })
 
-      setJobTemplates(templatesData || [])
+      setJobTemplates((templatesData || []) as (JobTemplate & { customer: Customer | null })[])
 
       // Initialize training notes input from existing records
       const notesMap: Record<string, string> = {}
@@ -1101,89 +1103,207 @@ export default function EmployeeProfilePage() {
           {/* Training Tab */}
           {activeTab === 'training' && (
             <div className="mt-4 space-y-3">
+              {/* Training Summary */}
+              {jobTemplates.length > 0 && (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-400">
+                        {trainingRecords.filter(r => r.is_trained).length}
+                        <span className="text-sm text-gray-500 font-normal"> / {jobTemplates.length}</span>
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">{t('Jobs Trained')}</p>
+                      <div className="mt-2 w-full bg-white/10 rounded-full h-1.5">
+                        <div
+                          className="bg-green-500 h-1.5 rounded-full transition-all"
+                          style={{ width: `${(trainingRecords.filter(r => r.is_trained).length / Math.max(jobTemplates.length, 1)) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-400">
+                        {trainingRecords.filter(r => r.can_coach).length}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">{t('Can Coach')}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Filter */}
+              {jobTemplates.length > 5 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <Input
+                    value={trainingFilter}
+                    onChange={(e) => setTrainingFilter(e.target.value)}
+                    placeholder={t('Filter jobs...')}
+                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-600 pl-9"
+                  />
+                </div>
+              )}
+
               {jobTemplates.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">{t('No job templates available')}</p>
-              ) : (
-                jobTemplates.map((template) => {
-                  const record = trainingRecords.find(r => r.job_template_id === template.id)
-                  const isTrained = record?.is_trained ?? false
-                  const canCoach = record?.can_coach ?? false
-                  const isNotesExpanded = expandedTrainingNotes === template.id
+              ) : (() => {
+                const filtered = jobTemplates.filter(tmpl =>
+                  !trainingFilter ||
+                  tmpl.title.toLowerCase().includes(trainingFilter.toLowerCase()) ||
+                  tmpl.job_code.toLowerCase().includes(trainingFilter.toLowerCase()) ||
+                  (tmpl.customer?.full_name || '').toLowerCase().includes(trainingFilter.toLowerCase())
+                )
+
+                // Group by customer
+                const customerGroups = new Map<string, { customer: Customer | null; templates: typeof filtered }>()
+                filtered.forEach(tmpl => {
+                  const custId = tmpl.customer?.id || '__none__'
+                  const existing = customerGroups.get(custId)
+                  if (existing) {
+                    existing.templates.push(tmpl)
+                  } else {
+                    customerGroups.set(custId, { customer: tmpl.customer, templates: [tmpl] })
+                  }
+                })
+
+                const toggleCustomer = (custId: string) => {
+                  setExpandedCustomers(prev => {
+                    const next = new Set(prev)
+                    if (next.has(custId)) {
+                      next.delete(custId)
+                    } else {
+                      next.add(custId)
+                    }
+                    return next
+                  })
+                }
+
+                const groups = [...customerGroups.entries()].sort((a, b) => {
+                  const nameA = a[1].customer?.full_name || ''
+                  const nameB = b[1].customer?.full_name || ''
+                  return nameA.localeCompare(nameB)
+                })
+
+                return groups.map(([custId, { customer, templates: custTemplates }]) => {
+                  const isExpanded = expandedCustomers.has(custId)
+                  const trainedCount = custTemplates.filter(tmpl => trainingRecords.find(r => r.job_template_id === tmpl.id)?.is_trained).length
 
                   return (
-                    <div key={template.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                              {template.job_code}
-                            </span>
-                            <GraduationCap className="w-4 h-4 text-gray-500" />
+                    <div key={custId} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                      {/* Customer header - clickable */}
+                      <button
+                        onClick={() => toggleCustomer(custId)}
+                        className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {isExpanded
+                            ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          }
+                          <div className="text-left min-w-0">
+                            <p className="font-semibold text-white truncate">
+                              {customer?.full_name || t('No Customer')}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {trainedCount}/{custTemplates.length} {t('trained')}
+                            </p>
                           </div>
-                          <p className="font-medium text-white truncate">{template.title}</p>
                         </div>
-                      </div>
-
-                      <div className="mt-3 flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={isTrained}
-                            onCheckedChange={(checked) => handleTrainingToggle(template.id, 'is_trained', checked)}
-                            className="data-[state=checked]:bg-green-500"
-                          />
-                          <span className={`text-sm ${isTrained ? 'text-green-300' : 'text-gray-500'}`}>
-                            {t('Trained')}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={canCoach}
-                            disabled={!isTrained}
-                            onCheckedChange={(checked) => handleTrainingToggle(template.id, 'can_coach', checked)}
-                            className="data-[state=checked]:bg-blue-500"
-                          />
-                          <span className={`text-sm ${canCoach ? 'text-blue-300' : 'text-gray-500'}`}>
-                            {t('Can Coach')}
-                          </span>
-                          {!isTrained && (
-                            <span className="text-xs text-gray-600 italic">
-                              {t('Mark as trained to enable coaching')}
-                            </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-gray-500">{custTemplates.length} {custTemplates.length !== 1 ? t('jobs') : t('job')}</span>
+                          {trainedCount === custTemplates.length && custTemplates.length > 0 && (
+                            <span className="w-2 h-2 rounded-full bg-green-500" />
                           )}
                         </div>
-                      </div>
+                      </button>
 
-                      {/* Notes toggle */}
-                      <div className="mt-2">
-                        <button
-                          onClick={() => setExpandedTrainingNotes(isNotesExpanded ? null : template.id)}
-                          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                        >
-                          {t('Training Notes')} {record?.notes ? '(1)' : ''}
-                        </button>
-                        {isNotesExpanded && (
-                          <div className="mt-2 space-y-2">
-                            <Textarea
-                              value={trainingNotesInput[template.id] ?? record?.notes ?? ''}
-                              onChange={(e) => setTrainingNotesInput(prev => ({ ...prev, [template.id]: e.target.value }))}
-                              placeholder={t('Training Notes')}
-                              rows={2}
-                              className="bg-white/5 border-white/20 text-white placeholder:text-gray-600 text-sm"
-                            />
-                            <button
-                              onClick={() => handleTrainingNotes(template.id, trainingNotesInput[template.id] ?? '')}
-                              className="px-3 py-1 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                            >
-                              {t('Save')}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {/* Expanded jobs under this customer */}
+                      {isExpanded && (
+                        <div className="border-t border-white/10 p-3 space-y-3">
+                          {custTemplates.map((template) => {
+                            const record = trainingRecords.find(r => r.job_template_id === template.id)
+                            const isTrained = record?.is_trained ?? false
+                            const canCoach = record?.can_coach ?? false
+                            const isNotesExpanded = expandedTrainingNotes === template.id
+
+                            return (
+                              <div key={template.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="space-y-1 flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                                        {template.job_code}
+                                      </span>
+                                      <GraduationCap className="w-4 h-4 text-gray-500" />
+                                    </div>
+                                    <p className="font-medium text-white truncate">{template.title}</p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex items-center gap-6">
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={isTrained}
+                                      onCheckedChange={(checked) => handleTrainingToggle(template.id, 'is_trained', checked)}
+                                      className="data-[state=checked]:bg-green-500"
+                                    />
+                                    <span className={`text-sm ${isTrained ? 'text-green-300' : 'text-gray-500'}`}>
+                                      {t('Trained')}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      checked={canCoach}
+                                      disabled={!isTrained}
+                                      onCheckedChange={(checked) => handleTrainingToggle(template.id, 'can_coach', checked)}
+                                      className="data-[state=checked]:bg-blue-500"
+                                    />
+                                    <span className={`text-sm ${canCoach ? 'text-blue-300' : 'text-gray-500'}`}>
+                                      {t('Can Coach')}
+                                    </span>
+                                    {!isTrained && (
+                                      <span className="text-xs text-gray-600 italic">
+                                        {t('Mark as trained to enable coaching')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Notes toggle */}
+                                <div className="mt-2">
+                                  <button
+                                    onClick={() => setExpandedTrainingNotes(isNotesExpanded ? null : template.id)}
+                                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                                  >
+                                    {t('Training Notes')} {record?.notes ? '(1)' : ''}
+                                  </button>
+                                  {isNotesExpanded && (
+                                    <div className="mt-2 space-y-2">
+                                      <Textarea
+                                        value={trainingNotesInput[template.id] ?? record?.notes ?? ''}
+                                        onChange={(e) => setTrainingNotesInput(prev => ({ ...prev, [template.id]: e.target.value }))}
+                                        placeholder={t('Training Notes')}
+                                        rows={2}
+                                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-600 text-sm"
+                                      />
+                                      <button
+                                        onClick={() => handleTrainingNotes(template.id, trainingNotesInput[template.id] ?? '')}
+                                        className="px-3 py-1 rounded-lg text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                      >
+                                        {t('Save')}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )
                 })
-              )}
+              })()}
             </div>
           )}
         </div>
