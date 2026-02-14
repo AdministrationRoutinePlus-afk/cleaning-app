@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { AlertTriangle, CheckCircle, GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getNextSessionNumber } from '@/lib/jobs/sessionGenerator'
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
@@ -25,7 +26,7 @@ import { format } from 'date-fns'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
 interface JobSessionWithDetails extends JobSession {
-  job_template: JobTemplate
+  job_template: JobTemplate & { customer?: { full_name: string } | null }
   employee: Employee | null
 }
 
@@ -34,6 +35,68 @@ interface ScheduleJobPopupProps {
   open: boolean
   onClose: () => void
   onUpdate: () => void
+}
+
+function ReviewStatusBadge({ sessionId, status }: { sessionId: string; status: string }) {
+  const { t } = useTranslation()
+  const [reviewToken, setReviewToken] = useState<{ used_at: string | null } | null>(null)
+  const [evaluation, setEvaluation] = useState<{ rating: number; comment: string | null } | null>(null)
+  const supabaseRef = useRef(createClient())
+
+  useEffect(() => {
+    const load = async () => {
+      const supabase = supabaseRef.current
+      // Check for review token
+      const { data: token } = await supabase
+        .from('review_tokens')
+        .select('used_at')
+        .eq('job_session_id', sessionId)
+        .maybeSingle()
+      setReviewToken(token)
+
+      // If EVALUATED, fetch the rating
+      if (status === 'EVALUATED') {
+        const { data: eval_ } = await supabase
+          .from('evaluations')
+          .select('rating, comment')
+          .eq('job_session_id', sessionId)
+          .maybeSingle()
+        setEvaluation(eval_)
+      }
+    }
+    load()
+  }, [sessionId, status])
+
+  if (status === 'EVALUATED' && evaluation) {
+    const stars = '★'.repeat(evaluation.rating) + '☆'.repeat(5 - evaluation.rating)
+    return (
+      <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-teal-400 font-medium">{t('Customer Review')}</span>
+          <span className="text-yellow-400 text-lg tracking-wide">{stars}</span>
+          <span className="text-gray-400 text-xs">({evaluation.rating}/5)</span>
+        </div>
+        {evaluation.comment && (
+          <p className="text-gray-300 text-sm mt-1 italic">&ldquo;{evaluation.comment}&rdquo;</p>
+        )}
+      </div>
+    )
+  }
+
+  if (status === 'COMPLETED' && reviewToken) {
+    return (
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+        <div className="flex items-center gap-2 text-sm">
+          <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            {t('Review Requested')}
+          </Badge>
+          <span className="text-gray-400 text-xs">{t('Waiting for customer response')}</span>
+        </div>
+      </div>
+    )
+  }
+
+  return null
 }
 
 export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: ScheduleJobPopupProps) {
@@ -59,8 +122,65 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   // Employee availability: employeeId -> number of jobs on the session date
   const [employeeAvailability, setEmployeeAvailability] = useState<Map<string, number>>(new Map())
 
+  const [splitPartnerName, setSplitPartnerName] = useState<string | null>(null)
+  const [splitPartnerMinutes, setSplitPartnerMinutes] = useState<number | null>(null)
+  const [trainingStatus, setTrainingStatus] = useState<{ is_trained: boolean; can_coach: boolean } | null>(null)
+
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+
+  // Load split partner details when session has split_with
+  useEffect(() => {
+    if (!jobSession?.split_with) {
+      setSplitPartnerName(null)
+      setSplitPartnerMinutes(null)
+      return
+    }
+
+    const loadSplitDetails = async () => {
+      // Get partner name
+      const { data: partner } = await supabase
+        .from('employees')
+        .select('full_name')
+        .eq('id', jobSession.split_with!)
+        .single()
+
+      if (partner) setSplitPartnerName(partner.full_name)
+
+      // Get partner_minutes from the split record
+      const { data: splitData } = await supabase
+        .from('job_splits')
+        .select('partner_minutes')
+        .eq('job_session_id', jobSession.id)
+        .eq('status', 'APPROVED')
+        .maybeSingle()
+
+      if (splitData) setSplitPartnerMinutes(splitData.partner_minutes)
+    }
+
+    loadSplitDetails()
+  }, [jobSession?.id, jobSession?.split_with])
+
+  // Load training status for the assigned employee + job template
+  useEffect(() => {
+    if (!jobSession?.assigned_to || !jobSession?.job_template_id) {
+      setTrainingStatus(null)
+      return
+    }
+
+    const loadTraining = async () => {
+      const { data } = await supabase
+        .from('employee_job_training')
+        .select('is_trained, can_coach')
+        .eq('employee_id', jobSession.assigned_to!)
+        .eq('job_template_id', jobSession.job_template_id)
+        .maybeSingle()
+
+      setTrainingStatus(data ? { is_trained: data.is_trained, can_coach: data.can_coach } : { is_trained: false, can_coach: false })
+    }
+
+    loadTraining()
+  }, [jobSession?.id, jobSession?.assigned_to, jobSession?.job_template_id])
 
   useEffect(() => {
     if (isPushingMessage || isReassigning) {
@@ -557,9 +677,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               <div className="text-gray-400">
                 <span className="font-medium text-gray-300">{t('Client Code:')}</span> {jobSession.job_template.client_code}
               </div>
-              {(jobSession.job_template as any).customer?.full_name && (
+              {jobSession.job_template.customer?.full_name && (
                 <div className="col-span-2 text-gray-400">
-                  <span className="font-medium text-gray-300">{t('Customer:')}</span> {(jobSession.job_template as any).customer.full_name}
+                  <span className="font-medium text-gray-300">{t('Customer:')}</span> {jobSession.job_template.customer.full_name}
                 </div>
               )}
             </div>
@@ -665,12 +785,48 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             ) : (
               <p className="text-gray-500 text-sm">{t('No employee assigned yet')}</p>
             )}
+            {/* Training status warning */}
+            {jobSession.employee && trainingStatus && !trainingStatus.is_trained && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                <span className="text-sm text-amber-300 font-medium">{t('This employee is not trained for this job')}</span>
+              </div>
+            )}
+            {jobSession.employee && trainingStatus && trainingStatus.is_trained && (
+              <div className="flex items-center gap-2">
+                {trainingStatus.can_coach ? (
+                  <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    <GraduationCap className="w-3 h-3 mr-1" />
+                    {t('Coach')}
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    {t('Trained')}
+                  </Badge>
+                )}
+              </div>
+            )}
             {/* Split partner info */}
             {jobSession.split_with && (
               <div className="mt-3 pt-3 border-t border-white/10">
-                <div className="flex items-center gap-2 text-sm text-purple-300">
-                  <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">{t('Split Job')}</Badge>
-                  <span className="text-gray-400">{t('Split partner assigned')}</span>
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 space-y-1">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30">{t('Split Job')}</Badge>
+                    <span className="text-purple-200 font-medium">
+                      {splitPartnerName
+                        ? `${t('Split with')}: ${splitPartnerName}`
+                        : t('Split partner assigned')}
+                    </span>
+                  </div>
+                  {splitPartnerMinutes && (
+                    <p className="text-xs text-gray-400 ml-1">
+                      {t('Partner time')}: {Math.floor(splitPartnerMinutes / 60)}h{splitPartnerMinutes % 60 > 0 ? `${splitPartnerMinutes % 60}m` : ''}
+                      {jobSession.job_template.duration_minutes && (
+                        <span className="text-gray-500"> / {Math.floor(jobSession.job_template.duration_minutes / 60)}h{jobSession.job_template.duration_minutes % 60 > 0 ? `${jobSession.job_template.duration_minutes % 60}m` : ''} {t('total')}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -725,11 +881,16 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               })()}
             </div>
             <p className="text-xs text-gray-500 mt-1.5">
-              Created {format(new Date(jobSession.created_at), 'MMM d, yyyy')}
-              {jobSession.started_at && ` · Started ${format(new Date(jobSession.started_at), 'MMM d h:mm a')}`}
-              {jobSession.completed_at && ` · Completed ${format(new Date(jobSession.completed_at), 'MMM d h:mm a')}`}
+              {t('Created')} {format(new Date(jobSession.created_at), 'MMM d, yyyy')}
+              {jobSession.started_at && ` · ${t('Started')} ${format(new Date(jobSession.started_at), 'MMM d h:mm a')}`}
+              {jobSession.completed_at && ` · ${t('Completed')} ${format(new Date(jobSession.completed_at), 'MMM d h:mm a')}`}
             </p>
           </div>
+
+          {/* Review Status for COMPLETED/EVALUATED */}
+          {(jobSession.status === 'COMPLETED' || jobSession.status === 'EVALUATED') && (
+            <ReviewStatusBadge sessionId={jobSession.id} status={jobSession.status} />
+          )}
 
           {/* Reschedule Section */}
           {isRescheduling && (
@@ -1094,6 +1255,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                     {t('Cancel')}
                   </Button>
                 )}
+                {jobSession.status !== 'COMPLETED' && jobSession.status !== 'EVALUATED' && (
                 <Button
                   size="sm"
                   onClick={handleDelete}
@@ -1102,6 +1264,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 >
                   {t('Delete')}
                 </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleClose}

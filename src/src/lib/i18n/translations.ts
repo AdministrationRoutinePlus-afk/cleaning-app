@@ -1304,6 +1304,7 @@ export const fr: Record<string, string> = {
   // ========== Employee Job Training ==========
   'Training': 'Formation',
   'Trained': 'Formé',
+  'Coach': 'Coach',
   'Can Coach': 'Peut coacher',
   'Training Notes': 'Notes de formation',
   'No job templates available': 'Aucun modèle d\'emploi disponible',
@@ -1590,4 +1591,8 @@ export const fr: Record<string, string> = {
   'Complete jobs to see your earnings here': 'Complétez des emplois pour voir vos gains ici',
   'Skip Dates (Optional)': 'Dates à ignorer (optionnel)',
   'Pick the specific date(s) when this job should be done.': 'Choisissez la ou les dates auxquelles cet emploi doit être fait.',
+
+  // -- Training Status --
+  'This employee is not trained for this job': 'Cet employ\u00e9 n\'est pas form\u00e9 pour cet emploi',
+  'Not trained for this job': 'Non form\u00e9 pour cet emploi',
 }
