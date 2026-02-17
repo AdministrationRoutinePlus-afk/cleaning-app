@@ -811,15 +811,8 @@ export default function EmployerSchedulePage() {
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center gap-2 text-sm flex-wrap">
             <button
-              onClick={() => setStatsFilter(null)}
-              className={`font-semibold transition-all px-1.5 py-0.5 rounded ${!statsFilter ? 'text-white bg-white/15' : 'text-gray-400 hover:text-gray-300'}`}
-            >
-              {t('All')}
-            </button>
-            <span className="text-gray-600">·</span>
-            <button
               onClick={() => setStatsFilter(statsFilter === 'all' ? null : 'all')}
-              className={`font-semibold transition-all px-1.5 py-0.5 rounded ${statsFilter === 'all' ? 'text-blue-300 bg-blue-500/20' : 'text-blue-400 hover:text-blue-300'}`}
+              className={`font-semibold transition-all px-1.5 py-0.5 rounded ${statsFilter === 'all' || !statsFilter ? 'text-blue-300 bg-blue-500/20' : 'text-blue-400 hover:text-blue-300'}`}
             >
               {activeStats.totalJobs} {t('jobs')}
             </button>
