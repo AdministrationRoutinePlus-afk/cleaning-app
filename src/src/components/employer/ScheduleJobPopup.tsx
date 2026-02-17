@@ -110,7 +110,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const [isRecovering, setIsRecovering] = useState(false)
 
   const [newDate, setNewDate] = useState('')
+  const [newDateEnd, setNewDateEnd] = useState('')
   const [newTime, setNewTime] = useState('')
+  const [newTimeEnd, setNewTimeEnd] = useState('')
   const [newPrice, setNewPrice] = useState('')
   const [messageContent, setMessageContent] = useState('')
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
@@ -388,8 +390,16 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   }
 
   const handleReschedule = async () => {
-    if (!newDate || !newTime) {
-      toast.error(t('Please provide both date and time'))
+    if (!newDate || !newDateEnd) {
+      toast.error(t('Please select start and end dates'))
+      return
+    }
+    if (!newTime || !newTimeEnd) {
+      toast.error(t('Please set the time window'))
+      return
+    }
+    if (newDateEnd < newDate) {
+      toast.error(t('End date cannot be before start date'))
       return
     }
 
@@ -406,6 +416,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
         .from('job_sessions')
         .update({
           scheduled_date: newDate,
+          scheduled_end_date: newDateEnd !== newDate ? newDateEnd : null,
           scheduled_time: newTime
         })
         .eq('id', jobSession.id)
@@ -414,7 +425,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
       setIsRescheduling(false)
       setNewDate('')
+      setNewDateEnd('')
       setNewTime('')
+      setNewTimeEnd('')
       onUpdate()
       onClose()
     } catch (error) {
@@ -535,12 +548,20 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   }
 
   const handleRecoverReschedule = async () => {
-    if (!newDate) {
-      toast.error(t('Please select a new date'))
+    if (!newDate || !newDateEnd) {
+      toast.error(t('Please select start and end dates'))
+      return
+    }
+    if (!newTime || !newTimeEnd) {
+      toast.error(t('Please set the time window'))
+      return
+    }
+    if (newDateEnd < newDate) {
+      toast.error(t('End date cannot be before start date'))
       return
     }
 
-    const selectedDate = new Date(newDate + 'T' + (newTime || '00:00'))
+    const selectedDate = new Date(newDate + 'T' + newTime)
     if (selectedDate < new Date()) {
       toast.error(t('Cannot schedule a job in the past'))
       return
@@ -568,8 +589,8 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
           session_code: sessionCode,
           full_job_code: fullJobCode,
           scheduled_date: newDate,
-          scheduled_end_date: jobSession.scheduled_end_date,
-          scheduled_time: newTime || jobSession.scheduled_time,
+          scheduled_end_date: newDateEnd !== newDate ? newDateEnd : null,
+          scheduled_time: newTime,
           status: 'OFFERED',
           assigned_to: null,
         })
@@ -579,7 +600,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
       toast.success(t('Session rescheduled as a new offering'))
       setIsRecovering(false)
       setNewDate('')
+      setNewDateEnd('')
       setNewTime('')
+      setNewTimeEnd('')
       onUpdate()
       onClose()
     } catch (error) {
@@ -897,30 +920,50 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
           {isRescheduling && (
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-4">
               <h3 className="font-semibold text-lg text-blue-300">{t('Reschedule Job')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-date" className="text-gray-300">{t('New Date')}</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('Date')} *</Label>
+                <div className="flex items-center gap-3">
                   <Input
-                    id="new-date"
                     type="date"
                     value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white"
+                    onChange={(e) => {
+                      setNewDate(e.target.value)
+                      if (!newDateEnd || e.target.value > newDateEnd) {
+                        setNewDateEnd(e.target.value)
+                      }
+                    }}
+                    className="bg-white/5 border-white/20 text-white flex-1"
+                  />
+                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
+                  <Input
+                    type="date"
+                    value={newDateEnd}
+                    onChange={(e) => setNewDateEnd(e.target.value)}
+                    min={newDate}
+                    className="bg-white/5 border-white/20 text-white flex-1"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-time" className="text-gray-300">{t('New Time')}</Label>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('Time Window')} *</Label>
+                <div className="flex items-center gap-3">
                   <Input
-                    id="new-time"
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white"
+                    className="bg-white/5 border-white/20 text-white flex-1"
+                  />
+                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
+                  <Input
+                    type="time"
+                    value={newTimeEnd}
+                    onChange={(e) => setNewTimeEnd(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white flex-1"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleReschedule} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button onClick={handleReschedule} disabled={loading || !newDate || !newDateEnd || !newTime || !newTimeEnd} className="bg-blue-600 hover:bg-blue-700 text-white">
                   {loading ? t('Saving...') : t('Confirm Reschedule')}
                 </Button>
                 <Button variant="outline" onClick={() => setIsRescheduling(false)} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
@@ -1060,33 +1103,53 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               <p className="text-sm text-gray-400">
                 {t('This will cancel the current session and create a new OFFERED session with the selected date.')}
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="recover-date" className="text-gray-300">{t('New Date')}</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('Date')} *</Label>
+                <div className="flex items-center gap-3">
                   <Input
-                    id="recover-date"
                     type="date"
                     value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white"
+                    onChange={(e) => {
+                      setNewDate(e.target.value)
+                      if (!newDateEnd || e.target.value > newDateEnd) {
+                        setNewDateEnd(e.target.value)
+                      }
+                    }}
+                    className="bg-white/5 border-white/20 text-white flex-1"
+                  />
+                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
+                  <Input
+                    type="date"
+                    value={newDateEnd}
+                    onChange={(e) => setNewDateEnd(e.target.value)}
+                    min={newDate}
+                    className="bg-white/5 border-white/20 text-white flex-1"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="recover-time" className="text-gray-300">{t('New Time (optional)')}</Label>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('Time Window')} *</Label>
+                <div className="flex items-center gap-3">
                   <Input
-                    id="recover-time"
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white"
+                    className="bg-white/5 border-white/20 text-white flex-1"
+                  />
+                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
+                  <Input
+                    type="time"
+                    value={newTimeEnd}
+                    onChange={(e) => setNewTimeEnd(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white flex-1"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleRecoverReschedule} disabled={loading || !newDate} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button onClick={handleRecoverReschedule} disabled={loading || !newDate || !newDateEnd || !newTime || !newTimeEnd} className="bg-blue-600 hover:bg-blue-700 text-white">
                   {loading ? t('Saving...') : t('Confirm Reschedule')}
                 </Button>
-                <Button variant="outline" onClick={() => { setIsRecovering(false); setNewDate(''); setNewTime('') }} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+                <Button variant="outline" onClick={() => { setIsRecovering(false); setNewDate(''); setNewDateEnd(''); setNewTime(''); setNewTimeEnd('') }} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
                   {t('Cancel')}
                 </Button>
               </div>
@@ -1192,7 +1255,13 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               {canRecover && (
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => setIsRecovering(true)}
+                    onClick={() => {
+                      setNewDate('')
+                      setNewDateEnd('')
+                      setNewTime(jobSession.job_template.time_window_start || '')
+                      setNewTimeEnd(jobSession.job_template.time_window_end || '')
+                      setIsRecovering(true)
+                    }}
                     disabled={loading}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                   >
@@ -1212,7 +1281,13 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   size="sm"
-                  onClick={() => setIsRescheduling(true)}
+                  onClick={() => {
+                    setNewDate(jobSession.scheduled_date || '')
+                    setNewDateEnd(jobSession.scheduled_end_date || jobSession.scheduled_date || '')
+                    setNewTime(jobSession.job_template.time_window_start || '')
+                    setNewTimeEnd(jobSession.job_template.time_window_end || '')
+                    setIsRescheduling(true)
+                  }}
                   disabled={loading || !canModify}
                   className="bg-white/10 border border-white/20 text-white hover:bg-white/20"
                 >

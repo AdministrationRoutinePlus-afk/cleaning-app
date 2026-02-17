@@ -48,7 +48,7 @@ export default function EmployeeDashboardPage() {
       if (error) throw error
       if (isMountedRef.current) {
         setEmployee(data)
-        loadOfferedCount()
+        loadOfferedCount(data.id)
       }
     } catch (error) {
       console.error('Error loading employee:', error)
@@ -60,12 +60,13 @@ export default function EmployeeDashboardPage() {
     }
   }
 
-  const loadOfferedCount = async () => {
+  const loadOfferedCount = async (empId: string) => {
     try {
       const { count, error } = await supabase
         .from('job_sessions')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'OFFERED')
+        .eq('assigned_to', empId)
 
       if (error) throw error
       if (isMountedRef.current) {

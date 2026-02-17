@@ -31,7 +31,9 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
   const [loading, setLoading] = useState(false)
   const [employees, setEmployees] = useState<Employee[]>([])
   const [scheduledDate, setScheduledDate] = useState('')
-  const [scheduledTime, setScheduledTime] = useState(job.time_window_start || '')
+  const [scheduledEndDate, setScheduledEndDate] = useState('')
+  const [timeWindowStart, setTimeWindowStart] = useState(job.time_window_start || '')
+  const [timeWindowEnd, setTimeWindowEnd] = useState(job.time_window_end || '')
   const [selectedEmployee, setSelectedEmployee] = useState('anyone')
 
   const supabaseRef = useRef(createClient())
@@ -41,7 +43,9 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
     if (open) {
       fetchEmployees()
       setScheduledDate('')
-      setScheduledTime(job.time_window_start || '')
+      setScheduledEndDate('')
+      setTimeWindowStart(job.time_window_start || '')
+      setTimeWindowEnd(job.time_window_end || '')
       setSelectedEmployee('anyone')
     }
   }, [open])
@@ -56,14 +60,22 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
   }
 
   const handlePublish = async () => {
-    if (!scheduledDate) {
-      toast.error(t('Please select a date'))
+    if (!scheduledDate || !scheduledEndDate) {
+      toast.error(t('Please select start and end dates'))
+      return
+    }
+    if (!timeWindowStart || !timeWindowEnd) {
+      toast.error(t('Please set the time window'))
       return
     }
 
     const today = format(new Date(), 'yyyy-MM-dd')
     if (scheduledDate < today) {
       toast.error(t('Scheduled date cannot be in the past'))
+      return
+    }
+    if (scheduledEndDate < scheduledDate) {
+      toast.error(t('End date cannot be before start date'))
       return
     }
 
@@ -76,25 +88,6 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
       const isAssigned = selectedEmployee !== 'anyone'
       const status = isAssigned ? 'APPROVED' : 'OFFERED'
 
-      // Calculate scheduled_end_date from window days
-      let scheduledEndDate: string | null = null
-      if (job.window_start_day && job.window_end_day) {
-        const dayMap: Record<string, number> = {
-          'SUN': 0, 'MON': 1, 'TUE': 2, 'WED': 3, 'THU': 4, 'FRI': 5, 'SAT': 6
-        }
-        const startDayNum = dayMap[job.window_start_day] ?? 0
-        const endDayNum = dayMap[job.window_end_day] ?? startDayNum
-        let windowDays = endDayNum - startDayNum
-        if (windowDays < 0) windowDays += 7
-        if (windowDays === 0 && job.window_start_day !== job.window_end_day) windowDays = 7
-        if (windowDays > 0) {
-          const startDate = new Date(scheduledDate)
-          const endDate = new Date(startDate)
-          endDate.setDate(endDate.getDate() + windowDays)
-          scheduledEndDate = endDate.toISOString().split('T')[0]
-        }
-      }
-
       const { error } = await supabase
         .from('job_sessions')
         .insert({
@@ -102,8 +95,8 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
           session_code: sessionCode,
           full_job_code: fullJobCode,
           scheduled_date: scheduledDate,
-          scheduled_end_date: scheduledEndDate,
-          scheduled_time: scheduledTime || null,
+          scheduled_end_date: scheduledEndDate !== scheduledDate ? scheduledEndDate : null,
+          scheduled_time: timeWindowStart || null,
           assigned_to: isAssigned ? selectedEmployee : null,
           status,
         })
@@ -133,22 +126,46 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label className="text-gray-300">{t('Date')} *</Label>
-            <Input
-              type="date"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              min={format(new Date(), 'yyyy-MM-dd')}
-              className="bg-white/5 border-white/20 text-white"
-            />
+            <div className="flex items-center gap-3">
+              <Input
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => {
+                  setScheduledDate(e.target.value)
+                  if (!scheduledEndDate || e.target.value > scheduledEndDate) {
+                    setScheduledEndDate(e.target.value)
+                  }
+                }}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                className="bg-white/5 border-white/20 text-white flex-1"
+              />
+              <span className="text-gray-500 text-sm">{'\u2192'}</span>
+              <Input
+                type="date"
+                value={scheduledEndDate}
+                onChange={(e) => setScheduledEndDate(e.target.value)}
+                min={scheduledDate || format(new Date(), 'yyyy-MM-dd')}
+                className="bg-white/5 border-white/20 text-white flex-1"
+              />
+            </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-gray-300">{t('Time (optional)')}</Label>
-            <Input
-              type="time"
-              value={scheduledTime}
-              onChange={(e) => setScheduledTime(e.target.value)}
-              className="bg-white/5 border-white/20 text-white"
-            />
+            <Label className="text-gray-300">{t('Time Window')} *</Label>
+            <div className="flex items-center gap-3">
+              <Input
+                type="time"
+                value={timeWindowStart}
+                onChange={(e) => setTimeWindowStart(e.target.value)}
+                className="bg-white/5 border-white/20 text-white flex-1"
+              />
+              <span className="text-gray-500 text-sm">{'\u2192'}</span>
+              <Input
+                type="time"
+                value={timeWindowEnd}
+                onChange={(e) => setTimeWindowEnd(e.target.value)}
+                className="bg-white/5 border-white/20 text-white flex-1"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-gray-300">{t('Assign to')}</Label>
@@ -184,7 +201,7 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
           </Button>
           <Button
             onClick={handlePublish}
-            disabled={loading || !scheduledDate}
+            disabled={loading || !scheduledDate || !scheduledEndDate || !timeWindowStart || !timeWindowEnd}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             {loading ? t('Publishing...') : t('Publish')}

@@ -531,6 +531,12 @@ export default function EditJobPage() {
         return
       }
 
+      // Validate time window is always required
+      if (!formData.time_window_start || !formData.time_window_end) {
+        toast.error(t('Please set the time window'))
+        return
+      }
+
       // Validate dates when activating a non-recurring job
       if (status === 'ACTIVE' && !formData.is_recurring && formData.specific_dates.length === 0) {
         toast.error(t('Please add at least one date before activating'))
