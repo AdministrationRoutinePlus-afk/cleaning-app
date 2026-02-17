@@ -85,6 +85,7 @@ export interface Employee extends BaseTable {
   activated_by: string | null // FK to employers
   activated_at: string | null
   updated_at: string
+  availability_mode: 'custom' | 'fixed' | null
 }
 
 export interface Customer extends BaseTable {

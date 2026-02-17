@@ -1623,6 +1623,10 @@ export const fr: Record<string, string> = {
   'No availability set': 'Aucune disponibilité définie',
   'Managed by employee': 'Géré par l\'employé',
   'No upcoming availability set': 'Aucune disponibilité à venir définie',
+  'Fixed': 'Fixe',
+  'Custom': 'Personnalisé',
+  'Not configured': 'Non configuré',
+  'Custom schedule set by employee': 'Horaire personnalisé défini par l\'employé',
 
   // ========== Missing Keys (Full Audit) ==========
 

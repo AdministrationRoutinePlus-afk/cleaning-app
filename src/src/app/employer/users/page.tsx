@@ -20,7 +20,7 @@
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Employee, Customer, EmployeeStatus, CustomerStatus, NewCustomer } from '@/types/database'
+import type { Employee, Customer, EmployeeStatus, CustomerStatus, NewCustomer, EmployeeWeeklyAvailability } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -44,6 +44,7 @@ export default function EmployerUsersPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [employeeJobs, setEmployeeJobs] = useState<Map<string, Array<{ id: string; status: string; full_job_code: string | null; scheduled_date: string | null; scheduled_time: string | null; title: string; customer_name: string | null; address: string | null }>>>(new Map())
+  const [employeeAvailability, setEmployeeAvailability] = useState<Map<string, EmployeeWeeklyAvailability[]>>(new Map())
   const [loading, setLoading] = useState(true)
   const [activeMainTab, setActiveMainTab] = useState<'employees' | 'customers'>('employees')
   const [employeeTab, setEmployeeTab] = useState<'active' | 'pending' | 'inactive'>('active')
@@ -110,6 +111,22 @@ export default function EmployerUsersPage() {
 
       if (employeesError) throw employeesError
       setEmployees(employeesData || [])
+
+      // Load weekly availability for all employees
+      const employeeIds = (employeesData || []).map(e => e.id)
+      if (employeeIds.length > 0) {
+        const { data: availData } = await supabase
+          .from('employee_weekly_availability')
+          .select('*')
+          .in('employee_id', employeeIds)
+          .order('day_of_week')
+        const availMap = new Map<string, EmployeeWeeklyAvailability[]>()
+        for (const row of availData || []) {
+          if (!availMap.has(row.employee_id)) availMap.set(row.employee_id, [])
+          availMap.get(row.employee_id)!.push(row)
+        }
+        setEmployeeAvailability(availMap)
+      }
 
       // Load job sessions with details for employee cards, scoped to this employer's jobs
       const { data: jobSessionsData, error: jobSessionsError } = await supabase
@@ -654,6 +671,7 @@ export default function EmployerUsersPage() {
                     key={employee.id}
                     employee={employee}
                     jobs={employeeJobs.get(employee.id)}
+                    weeklyAvailability={employeeAvailability.get(employee.id)}
                     onActivate={employeeTab === 'pending' ? handleActivateEmployee : undefined}
                     onDeactivate={employeeTab === 'active' ? handleDeactivateEmployee : undefined}
                     onReactivate={employeeTab === 'inactive' ? handleReactivateEmployee : undefined}

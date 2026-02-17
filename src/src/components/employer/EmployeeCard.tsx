@@ -5,10 +5,10 @@
  */
 
 import { useState } from 'react'
-import type { Employee } from '@/types/database'
+import type { Employee, EmployeeWeeklyAvailability } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon } from 'lucide-react'
+import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon, Clock } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
@@ -26,6 +26,7 @@ export interface EmployeeJob {
 interface EmployeeCardProps {
   employee: Employee
   jobs?: EmployeeJob[]
+  weeklyAvailability?: EmployeeWeeklyAvailability[]
   onActivate?: (employee: Employee) => void
   onReactivate?: (employee: Employee) => void
   onDeactivate?: (employee: Employee) => void
@@ -48,9 +49,14 @@ function getStatusConfig(status: string) {
   return JOB_STATUS_CONFIG.find(s => s.key === status) || JOB_STATUS_CONFIG[0]
 }
 
+const DAY_KEYS: Record<number, string> = {
+  0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday'
+}
+
 export function EmployeeCard({
   employee,
   jobs,
+  weeklyAvailability,
   onActivate,
   onReactivate,
   onDeactivate,
@@ -186,6 +192,56 @@ export function EmployeeCard({
             </>
           ) : (
             <p className="text-xs text-gray-500 text-center py-3">{t('No jobs assigned')}</p>
+          )}
+        </div>
+
+        {/* Availability Section */}
+        <div className="bg-gray-800/60 rounded-xl border border-white/10 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-purple-400" />
+              <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{t('Availability')}</span>
+            </div>
+            {employee.availability_mode && (
+              <Badge className={`text-[10px] ${
+                employee.availability_mode === 'fixed'
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+              }`}>
+                {employee.availability_mode === 'fixed' ? t('Fixed') : t('Custom')}
+              </Badge>
+            )}
+          </div>
+          {employee.availability_mode === 'fixed' && weeklyAvailability && weeklyAvailability.length > 0 ? (
+            <div className="grid grid-cols-7 gap-1">
+              {[1, 2, 3, 4, 5, 6, 0].map(day => {
+                const avail = weeklyAvailability.find(a => a.day_of_week === day)
+                const isAvailable = avail?.is_available
+                return (
+                  <div
+                    key={day}
+                    className={`text-center rounded-lg py-1.5 px-0.5 ${
+                      isAvailable
+                        ? 'bg-green-500/15 border border-green-500/30'
+                        : 'bg-white/5 border border-white/5'
+                    }`}
+                  >
+                    <p className={`text-[10px] font-bold ${isAvailable ? 'text-green-300' : 'text-gray-600'}`}>
+                      {t(DAY_KEYS[day]).slice(0, 3)}
+                    </p>
+                    {isAvailable && avail?.start_time && avail?.end_time && (
+                      <p className="text-[9px] text-green-400/80 mt-0.5">
+                        {avail.start_time.slice(0, 5)}-{avail.end_time.slice(0, 5)}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : employee.availability_mode === 'custom' ? (
+            <p className="text-xs text-gray-500">{t('Custom schedule set by employee')}</p>
+          ) : (
+            <p className="text-xs text-gray-500">{t('Not configured')}</p>
           )}
         </div>
 
