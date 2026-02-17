@@ -910,8 +910,8 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 space-y-4">
               <h3 className="font-semibold text-lg text-blue-300">{t('Reschedule Job')}</h3>
               <div className="space-y-2">
-                <Label className="text-gray-300">{t('Date')} *</Label>
-                <div className="flex items-center gap-3">
+                <Label className="text-gray-300">{t('Start')} *</Label>
+                <div className="flex items-center gap-2">
                   <Input
                     type="date"
                     value={newDate}
@@ -923,7 +923,17 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                     }}
                     className="bg-white/5 border-white/20 text-white flex-1"
                   />
-                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
+                  <Input
+                    type="time"
+                    value={newTime}
+                    onChange={(e) => setNewTime(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white w-32"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('End')} *</Label>
+                <div className="flex items-center gap-2">
                   <Input
                     type="date"
                     value={newDateEnd}
@@ -931,23 +941,11 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                     min={newDate}
                     className="bg-white/5 border-white/20 text-white flex-1"
                   />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-gray-300">{t('Time Window')} *</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="time"
-                    value={newTime}
-                    onChange={(e) => setNewTime(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white flex-1"
-                  />
-                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
                   <Input
                     type="time"
                     value={newTimeEnd}
                     onChange={(e) => setNewTimeEnd(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white flex-1"
+                    className="bg-white/5 border-white/20 text-white w-32"
                   />
                 </div>
               </div>
@@ -1093,8 +1091,8 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 {t('This will cancel the current session and create a new OFFERED session with the selected date.')}
               </p>
               <div className="space-y-2">
-                <Label className="text-gray-300">{t('Date')} *</Label>
-                <div className="flex items-center gap-3">
+                <Label className="text-gray-300">{t('Start')} *</Label>
+                <div className="flex items-center gap-2">
                   <Input
                     type="date"
                     value={newDate}
@@ -1106,7 +1104,17 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                     }}
                     className="bg-white/5 border-white/20 text-white flex-1"
                   />
-                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
+                  <Input
+                    type="time"
+                    value={newTime}
+                    onChange={(e) => setNewTime(e.target.value)}
+                    className="bg-white/5 border-white/20 text-white w-32"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('End')} *</Label>
+                <div className="flex items-center gap-2">
                   <Input
                     type="date"
                     value={newDateEnd}
@@ -1114,23 +1122,11 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                     min={newDate}
                     className="bg-white/5 border-white/20 text-white flex-1"
                   />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-gray-300">{t('Time Window')} *</Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="time"
-                    value={newTime}
-                    onChange={(e) => setNewTime(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white flex-1"
-                  />
-                  <span className="text-gray-500 text-sm">{'\u2192'}</span>
                   <Input
                     type="time"
                     value={newTimeEnd}
                     onChange={(e) => setNewTimeEnd(e.target.value)}
-                    className="bg-white/5 border-white/20 text-white flex-1"
+                    className="bg-white/5 border-white/20 text-white w-32"
                   />
                 </div>
               </div>

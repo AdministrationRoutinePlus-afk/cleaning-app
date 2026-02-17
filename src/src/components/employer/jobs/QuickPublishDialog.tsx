@@ -125,8 +125,8 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label className="text-gray-300">{t('Date')} *</Label>
-            <div className="flex items-center gap-3">
+            <Label className="text-gray-300">{t('Start')} *</Label>
+            <div className="flex items-center gap-2">
               <Input
                 type="date"
                 value={scheduledDate}
@@ -139,7 +139,17 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
                 min={format(new Date(), 'yyyy-MM-dd')}
                 className="bg-white/5 border-white/20 text-white flex-1"
               />
-              <span className="text-gray-500 text-sm">{'\u2192'}</span>
+              <Input
+                type="time"
+                value={timeWindowStart}
+                onChange={(e) => setTimeWindowStart(e.target.value)}
+                className="bg-white/5 border-white/20 text-white w-32"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-gray-300">{t('End')} *</Label>
+            <div className="flex items-center gap-2">
               <Input
                 type="date"
                 value={scheduledEndDate}
@@ -147,23 +157,11 @@ export function QuickPublishDialog({ job, open, onOpenChange, onUpdate }: QuickP
                 min={scheduledDate || format(new Date(), 'yyyy-MM-dd')}
                 className="bg-white/5 border-white/20 text-white flex-1"
               />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-gray-300">{t('Time Window')} *</Label>
-            <div className="flex items-center gap-3">
-              <Input
-                type="time"
-                value={timeWindowStart}
-                onChange={(e) => setTimeWindowStart(e.target.value)}
-                className="bg-white/5 border-white/20 text-white flex-1"
-              />
-              <span className="text-gray-500 text-sm">{'\u2192'}</span>
               <Input
                 type="time"
                 value={timeWindowEnd}
                 onChange={(e) => setTimeWindowEnd(e.target.value)}
-                className="bg-white/5 border-white/20 text-white flex-1"
+                className="bg-white/5 border-white/20 text-white w-32"
               />
             </div>
           </div>
