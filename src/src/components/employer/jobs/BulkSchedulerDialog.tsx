@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type { JobTemplate, DayOfWeek } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -15,8 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { generateSessionRecords, getNextSessionNumber, createJobSessions, SessionGeneratorInput } from '@/lib/jobs/sessionGenerator'
-import { X, Plus } from 'lucide-react'
+import { generateSessionRecords, getNextSessionNumber, SessionGeneratorInput, SessionRecord } from '@/lib/jobs/sessionGenerator'
+import { X, Plus, Trash2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -32,6 +32,14 @@ const DAYS_OF_WEEK_KEYS = [
   { value: 'SAT', labelKey: 'Saturday' },
 ]
 
+interface TimeWindowEntry {
+  id: number
+  windowStartDay: string
+  windowEndDay: string
+  timeWindowStart: string
+  timeWindowEnd: string
+}
+
 interface BulkSchedulerDialogProps {
   job: JobTemplate
   open: boolean
@@ -39,18 +47,16 @@ interface BulkSchedulerDialogProps {
   onUpdate: () => void
 }
 
+let nextWindowId = 1
+
 export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkSchedulerDialogProps) {
   const { t } = useTranslation()
   const { formatDate: formatDateLocale } = useDateFormat()
   const [loading, setLoading] = useState(false)
-  const [previewCount, setPreviewCount] = useState(0)
 
   // Pre-fill from template
   const [isRecurring, setIsRecurring] = useState(job.is_recurring)
-  const [windowStartDay, setWindowStartDay] = useState(job.window_start_day || '')
-  const [windowEndDay, setWindowEndDay] = useState(job.window_end_day || '')
-  const [timeWindowStart, setTimeWindowStart] = useState(job.time_window_start || '')
-  const [timeWindowEnd, setTimeWindowEnd] = useState(job.time_window_end || '')
+  const [windows, setWindows] = useState<TimeWindowEntry[]>([])
   const [startDate, setStartDate] = useState(job.start_date || '')
   const [endDate, setEndDate] = useState(job.end_date || '')
   const [specificDates, setSpecificDates] = useState<string[]>(job.specific_dates || [])
@@ -65,10 +71,13 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
     if (open) {
       // Reset to template values
       setIsRecurring(job.is_recurring)
-      setWindowStartDay(job.window_start_day || '')
-      setWindowEndDay(job.window_end_day || '')
-      setTimeWindowStart(job.time_window_start || '')
-      setTimeWindowEnd(job.time_window_end || '')
+      setWindows([{
+        id: nextWindowId++,
+        windowStartDay: job.window_start_day || '',
+        windowEndDay: job.window_end_day || '',
+        timeWindowStart: job.time_window_start || '',
+        timeWindowEnd: job.time_window_end || '',
+      }])
       setStartDate(job.start_date || '')
       setEndDate(job.end_date || '')
       setSpecificDates(job.specific_dates || [])
@@ -76,23 +85,54 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
     }
   }, [open])
 
-  // Update preview count when scheduling params change
-  useEffect(() => {
-    if (!open) return
-    const input: SessionGeneratorInput = {
-      is_recurring: isRecurring,
-      window_start_day: windowStartDay,
-      window_end_day: windowEndDay,
-      time_window_start: timeWindowStart,
-      time_window_end: timeWindowEnd,
-      start_date: startDate,
-      end_date: endDate,
-      specific_dates: specificDates,
-      exclude_dates: excludeDates,
+  const addWindow = () => {
+    setWindows(prev => [...prev, {
+      id: nextWindowId++,
+      windowStartDay: '',
+      windowEndDay: '',
+      timeWindowStart: '',
+      timeWindowEnd: '',
+    }])
+  }
+
+  const removeWindow = (id: number) => {
+    setWindows(prev => prev.filter(w => w.id !== id))
+  }
+
+  const updateWindow = (id: number, field: keyof Omit<TimeWindowEntry, 'id'>, value: string) => {
+    setWindows(prev => prev.map(w => w.id === id ? { ...w, [field]: value } : w))
+  }
+
+  // Generate all preview sessions across all windows
+  const previewSessions = useMemo(() => {
+    if (!open) return []
+    const allSessions: SessionRecord[] = []
+    let counter = 1
+
+    for (const w of windows) {
+      if (!w.windowStartDay || !w.windowEndDay) continue
+      const input: SessionGeneratorInput = {
+        is_recurring: isRecurring,
+        window_start_day: w.windowStartDay,
+        window_end_day: w.windowEndDay,
+        time_window_start: w.timeWindowStart,
+        time_window_end: w.timeWindowEnd,
+        start_date: startDate,
+        end_date: endDate,
+        specific_dates: specificDates,
+        exclude_dates: excludeDates,
+      }
+      const sessions = generateSessionRecords('preview', 'PREVIEW', input, counter)
+      allSessions.push(...sessions)
+      counter += sessions.length
     }
-    const sessions = generateSessionRecords('preview', 'PREVIEW', input)
-    setPreviewCount(sessions.length)
-  }, [isRecurring, windowStartDay, windowEndDay, timeWindowStart, timeWindowEnd, startDate, endDate, specificDates, excludeDates, open])
+
+    // Sort by date
+    allSessions.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
+    return allSessions
+  }, [isRecurring, windows, startDate, endDate, specificDates, excludeDates, open])
+
+  const previewCount = previewSessions.length
 
   const handleGenerate = async () => {
     const today = format(new Date(), 'yyyy-MM-dd')
@@ -105,29 +145,51 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
       return
     }
 
+    const validWindows = windows.filter(w => w.windowStartDay && w.windowEndDay)
+    if (validWindows.length === 0) {
+      toast.error(t('Please add at least one time window'))
+      return
+    }
+
     setLoading(true)
     try {
-      const nextNum = await getNextSessionNumber(supabase, job.id)
-      const input: SessionGeneratorInput = {
-        is_recurring: isRecurring,
-        window_start_day: windowStartDay,
-        window_end_day: windowEndDay,
-        time_window_start: timeWindowStart,
-        time_window_end: timeWindowEnd,
-        start_date: startDate,
-        end_date: endDate,
-        specific_dates: specificDates,
-        exclude_dates: excludeDates,
+      let nextNum = await getNextSessionNumber(supabase, job.id)
+      let totalCreated = 0
+
+      for (const w of validWindows) {
+        const input: SessionGeneratorInput = {
+          is_recurring: isRecurring,
+          window_start_day: w.windowStartDay,
+          window_end_day: w.windowEndDay,
+          time_window_start: w.timeWindowStart,
+          time_window_end: w.timeWindowEnd,
+          start_date: startDate,
+          end_date: endDate,
+          specific_dates: specificDates,
+          exclude_dates: excludeDates,
+        }
+
+        const sessions = generateSessionRecords(job.id, job.job_code, input, nextNum, job.preferred_employee_id || undefined)
+
+        if (sessions.length > 0) {
+          const { error } = await supabase
+            .from('job_sessions')
+            .insert(sessions)
+
+          if (error) {
+            console.error('Error creating sessions for window:', error)
+            toast.error(t('Failed to create sessions'))
+            setLoading(false)
+            return
+          }
+          totalCreated += sessions.length
+          nextNum += sessions.length
+        }
       }
 
-      const count = await createJobSessions(supabase, job.id, job.job_code, input, nextNum, job.preferred_employee_id || undefined)
-      if (count >= 0) {
-        toast.success(`${t('Created')} ${count} ${count !== 1 ? t('sessions') : t('session')}`)
-        onOpenChange(false)
-        onUpdate()
-      } else {
-        toast.error(t('Failed to create sessions'))
-      }
+      toast.success(`${t('Created')} ${totalCreated} ${totalCreated !== 1 ? t('sessions') : t('session')}`)
+      onOpenChange(false)
+      onUpdate()
     } catch (error) {
       console.error('Error generating sessions:', error)
       toast.error(t('Failed to generate sessions'))
@@ -169,72 +231,89 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             </button>
           </div>
 
-          {/* Time Window */}
-          <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
-            <Label className="text-xs text-gray-400 font-semibold uppercase">{t('Job Window')}</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">{t('From Day')}</Label>
-                <Select value={windowStartDay} onValueChange={setWindowStartDay}>
-                  <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                    <SelectValue placeholder={t('Select day')} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-white/20">
-                    {DAYS_OF_WEEK_KEYS.map(day => (
-                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.labelKey)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Time Windows */}
+          {windows.map((w, idx) => (
+            <div key={w.id} className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-400 font-semibold uppercase">
+                  {t('Time Window')} {windows.length > 1 ? `#${idx + 1}` : ''}
+                </Label>
+                {windows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeWindow(w.id)}
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">{t('From Time')}</Label>
-                <Input
-                  type="time"
-                  value={timeWindowStart}
-                  onChange={(e) => setTimeWindowStart(e.target.value)}
-                  className="bg-white/5 border-white/20 text-white"
-                />
+              <div className="space-y-2">
+                <Label className="text-xs text-gray-500">{t('Start')} *</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={w.windowStartDay} onValueChange={(v) => updateWindow(w.id, 'windowStartDay', v)}>
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white flex-1">
+                      <SelectValue placeholder={t('Day')} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {DAYS_OF_WEEK_KEYS.map(day => (
+                        <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.labelKey)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="time"
+                    value={w.timeWindowStart}
+                    onChange={(e) => updateWindow(w.id, 'timeWindowStart', e.target.value)}
+                    className="bg-white/5 border-white/20 text-white w-32"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="flex justify-center">
-              <span className="text-gray-500 text-sm">{t('to')}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">{t('To Day')}</Label>
-                <Select value={windowEndDay} onValueChange={setWindowEndDay}>
-                  <SelectTrigger className="bg-white/5 border-white/20 text-white">
-                    <SelectValue placeholder={t('Select day')} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-white/20">
-                    {DAYS_OF_WEEK_KEYS.map(day => (
-                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.labelKey)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label className="text-xs text-gray-500">{t('End')} *</Label>
+                <div className="flex items-center gap-2">
+                  <Select value={w.windowEndDay} onValueChange={(v) => updateWindow(w.id, 'windowEndDay', v)}>
+                    <SelectTrigger className="bg-white/5 border-white/20 text-white flex-1">
+                      <SelectValue placeholder={t('Day')} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      {DAYS_OF_WEEK_KEYS.map(day => (
+                        <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.labelKey)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="time"
+                    value={w.timeWindowEnd}
+                    onChange={(e) => updateWindow(w.id, 'timeWindowEnd', e.target.value)}
+                    className="bg-white/5 border-white/20 text-white w-32"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-gray-500">{t('To Time')}</Label>
-                <Input
-                  type="time"
-                  value={timeWindowEnd}
-                  onChange={(e) => setTimeWindowEnd(e.target.value)}
-                  className="bg-white/5 border-white/20 text-white"
-                />
-              </div>
-            </div>
 
-            {/* Window Preview */}
-            {windowStartDay && windowEndDay && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2">
-                <p className="text-xs text-blue-300 font-medium">
-                  {t(DAYS_OF_WEEK_KEYS.find(d => d.value === windowStartDay)?.labelKey || '')} {timeWindowStart || ''}
-                  {' \u2192 '}
-                  {t(DAYS_OF_WEEK_KEYS.find(d => d.value === windowEndDay)?.labelKey || '')} {timeWindowEnd || ''}
-                </p>
-              </div>
-            )}
-          </div>
+              {/* Window Preview */}
+              {w.windowStartDay && w.windowEndDay && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2">
+                  <p className="text-xs text-blue-300 font-medium">
+                    {t(DAYS_OF_WEEK_KEYS.find(d => d.value === w.windowStartDay)?.labelKey || '')} {w.timeWindowStart || ''}
+                    {' \u2192 '}
+                    {t(DAYS_OF_WEEK_KEYS.find(d => d.value === w.windowEndDay)?.labelKey || '')} {w.timeWindowEnd || ''}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Add Window Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addWindow}
+            className="w-full bg-white/5 border-white/15 border-dashed text-gray-400 hover:bg-white/10 hover:text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            {t('Add Time Window')}
+          </Button>
 
           {/* Scheduling */}
           {isRecurring ? (
@@ -365,20 +444,8 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                 <p className="text-xs text-gray-400 font-medium">{t('Scheduled dates:')}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(() => {
-                    const input: SessionGeneratorInput = {
-                      is_recurring: isRecurring,
-                      window_start_day: windowStartDay,
-                      window_end_day: windowEndDay,
-                      time_window_start: timeWindowStart,
-                      time_window_end: timeWindowEnd,
-                      start_date: startDate,
-                      end_date: endDate,
-                      specific_dates: specificDates,
-                      exclude_dates: excludeDates,
-                    }
-                    const sessions = generateSessionRecords('preview', 'PREVIEW', input)
-                    const displaySessions = sessions.slice(0, 10)
-                    const remaining = sessions.length - 10
+                    const displaySessions = previewSessions.slice(0, 10)
+                    const remaining = previewSessions.length - 10
                     return (
                       <>
                         {displaySessions.map((s, i) => (
