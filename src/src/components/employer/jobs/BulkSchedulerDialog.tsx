@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import type { JobTemplate, DayOfWeek } from '@/types/database'
+import type { JobTemplate } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -54,14 +54,12 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
   const { formatDate: formatDateLocale } = useDateFormat()
   const [loading, setLoading] = useState(false)
 
-  // Pre-fill from template
-  const [isRecurring, setIsRecurring] = useState(job.is_recurring)
+  // Pre-fill from template — always recurring (one-time is handled by Quick Publish)
+  const [isRecurring] = useState(true)
   const [windows, setWindows] = useState<TimeWindowEntry[]>([])
   const [startDate, setStartDate] = useState(job.start_date || '')
   const [endDate, setEndDate] = useState(job.end_date || '')
-  const [specificDates, setSpecificDates] = useState<string[]>(job.specific_dates || [])
   const [excludeDates, setExcludeDates] = useState<string[]>(job.exclude_dates || [])
-  const [newSpecificDate, setNewSpecificDate] = useState('')
   const [newExcludeDate, setNewExcludeDate] = useState('')
 
   const supabaseRef = useRef(createClient())
@@ -70,7 +68,6 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
   useEffect(() => {
     if (open) {
       // Reset to template values
-      setIsRecurring(job.is_recurring)
       setWindows([{
         id: nextWindowId++,
         windowStartDay: job.window_start_day || '',
@@ -80,7 +77,6 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
       }])
       setStartDate(job.start_date || '')
       setEndDate(job.end_date || '')
-      setSpecificDates(job.specific_dates || [])
       setExcludeDates(job.exclude_dates || [])
     }
   }, [open])
@@ -119,7 +115,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
         time_window_end: w.timeWindowEnd,
         start_date: startDate,
         end_date: endDate,
-        specific_dates: specificDates,
+        specific_dates: [],
         exclude_dates: excludeDates,
       }
       const sessions = generateSessionRecords('preview', 'PREVIEW', input, counter)
@@ -130,18 +126,14 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
     // Sort by date
     allSessions.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))
     return allSessions
-  }, [isRecurring, windows, startDate, endDate, specificDates, excludeDates, open])
+  }, [isRecurring, windows, startDate, endDate, excludeDates, open])
 
   const previewCount = previewSessions.length
 
   const handleGenerate = async () => {
     const today = format(new Date(), 'yyyy-MM-dd')
-    if (isRecurring && startDate && startDate < today) {
+    if (startDate && startDate < today) {
       toast.error(t('Start date cannot be in the past'))
-      return
-    }
-    if (!isRecurring && specificDates.some(d => d < today)) {
-      toast.error(t('Specific dates cannot be in the past'))
       return
     }
 
@@ -165,7 +157,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
           time_window_end: w.timeWindowEnd,
           start_date: startDate,
           end_date: endDate,
-          specific_dates: specificDates,
+          specific_dates: [],
           exclude_dates: excludeDates,
         }
 
@@ -209,28 +201,6 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Recurring vs One-time */}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setIsRecurring(false)}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                !isRecurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              {t('One-time')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsRecurring(true)}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isRecurring ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}
-            >
-              {t('Recurring')}
-            </button>
-          </div>
-
           {/* Time Windows */}
           {windows.map((w, idx) => (
             <div key={w.id} className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
@@ -315,113 +285,67 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             {t('Add Time Window')}
           </Button>
 
-          {/* Scheduling */}
-          {isRecurring ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">{t('Start Date')}</Label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    min={format(new Date(), 'yyyy-MM-dd')}
-                    className="bg-white/5 border-white/20 text-white"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">{t('End Date')}</Label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate || format(new Date(), 'yyyy-MM-dd')}
-                    className="bg-white/5 border-white/20 text-white"
-                  />
-                </div>
+          {/* Date Range */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">{t('Start Date')}</Label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="bg-white/5 border-white/20 text-white"
+                />
               </div>
-
-              {/* Skip Dates */}
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-500">{t('Skip Dates')}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="date"
-                    value={newExcludeDate}
-                    onChange={(e) => setNewExcludeDate(e.target.value)}
-                    min={format(new Date(), 'yyyy-MM-dd')}
-                    className="flex-1 bg-white/5 border-white/20 text-white"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (newExcludeDate && !excludeDates.includes(newExcludeDate)) {
-                        setExcludeDates([...excludeDates, newExcludeDate].sort())
-                        setNewExcludeDate('')
-                      }
-                    }}
-                    disabled={!newExcludeDate}
-                    className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {excludeDates.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {excludeDates.map(date => (
-                      <Badge key={date} variant="outline" className="flex items-center gap-1 bg-red-500/20 text-red-300 border-red-500/30">
-                        {formatDateLocale(parseISO(date), 'MMM d')}
-                        <button
-                          type="button"
-                          onClick={() => setExcludeDates(excludeDates.filter(d => d !== date))}
-                          className="ml-1 hover:text-red-200"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">{t('End Date')}</Label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || format(new Date(), 'yyyy-MM-dd')}
+                  className="bg-white/5 border-white/20 text-white"
+                />
               </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <Label className="text-xs text-gray-500">{t('Select Date(s)')}</Label>
+
+            {/* Skip Dates */}
+            <div className="space-y-2">
+              <Label className="text-xs text-gray-500">{t('Skip Dates')}</Label>
               <div className="flex gap-2">
                 <Input
                   type="date"
-                  value={newSpecificDate}
-                  onChange={(e) => setNewSpecificDate(e.target.value)}
+                  value={newExcludeDate}
+                  onChange={(e) => setNewExcludeDate(e.target.value)}
                   min={format(new Date(), 'yyyy-MM-dd')}
                   className="flex-1 bg-white/5 border-white/20 text-white"
                 />
                 <Button
                   type="button"
                   size="sm"
+                  variant="outline"
                   onClick={() => {
-                    if (newSpecificDate && !specificDates.includes(newSpecificDate)) {
-                      setSpecificDates([...specificDates, newSpecificDate].sort())
-                      setNewSpecificDate('')
+                    if (newExcludeDate && !excludeDates.includes(newExcludeDate)) {
+                      setExcludeDates([...excludeDates, newExcludeDate].sort())
+                      setNewExcludeDate('')
                     }
                   }}
-                  disabled={!newSpecificDate}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={!newExcludeDate}
+                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
                 >
-                  <Plus className="w-4 h-4 mr-1" />
-                  {t('Add')}
+                  <Plus className="w-4 h-4" />
                 </Button>
               </div>
-              {specificDates.length > 0 && (
+              {excludeDates.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {specificDates.map(date => (
-                    <Badge key={date} variant="secondary" className="flex items-center gap-1 py-1 bg-white/10 text-gray-200 border border-white/20">
-                      {formatDateLocale(parseISO(date), 'EEE, MMM d')}
+                  {excludeDates.map(date => (
+                    <Badge key={date} variant="outline" className="flex items-center gap-1 bg-red-500/20 text-red-300 border-red-500/30">
+                      {formatDateLocale(parseISO(date), 'MMM d')}
                       <button
                         type="button"
-                        onClick={() => setSpecificDates(specificDates.filter(d => d !== date))}
-                        className="ml-1 hover:text-red-400"
+                        onClick={() => setExcludeDates(excludeDates.filter(d => d !== date))}
+                        className="ml-1 hover:text-red-200"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -430,7 +354,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                 </div>
               )}
             </div>
-          )}
+          </div>
 
           {/* Preview */}
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 space-y-3">
