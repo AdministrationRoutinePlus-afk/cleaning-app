@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Calendar, Lock, Unlock, AlertCircle, X, Clock, Copy, CalendarDays, Repeat, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 import { format, addDays, startOfDay, nextMonday, getDay, addWeeks } from 'date-fns'
 
 interface SpecificAvailabilityEditorProps {
@@ -46,6 +47,7 @@ const DAYS_OF_WEEK = [
 
 export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityEditorProps) {
   const { t } = useTranslation()
+  const { formatDate } = useDateFormat()
   const [mode, setMode] = useState<AvailabilityMode | null>(null)
   const [days, setDays] = useState<DayAvailability[]>([])
   const [weeklyDays, setWeeklyDays] = useState<WeeklyDayAvailability[]>([])
@@ -76,6 +78,21 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       })
     }
   }
+
+  // Load saved availability_mode on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      const { data } = await supabase
+        .from('employees')
+        .select('availability_mode')
+        .eq('id', employeeId)
+        .single()
+      if (data?.availability_mode) {
+        setMode(data.availability_mode as AvailabilityMode)
+      }
+    }
+    loadMode()
+  }, [employeeId])
 
   useEffect(() => {
     if (mode === 'custom') {
@@ -128,7 +145,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
         next14Days.push({
           date,
           dateStr,
-          isAvailable: true,
+          isAvailable: false,
           isLocked: false,
           startTime: null,
           endTime: null,
@@ -176,7 +193,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
       const weeklyTemplate: WeeklyDayAvailability[] = DAYS_OF_WEEK.map(d => ({
         dayOfWeek: d.dayOfWeek,
         dayName: d.dayName,
-        isAvailable: true,
+        isAvailable: false,
         startTime: null,
         endTime: null,
         record: null
@@ -564,7 +581,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
             {/* Date Range Indicator */}
             {days.length > 0 && (
               <div className="text-center text-xl font-bold text-white">
-                {format(days[0].date, 'MMM d')} - {format(days[days.length - 1].date, 'MMM d, yyyy')}
+                {formatDate(days[0].date, 'MMM d')} - {formatDate(days[days.length - 1].date, 'MMM d, yyyy')}
               </div>
             )}
 
@@ -599,7 +616,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
               >
                 {days.map((day, index) => {
                 const isToday = format(day.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
-                const dayName = format(day.date, 'EEE')
+                const dayName = formatDate(day.date, 'EEE')
                 const dayNum = format(day.date, 'd')
                 const hasTime = day.startTime || day.endTime
                 const isConfigured = day.record !== null
@@ -791,7 +808,7 @@ export function SpecificAvailabilityEditor({ employeeId }: SpecificAvailabilityE
           <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-2xl w-full max-w-sm border border-white/20 shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <h3 className="text-lg font-bold text-white">
-                {format(selectedDay.date, 'EEEE, MMM d')}
+                {formatDate(selectedDay.date, 'EEEE, MMM d')}
               </h3>
               <button
                 onClick={closeDayEditor}

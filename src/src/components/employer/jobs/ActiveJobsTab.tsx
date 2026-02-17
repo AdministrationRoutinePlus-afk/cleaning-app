@@ -18,6 +18,7 @@ import { sanitizeText } from '@/lib/utils/sanitize'
 import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import { addDays } from 'date-fns'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 type StatusFilter = 'all' | 'unclaimed' | 'pending' | 'scheduled' | 'in_progress' | 'issues'
 
@@ -27,6 +28,7 @@ interface ActiveJobsTabProps {
 
 export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const [sessions, setSessions] = useState<JobSessionFull[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -236,8 +238,10 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
         if (tmpl?.customer?.id !== filterCustomer) return false
       }
 
-      // Date range
-      if (filterDateFrom && session.scheduled_date && session.scheduled_date < filterDateFrom) return false
+      // Date range (account for multi-day jobs via scheduled_end_date)
+      if (filterDateFrom && session.scheduled_date && session.scheduled_date < filterDateFrom) {
+        if (!session.scheduled_end_date || session.scheduled_end_date < filterDateFrom) return false
+      }
       if (filterDateTo && session.scheduled_date && session.scheduled_date > filterDateTo) return false
 
       return true
@@ -427,7 +431,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                         <div className="flex items-center gap-3 text-xs text-gray-400">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {session.scheduled_date && format(new Date(session.scheduled_date + 'T12:00:00'), 'EEE, MMM d')}
+                            {session.scheduled_date && formatDateLocale(new Date(session.scheduled_date + 'T12:00:00'), 'EEE, MMM d')}
                           </span>
                           {jobTemplate?.customer && (
                             <span className="flex items-center gap-1">
@@ -783,10 +787,10 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-300 border border-blue-500/25">
               <CalendarDays className="w-3 h-3" />
               {filterDateFrom && filterDateTo
-                ? `${format(parseISO(filterDateFrom), 'MMM d')} - ${format(parseISO(filterDateTo), 'MMM d')}`
+                ? `${formatDateLocale(parseISO(filterDateFrom), 'MMM d')} - ${formatDateLocale(parseISO(filterDateTo), 'MMM d')}`
                 : filterDateFrom
-                  ? `From ${format(parseISO(filterDateFrom), 'MMM d')}`
-                  : `Until ${format(parseISO(filterDateTo), 'MMM d')}`}
+                  ? `${t('From')} ${formatDateLocale(parseISO(filterDateFrom), 'MMM d')}`
+                  : `${t('Until')} ${formatDateLocale(parseISO(filterDateTo), 'MMM d')}`}
               <button onClick={() => { setFilterDateFrom(''); setFilterDateTo('') }} className="ml-0.5 hover:text-white"><X className="w-3 h-3" /></button>
             </span>
           )}
@@ -829,7 +833,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
                     <Calendar className="w-4 h-4 text-gray-500" />
                     <span className="text-sm font-medium text-white">
                       {session.scheduled_date
-                        ? format(new Date(session.scheduled_date), 'EEE, MMM d, yyyy')
+                        ? formatDateLocale(new Date(session.scheduled_date), 'EEE, MMM d, yyyy')
                         : t('No date')}
                     </span>
                     {daysUntil !== null && daysUntil >= 0 && daysUntil <= 7 && (

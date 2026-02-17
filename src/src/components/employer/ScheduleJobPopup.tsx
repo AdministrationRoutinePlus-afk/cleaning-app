@@ -22,8 +22,8 @@ import { getNextSessionNumber } from '@/lib/jobs/sessionGenerator'
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
 import { sanitizeText } from '@/lib/utils/sanitize'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate & { customer?: { full_name: string } | null }
@@ -101,6 +101,7 @@ function ReviewStatusBadge({ sessionId, status }: { sessionId: string; status: s
 
 export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: ScheduleJobPopupProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const [isRescheduling, setIsRescheduling] = useState(false)
   const [isModifyingPrice, setIsModifyingPrice] = useState(false)
   const [isPushingMessage, setIsPushingMessage] = useState(false)
@@ -212,7 +213,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     const { data: sessionsOnDate } = await supabase
       .from('job_sessions')
       .select('assigned_to')
-      .eq('scheduled_date', date)
+      .or(`scheduled_date.eq.${date},and(scheduled_date.lte.${date},scheduled_end_date.gte.${date})`)
       .in('status', ['OFFERED', 'CLAIMED', 'APPROVED', 'IN_PROGRESS'])
       .not('assigned_to', 'is', null)
 
@@ -690,7 +691,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 <span className="text-blue-400 font-medium">{t('Scheduled Date')}</span>
                 <span className="text-white font-medium">
                   {jobSession.scheduled_date
-                    ? format(new Date(jobSession.scheduled_date + 'T12:00:00'), 'EEE, MMM d, yyyy')
+                    ? formatDateLocale(new Date(jobSession.scheduled_date + 'T12:00:00'), 'EEE, MMM d, yyyy')
                     : t('Not set')}
                 </span>
               </div>
@@ -698,7 +699,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-400 font-medium">{t('End Date')}</span>
                   <span className="text-white font-medium">
-                    {format(new Date(jobSession.scheduled_end_date + 'T12:00:00'), 'EEE, MMM d, yyyy')}
+                    {formatDateLocale(new Date(jobSession.scheduled_end_date + 'T12:00:00'), 'EEE, MMM d, yyyy')}
                   </span>
                 </div>
               )}
@@ -722,9 +723,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-400 font-medium">{t('Day Window')}</span>
                   <span className="text-white font-medium">
-                    {jobSession.job_template.window_start_day && (({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_start_day] || jobSession.job_template.window_start_day)}
+                    {jobSession.job_template.window_start_day && t(({'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'} as Record<string,string>)[jobSession.job_template.window_start_day] || jobSession.job_template.window_start_day)}
                     {jobSession.job_template.window_start_day && jobSession.job_template.window_end_day && ' — '}
-                    {jobSession.job_template.window_end_day && (({'SUN':'Sun','MON':'Mon','TUE':'Tue','WED':'Wed','THU':'Thu','FRI':'Fri','SAT':'Sat'} as Record<string,string>)[jobSession.job_template.window_end_day] || jobSession.job_template.window_end_day)}
+                    {jobSession.job_template.window_end_day && t(({'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'} as Record<string,string>)[jobSession.job_template.window_end_day] || jobSession.job_template.window_end_day)}
                   </span>
                 </div>
               )}
@@ -881,9 +882,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
               })()}
             </div>
             <p className="text-xs text-gray-500 mt-1.5">
-              {t('Created')} {format(new Date(jobSession.created_at), 'MMM d, yyyy')}
-              {jobSession.started_at && ` · ${t('Started')} ${format(new Date(jobSession.started_at), 'MMM d h:mm a')}`}
-              {jobSession.completed_at && ` · ${t('Completed')} ${format(new Date(jobSession.completed_at), 'MMM d h:mm a')}`}
+              {t('Created')} {formatDateLocale(new Date(jobSession.created_at), 'MMM d, yyyy')}
+              {jobSession.started_at && ` · ${t('Started')} ${formatDateLocale(new Date(jobSession.started_at), 'MMM d h:mm a')}`}
+              {jobSession.completed_at && ` · ${t('Completed')} ${formatDateLocale(new Date(jobSession.completed_at), 'MMM d h:mm a')}`}
             </p>
           </div>
 

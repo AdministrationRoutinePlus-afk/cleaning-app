@@ -352,22 +352,24 @@ export default function EmployerSchedulePage() {
     return applyFilters(getJobsForDay(day))
   }, [getJobsForDay, applyFilters])
 
-  // Summary stats for the week
+  // Summary stats for the week (deduplicated — a multi-day job counts once)
   const weekStats = useMemo(() => {
-    let totalJobs = 0
-    let unclaimed = 0
-    let issues = 0
-    let inProgress = 0
+    const seenTotal = new Set<string>()
+    const seenUnclaimed = new Set<string>()
+    const seenIssues = new Set<string>()
+    const seenInProgress = new Set<string>()
 
     days.forEach(day => {
       const dayJobs = getFilteredJobsForDay(day)
-      totalJobs += dayJobs.length
-      unclaimed += dayJobs.filter(s => s.status === 'OFFERED').length
-      issues += dayJobs.filter(s => isJobMissedOrOverdue(s)).length
-      inProgress += dayJobs.filter(s => s.status === 'IN_PROGRESS').length
+      dayJobs.forEach(s => {
+        seenTotal.add(s.id)
+        if (s.status === 'OFFERED') seenUnclaimed.add(s.id)
+        if (isJobMissedOrOverdue(s)) seenIssues.add(s.id)
+        if (s.status === 'IN_PROGRESS') seenInProgress.add(s.id)
+      })
     })
 
-    return { totalJobs, unclaimed, issues, inProgress }
+    return { totalJobs: seenTotal.size, unclaimed: seenUnclaimed.size, issues: seenIssues.size, inProgress: seenInProgress.size }
   }, [days, getFilteredJobsForDay])
 
   // Generate month calendar grid (6 rows x 7 cols)
@@ -386,28 +388,30 @@ export default function EmployerSchedulePage() {
     return days
   }, [currentMonth])
 
-  // Month summary stats
+  // Month summary stats (deduplicated — a multi-day job counts once)
   const monthStats = useMemo(() => {
     if (viewMode !== 'month') return { totalJobs: 0, unclaimed: 0, issues: 0, inProgress: 0 }
 
     const monthStart = startOfMonth(currentMonth)
     const monthEnd = endOfMonth(currentMonth)
-    let totalJobs = 0
-    let unclaimed = 0
-    let issues = 0
-    let inProgress = 0
+    const seenTotal = new Set<string>()
+    const seenUnclaimed = new Set<string>()
+    const seenIssues = new Set<string>()
+    const seenInProgress = new Set<string>()
 
     let day = monthStart
     while (day <= monthEnd) {
       const dayJobs = getFilteredJobsForDay(day)
-      totalJobs += dayJobs.length
-      unclaimed += dayJobs.filter(s => s.status === 'OFFERED').length
-      issues += dayJobs.filter(s => isJobMissedOrOverdue(s)).length
-      inProgress += dayJobs.filter(s => s.status === 'IN_PROGRESS').length
+      dayJobs.forEach(s => {
+        seenTotal.add(s.id)
+        if (s.status === 'OFFERED') seenUnclaimed.add(s.id)
+        if (isJobMissedOrOverdue(s)) seenIssues.add(s.id)
+        if (s.status === 'IN_PROGRESS') seenInProgress.add(s.id)
+      })
       day = addDays(day, 1)
     }
 
-    return { totalJobs, unclaimed, issues, inProgress }
+    return { totalJobs: seenTotal.size, unclaimed: seenUnclaimed.size, issues: seenIssues.size, inProgress: seenInProgress.size }
   }, [currentMonth, viewMode, getFilteredJobsForDay])
 
   const activeStats = viewMode === 'week' ? weekStats : monthStats
