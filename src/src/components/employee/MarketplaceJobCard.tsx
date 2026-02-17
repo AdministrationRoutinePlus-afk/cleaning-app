@@ -79,12 +79,17 @@ export function MarketplaceJobCard({
     return `$${price.toFixed(0)}/hr`
   }
 
-  // Format time window
+  // Format time window with day names
   const formatTimeWindow = () => {
     const start = job_template.time_window_start
     const end = job_template.time_window_end
     if (!start && !end) return t('Flexible')
-    return `${start?.slice(0, 5) || '\u2014'} - ${end?.slice(0, 5) || '\u2014'}`
+    const dayMap: Record<string,string> = {'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'}
+    const startDay = job_template.window_start_day ? t(dayMap[job_template.window_start_day] || '') : ''
+    const endDay = job_template.window_end_day ? t(dayMap[job_template.window_end_day] || '') : ''
+    const startStr = `${startDay} ${start?.slice(0, 5) || ''}`.trim() || '\u2014'
+    const endStr = `${endDay} ${end?.slice(0, 5) || ''}`.trim() || '\u2014'
+    return `${startStr} - ${endStr}`
   }
 
   // Get customer name from the nested customer object

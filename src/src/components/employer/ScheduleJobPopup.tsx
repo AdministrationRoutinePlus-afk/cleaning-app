@@ -726,29 +726,18 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
                   </span>
                 </div>
               )}
-              {jobSession.scheduled_time && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-400 font-medium">{t('Time')}</span>
-                  <span className="text-white font-medium">{formatTime(jobSession.scheduled_time)}</span>
-                </div>
-              )}
               {(jobSession.job_template.time_window_start || jobSession.job_template.time_window_end) && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-blue-400 font-medium">{t('Time Window')}</span>
                   <span className="text-white font-medium">
-                    {jobSession.job_template.time_window_start && formatTime(jobSession.job_template.time_window_start)}
-                    {jobSession.job_template.time_window_start && jobSession.job_template.time_window_end && ' — '}
-                    {jobSession.job_template.time_window_end && formatTime(jobSession.job_template.time_window_end)}
-                  </span>
-                </div>
-              )}
-              {(jobSession.job_template.window_start_day || jobSession.job_template.window_end_day) && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-400 font-medium">{t('Day Window')}</span>
-                  <span className="text-white font-medium">
-                    {jobSession.job_template.window_start_day && t(({'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'} as Record<string,string>)[jobSession.job_template.window_start_day] || jobSession.job_template.window_start_day)}
-                    {jobSession.job_template.window_start_day && jobSession.job_template.window_end_day && ' — '}
-                    {jobSession.job_template.window_end_day && t(({'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'} as Record<string,string>)[jobSession.job_template.window_end_day] || jobSession.job_template.window_end_day)}
+                    {(() => {
+                      const dayMap: Record<string,string> = {'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'}
+                      const startDay = jobSession.job_template.window_start_day ? t(dayMap[jobSession.job_template.window_start_day] || '') : ''
+                      const endDay = jobSession.job_template.window_end_day ? t(dayMap[jobSession.job_template.window_end_day] || '') : ''
+                      const startTime = jobSession.job_template.time_window_start ? formatTime(jobSession.job_template.time_window_start) : ''
+                      const endTime = jobSession.job_template.time_window_end ? formatTime(jobSession.job_template.time_window_end) : ''
+                      return `${startDay} ${startTime} — ${endDay} ${endTime}`.trim()
+                    })()}
                   </span>
                 </div>
               )}

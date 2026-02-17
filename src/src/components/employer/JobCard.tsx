@@ -214,11 +214,21 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
               <p className="text-blue-400 text-[10px] uppercase font-bold mb-1">{t('Time Window')}</p>
               <div className="flex items-center justify-between">
                 <span className="text-white font-bold">
-                  {job.time_window_start ? job.time_window_start.substring(0, 5) : t('Not set')}
+                  {(() => {
+                    const dayMap: Record<string,string> = {'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'}
+                    const startDay = job.window_start_day ? t(dayMap[job.window_start_day] || '') : ''
+                    const startTime = job.time_window_start ? job.time_window_start.substring(0, 5) : ''
+                    return `${startDay} ${startTime}`.trim() || t('Not set')
+                  })()}
                 </span>
                 <span className="text-gray-500">&rarr;</span>
                 <span className="text-white font-bold">
-                  {job.time_window_end ? job.time_window_end.substring(0, 5) : t('Not set')}
+                  {(() => {
+                    const dayMap: Record<string,string> = {'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'}
+                    const endDay = job.window_end_day ? t(dayMap[job.window_end_day] || '') : ''
+                    const endTime = job.time_window_end ? job.time_window_end.substring(0, 5) : ''
+                    return `${endDay} ${endTime}`.trim() || t('Not set')
+                  })()}
                 </span>
               </div>
             </div>

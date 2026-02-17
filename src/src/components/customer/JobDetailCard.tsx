@@ -93,7 +93,12 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
                 <p className="text-gray-400 text-xs uppercase font-bold tracking-wide">{t('Time Window')}</p>
               </div>
               <p className="text-white font-bold text-lg">
-                {formatTime(jobTemplate.time_window_start)} - {formatTime(jobTemplate.time_window_end)}
+                {(() => {
+                  const dayMap: Record<string,string> = {'SUN':'Sunday','MON':'Monday','TUE':'Tuesday','WED':'Wednesday','THU':'Thursday','FRI':'Friday','SAT':'Saturday'}
+                  const startDay = jobTemplate.window_start_day ? t(dayMap[jobTemplate.window_start_day] || '') : ''
+                  const endDay = jobTemplate.window_end_day ? t(dayMap[jobTemplate.window_end_day] || '') : ''
+                  return `${startDay} ${formatTime(jobTemplate.time_window_start)} - ${endDay} ${formatTime(jobTemplate.time_window_end)}`.trim()
+                })()}
               </p>
             </div>
           )}
