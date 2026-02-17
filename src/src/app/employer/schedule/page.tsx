@@ -458,10 +458,23 @@ export default function EmployerSchedulePage() {
     return result
   }, [filterEmployee, filterCustomer, filterJobTemplate, filterStatus])
 
-  // Filtered job count for a given day (used for calendar indicators)
+  // Filtered job count for a given day (used for computing stats — no statsFilter)
   const getFilteredJobsForDay = useCallback((day: Date) => {
     return applyFilters(getJobsForDay(day))
   }, [getJobsForDay, applyFilters])
+
+  // Display jobs for a day: regular filters + statsFilter (used by calendar cells)
+  const getDisplayJobsForDay = useCallback((day: Date) => {
+    let jobs = applyFilters(getJobsForDay(day))
+    if (statsFilter === 'unclaimed') {
+      jobs = jobs.filter(s => s.status === 'OFFERED')
+    } else if (statsFilter === 'active') {
+      jobs = jobs.filter(s => s.status === 'IN_PROGRESS')
+    } else if (statsFilter === 'issues') {
+      jobs = jobs.filter(s => isJobMissedOrOverdue(s))
+    }
+    return jobs
+  }, [getJobsForDay, applyFilters, statsFilter])
 
   // Summary stats for the week (deduplicated — a multi-day job counts once)
   const weekStats = useMemo(() => {
@@ -796,31 +809,38 @@ export default function EmployerSchedulePage() {
 
         {/* Slim Stats Bar + Filter Toggle */}
         <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-3 text-sm flex-wrap">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <button
+              onClick={() => setStatsFilter(null)}
+              className={`font-semibold transition-all px-1.5 py-0.5 rounded ${!statsFilter ? 'text-white bg-white/15' : 'text-gray-400 hover:text-gray-300'}`}
+            >
+              {t('All')}
+            </button>
+            <span className="text-gray-600">·</span>
             <button
               onClick={() => setStatsFilter(statsFilter === 'all' ? null : 'all')}
-              className={`font-semibold transition-all ${statsFilter === 'all' ? 'text-blue-300 underline underline-offset-2' : 'text-blue-400 hover:text-blue-300'}`}
+              className={`font-semibold transition-all px-1.5 py-0.5 rounded ${statsFilter === 'all' ? 'text-blue-300 bg-blue-500/20' : 'text-blue-400 hover:text-blue-300'}`}
             >
               {activeStats.totalJobs} {t('jobs')}
             </button>
             <span className="text-gray-600">·</span>
             <button
               onClick={() => setStatsFilter(statsFilter === 'unclaimed' ? null : 'unclaimed')}
-              className={`transition-all ${statsFilter === 'unclaimed' ? 'text-orange-300 underline underline-offset-2 font-semibold' : activeStats.unclaimed > 0 ? 'text-orange-400 hover:text-orange-300' : 'text-gray-500'}`}
+              className={`transition-all px-1.5 py-0.5 rounded ${statsFilter === 'unclaimed' ? 'text-orange-300 bg-orange-500/20 font-semibold' : activeStats.unclaimed > 0 ? 'text-orange-400 hover:text-orange-300' : 'text-gray-500'}`}
             >
               {activeStats.unclaimed} {t('unclaimed')}
             </button>
             <span className="text-gray-600">·</span>
             <button
               onClick={() => setStatsFilter(statsFilter === 'active' ? null : 'active')}
-              className={`transition-all ${statsFilter === 'active' ? 'text-purple-300 underline underline-offset-2 font-semibold' : activeStats.inProgress > 0 ? 'text-purple-400 hover:text-purple-300' : 'text-gray-500'}`}
+              className={`transition-all px-1.5 py-0.5 rounded ${statsFilter === 'active' ? 'text-purple-300 bg-purple-500/20 font-semibold' : activeStats.inProgress > 0 ? 'text-purple-400 hover:text-purple-300' : 'text-gray-500'}`}
             >
               {activeStats.inProgress} {t('Active').toLowerCase()}
             </button>
             <span className="text-gray-600">·</span>
             <button
               onClick={() => setStatsFilter(statsFilter === 'issues' ? null : 'issues')}
-              className={`transition-all ${statsFilter === 'issues' ? 'text-red-300 underline underline-offset-2 font-semibold' : activeStats.issues > 0 ? 'text-red-400 hover:text-red-300' : 'text-gray-500'}`}
+              className={`transition-all px-1.5 py-0.5 rounded ${statsFilter === 'issues' ? 'text-red-300 bg-red-500/20 font-semibold' : activeStats.issues > 0 ? 'text-red-400 hover:text-red-300' : 'text-gray-500'}`}
             >
               {activeStats.issues} {activeStats.issues !== 1 ? t('Issues').toLowerCase() : t('Issue').toLowerCase()}
             </button>
@@ -991,7 +1011,7 @@ export default function EmployerSchedulePage() {
           <div className="p-4">
             <div className="grid grid-cols-7 gap-2">
               {days.map((day, index) => {
-                const dayJobs = getFilteredJobsForDay(day)
+                const dayJobs = getDisplayJobsForDay(day)
                 const isToday = isSameDay(day, new Date())
                 const hasJobs = dayJobs.length > 0
                 const isSelected = selectedDayIndex === index
@@ -1119,7 +1139,7 @@ export default function EmployerSchedulePage() {
             {/* Calendar days */}
             <div className="grid grid-cols-7 gap-1">
               {monthDays.map((day) => {
-                const dayJobs = getFilteredJobsForDay(day)
+                const dayJobs = getDisplayJobsForDay(day)
                 const isToday = isSameDay(day, new Date())
                 const isInMonth = isSameMonth(day, currentMonth)
                 const isSelected = isSameDay(day, monthSelectedDay)
