@@ -135,6 +135,7 @@ export const fr: Record<string, string> = {
   'Jobs': 'Fiches',
   'Users': 'Utilisateurs',
   'Schedule': 'Horaire',
+  'Schedule Planner': 'Planificateur',
   'Messages': 'Messages',
   'Settings': 'Param\u00e8tres',
   'Marketplace': 'March\u00e9',

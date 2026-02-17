@@ -838,37 +838,32 @@ export default function EmployerSchedulePage() {
               {activeStats.issues} {activeStats.issues !== 1 ? t('Issues').toLowerCase() : t('Issue').toLowerCase()}
             </button>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => {
-                const next = !showAvailabilityTab
-                setShowAvailabilityTab(next)
-                if (next) setDayPanelTab('availability')
-              }}
-              className={`p-2 rounded-lg border transition-all ${
-                showAvailabilityTab ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
-              }`}
-              title={t('Availability')}
-            >
-              <Users className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`relative p-2 rounded-lg border transition-all ${
-                showFilters ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <Filter className="w-4 h-4" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          </div>
         </div>
 
-        {/* Collapsible Filter Bar */}
+        {/* Schedule Planner Button */}
+        <button
+          onClick={() => {
+            const next = !showFilters
+            setShowFilters(next)
+            setShowAvailabilityTab(next)
+            if (next) setDayPanelTab('availability')
+          }}
+          className={`w-full mb-3 py-2.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${
+            showFilters
+              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white border-purple-500/50 shadow-lg shadow-purple-500/20'
+              : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          {t('Schedule Planner')}
+          {activeFilterCount > 0 && (
+            <span className="ml-1 w-5 h-5 rounded-full bg-white/20 text-white text-[10px] font-bold flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        {/* Planner Filter Panel */}
         {showFilters && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4 space-y-3">
             {/* Two-column layout: Employee | Customer+Job */}
