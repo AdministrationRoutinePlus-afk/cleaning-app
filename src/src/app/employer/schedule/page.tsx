@@ -1060,10 +1060,14 @@ export default function EmployerSchedulePage() {
                       {format(day, 'd')}
                     </span>
                     {hasJobs && (
-                      <span className={`text-[10px] rounded-full px-1.5 mt-0.5 ${
-                        isSelected ? 'bg-white/20' : 'bg-white/15'
+                      <span className={`text-[10px] font-semibold rounded-full px-1.5 mt-0.5 ${
+                        statsFilter === 'unclaimed' ? 'bg-orange-500/30 text-orange-300'
+                        : statsFilter === 'active' ? 'bg-purple-500/30 text-purple-300'
+                        : statsFilter === 'issues' ? 'bg-red-500/30 text-red-300'
+                        : statsFilter === 'all' ? 'bg-blue-500/30 text-blue-300'
+                        : isSelected ? 'bg-white/20' : 'bg-white/15'
                       }`}>
-                        {activeCount}
+                        {dayJobs.length}
                       </span>
                     )}
 
@@ -1189,27 +1193,38 @@ export default function EmployerSchedulePage() {
                       {format(day, 'd')}
                     </span>
 
-                    {/* Status dots */}
+                    {/* Status dots / count badge */}
                     {dayJobs.length > 0 && isInMonth && !isMatch && (
-                      <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
-                        {visibleDots.map(({ status, count }) => {
-                          const config = STATUS_STYLES[status] || STATUS_STYLES.OFFERED
-                          return (
-                            <div
-                              key={status}
-                              className={`w-2 h-2 rounded-full ${config.dot} ${
-                                status === 'IN_PROGRESS' ? 'animate-pulse' : ''
-                              }`}
-                              title={`${count} ${t(config.labelKey)}`}
-                            />
-                          )
-                        })}
-                        {extraCount > 0 && (
-                          <span className={`text-[8px] leading-none ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>
-                            +{extraCount}
-                          </span>
-                        )}
-                      </div>
+                      statsFilter && statsFilter !== 'all' ? (
+                        <span className={`text-[9px] font-semibold rounded-full px-1.5 mt-0.5 ${
+                          statsFilter === 'unclaimed' ? 'bg-orange-500/30 text-orange-300'
+                          : statsFilter === 'active' ? 'bg-purple-500/30 text-purple-300'
+                          : statsFilter === 'issues' ? 'bg-red-500/30 text-red-300'
+                          : 'bg-blue-500/30 text-blue-300'
+                        }`}>
+                          {dayJobs.length}
+                        </span>
+                      ) : (
+                        <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
+                          {visibleDots.map(({ status, count }) => {
+                            const config = STATUS_STYLES[status] || STATUS_STYLES.OFFERED
+                            return (
+                              <div
+                                key={status}
+                                className={`w-2 h-2 rounded-full ${config.dot} ${
+                                  status === 'IN_PROGRESS' ? 'animate-pulse' : ''
+                                }`}
+                                title={`${count} ${t(config.labelKey)}`}
+                              />
+                            )
+                          })}
+                          {extraCount > 0 && (
+                            <span className={`text-[8px] leading-none ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>
+                              +{extraCount}
+                            </span>
+                          )}
+                        </div>
+                      )
                     )}
 
                     {/* Match checkmark */}
