@@ -89,7 +89,7 @@ export default function EmployerSchedulePage() {
   const [filterOptions, setFilterOptions] = useState<{
     employees: { id: string; name: string }[]
     customers: { id: string; name: string }[]
-    templates: { id: string; name: string }[]
+    templates: { id: string; name: string; customer_id: string | null }[]
   }>({ employees: [], customers: [], templates: [] })
 
   // Training lookup: key = `${employee_id}:${job_template_id}`
@@ -240,7 +240,7 @@ export default function EmployerSchedulePage() {
           .order('full_name'),
         supabase
           .from('job_templates')
-          .select('id, title, job_code')
+          .select('id, title, job_code, customer_id')
           .eq('created_by', employer.id)
           .order('title'),
       ])
@@ -249,7 +249,7 @@ export default function EmployerSchedulePage() {
         setFilterOptions({
           employees: (employeesRes.data || []).map(e => ({ id: e.id, name: e.full_name })),
           customers: (customersRes.data || []).map(c => ({ id: c.id, name: c.full_name })),
-          templates: (templatesRes.data || []).map(t => ({ id: t.id, name: t.title || t.job_code })),
+          templates: (templatesRes.data || []).map(t => ({ id: t.id, name: t.title || t.job_code, customer_id: t.customer_id })),
         })
       }
     } catch (error) {
@@ -348,12 +348,12 @@ export default function EmployerSchedulePage() {
     }
   }, [supabase, viewMode, startDate, currentMonth])
 
-  // Fetch availability when toggled on or date range changes
+  // Fetch availability when toggled on, employee filter set, or date range changes
   useEffect(() => {
-    if (showAvailabilityTab) {
+    if (showAvailabilityTab || filterEmployee) {
       fetchAvailabilityData()
     }
-  }, [showAvailabilityTab, fetchAvailabilityData])
+  }, [showAvailabilityTab, filterEmployee, fetchAvailabilityData])
 
   // Reset dayPanelTab when availability is turned off
   useEffect(() => {
@@ -610,6 +610,34 @@ export default function EmployerSchedulePage() {
     return map
   }, [jobSessions])
 
+  // Get availability for a specific employee on a given day (used for calendar indicators)
+  const getEmployeeAvailForDay = useCallback((day: Date, empId: string): { isAvailable: boolean; startTime: string | null; endTime: string | null } | null => {
+    const emp = availEmployees.find(e => e.id === empId)
+    if (!emp || !emp.availability_mode) return null
+
+    if (emp.availability_mode === 'fixed') {
+      const dayOfWeek = getDay(day)
+      const records = weeklyAvailMap.get(empId) || []
+      const match = records.find(r => r.day_of_week === dayOfWeek)
+      if (match) return { isAvailable: match.is_available, startTime: match.start_time, endTime: match.end_time }
+    } else if (emp.availability_mode === 'custom') {
+      const dateStr = format(day, 'yyyy-MM-dd')
+      const records = specificAvailMap.get(empId) || []
+      const match = records.find(r => r.date === dateStr)
+      if (match) return { isAvailable: match.is_available, startTime: match.start_time, endTime: match.end_time }
+    }
+    return null
+  }, [availEmployees, weeklyAvailMap, specificAvailMap])
+
+  // Whether to show availability indicators on calendar cells
+  const showCalendarAvail = !!(filterEmployee && (showAvailabilityTab || filterEmployee))
+
+  // Filtered templates based on selected customer
+  const filteredTemplateOptions = useMemo(() => {
+    if (!filterCustomer) return filterOptions.templates
+    return filterOptions.templates.filter(t => t.customer_id === filterCustomer)
+  }, [filterOptions.templates, filterCustomer])
+
   // Compute availability for selected day
   const availabilityForSelectedDay = useMemo(() => {
     if (!showAvailabilityTab) return []
@@ -827,7 +855,7 @@ export default function EmployerSchedulePage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterCustomer || '__all__'} onValueChange={v => setFilterCustomer(v === '__all__' ? '' : v)}>
+              <Select value={filterCustomer || '__all__'} onValueChange={v => { setFilterCustomer(v === '__all__' ? '' : v); setFilterJobTemplate('') }}>
                 <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
                   <SelectValue placeholder={t('Customer')} />
                 </SelectTrigger>
@@ -844,7 +872,7 @@ export default function EmployerSchedulePage() {
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-white/20">
                   <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Jobs')}</SelectItem>
-                  {filterOptions.templates.map(tmpl => (
+                  {filteredTemplateOptions.map(tmpl => (
                     <SelectItem key={tmpl.id} value={tmpl.id} className="text-white hover:bg-white/10">{tmpl.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -917,11 +945,14 @@ export default function EmployerSchedulePage() {
                 const hasIssues = dayJobs.some(s => isJobMissedOrOverdue(s))
                 const activeCount = dayJobs.filter(s => !['COMPLETED', 'EVALUATED', 'CANCELLED'].includes(s.status)).length
 
+                // Employee availability for this day
+                const empAvail = showCalendarAvail ? getEmployeeAvailForDay(day, filterEmployee) : null
+
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDayIndex(index)}
-                    className={`flex flex-col items-center justify-center rounded-xl py-2 transition-all relative ${
+                    className={`flex flex-col items-center justify-center rounded-xl py-2 transition-all relative overflow-hidden ${
                       hasJobs
                         ? isSelected
                           ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/40'
@@ -951,6 +982,17 @@ export default function EmployerSchedulePage() {
                       }`}>
                         {activeCount}
                       </span>
+                    )}
+
+                    {/* Availability bar at bottom */}
+                    {showCalendarAvail && (
+                      <div className={`absolute bottom-0 left-0 right-0 h-1.5 ${
+                        empAvail?.isAvailable === true
+                          ? 'bg-green-500'
+                          : empAvail?.isAvailable === false
+                            ? 'bg-red-500'
+                            : 'bg-gray-600'
+                      }`} />
                     )}
                   </button>
                 )
@@ -1025,11 +1067,14 @@ export default function EmployerSchedulePage() {
                 const visibleDots = statusCounts.slice(0, maxDots)
                 const extraCount = dayJobs.length - visibleDots.reduce((sum, d) => sum + d.count, 0)
 
+                // Employee availability for this day
+                const empAvail = showCalendarAvail && isInMonth ? getEmployeeAvailForDay(day, filterEmployee) : null
+
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => setMonthSelectedDay(day)}
-                    className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[52px] transition-all relative ${
+                    className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[52px] transition-all relative overflow-hidden ${
                       isSelected
                         ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
                         : isInMonth
@@ -1065,6 +1110,17 @@ export default function EmployerSchedulePage() {
                         )}
                       </div>
                     )}
+
+                    {/* Availability bar at bottom */}
+                    {showCalendarAvail && isInMonth && (
+                      <div className={`absolute bottom-0 left-0 right-0 h-1.5 ${
+                        empAvail?.isAvailable === true
+                          ? 'bg-green-500'
+                          : empAvail?.isAvailable === false
+                            ? 'bg-red-500'
+                            : 'bg-gray-600'
+                      }`} />
+                    )}
                   </button>
                 )
               })}
@@ -1090,6 +1146,22 @@ export default function EmployerSchedulePage() {
                     {selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')}
                   </p>
                 )}
+                {showCalendarAvail && (() => {
+                  const avail = getEmployeeAvailForDay(selectedDay, filterEmployee)
+                  const empName = filterOptions.employees.find(e => e.id === filterEmployee)?.name
+                  if (!empName) return null
+                  return (
+                    <p className={`text-xs mt-0.5 ${
+                      avail?.isAvailable === true ? 'text-green-400' : avail?.isAvailable === false ? 'text-red-400' : 'text-gray-500'
+                    }`}>
+                      {empName}: {avail?.isAvailable === true
+                        ? `${t('Available')}${avail.startTime ? ` ${avail.startTime.substring(0, 5)}${avail.endTime ? `-${avail.endTime.substring(0, 5)}` : ''}` : ''}`
+                        : avail?.isAvailable === false
+                          ? t('Unavailable')
+                          : t('Not set')}
+                    </p>
+                  )
+                })()}
               </div>
               {dayPanelTab === 'jobs' && (
                 <button
