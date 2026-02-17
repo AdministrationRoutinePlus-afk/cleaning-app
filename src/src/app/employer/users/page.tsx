@@ -823,7 +823,7 @@ export default function EmployerUsersPage() {
             {customers.length === 0 ? (
               <p className="text-gray-500 text-center py-8">{t('No customers yet')}</p>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
                 {customers.map((customer) => (
                   <CustomerCard
                     key={customer.id}
