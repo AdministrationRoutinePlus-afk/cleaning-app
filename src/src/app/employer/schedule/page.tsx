@@ -630,7 +630,22 @@ export default function EmployerSchedulePage() {
   }, [availEmployees, weeklyAvailMap, specificAvailMap])
 
   // Whether to show availability indicators on calendar cells
-  const showCalendarAvail = !!(filterEmployee && (showAvailabilityTab || filterEmployee))
+  const showCalendarAvail = !!filterEmployee
+
+  // Whether to show job schedule indicators on calendar cells (customer or job selected)
+  const showCalendarJobs = !!(filterCustomer || filterJobTemplate)
+
+  // Get job sessions for a day matching customer/template filters (ignores employee filter)
+  const getJobScheduleForDay = useCallback((day: Date) => {
+    let sessions = getJobsForDay(day)
+    if (filterCustomer) {
+      sessions = sessions.filter(s => s.job_template?.customer?.id === filterCustomer)
+    }
+    if (filterJobTemplate) {
+      sessions = sessions.filter(s => s.job_template_id === filterJobTemplate)
+    }
+    return sessions
+  }, [getJobsForDay, filterCustomer, filterJobTemplate])
 
   // Filtered templates based on selected customer
   const filteredTemplateOptions = useMemo(() => {
@@ -842,58 +857,97 @@ export default function EmployerSchedulePage() {
 
         {/* Collapsible Filter Bar */}
         {showFilters && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={filterEmployee || '__all__'} onValueChange={v => setFilterEmployee(v === '__all__' ? '' : v)}>
-                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
-                  <SelectValue placeholder={t('Employee')} />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-white/20">
-                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Employees')}</SelectItem>
-                  {filterOptions.employees.map(e => (
-                    <SelectItem key={e.id} value={e.id} className="text-white hover:bg-white/10">{e.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterCustomer || '__all__'} onValueChange={v => { setFilterCustomer(v === '__all__' ? '' : v); setFilterJobTemplate('') }}>
-                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
-                  <SelectValue placeholder={t('Customer')} />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-white/20">
-                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Customers')}</SelectItem>
-                  {filterOptions.customers.map(c => (
-                    <SelectItem key={c.id} value={c.id} className="text-white hover:bg-white/10">{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterJobTemplate || '__all__'} onValueChange={v => setFilterJobTemplate(v === '__all__' ? '' : v)}>
-                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
-                  <SelectValue placeholder={t('Jobs')} />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-white/20">
-                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Jobs')}</SelectItem>
-                  {filteredTemplateOptions.map(tmpl => (
-                    <SelectItem key={tmpl.id} value={tmpl.id} className="text-white hover:bg-white/10">{tmpl.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus || '__all__'} onValueChange={v => setFilterStatus(v === '__all__' ? '' : v)}>
-                <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
-                  <SelectValue placeholder={t('Status')} />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-white/20">
-                  <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Statuses')}</SelectItem>
-                  <SelectItem value="OFFERED" className="text-white hover:bg-white/10">{t('Open')}</SelectItem>
-                  <SelectItem value="CLAIMED" className="text-white hover:bg-white/10">{t('Claimed')}</SelectItem>
-                  <SelectItem value="APPROVED" className="text-white hover:bg-white/10">{t('Approved')}</SelectItem>
-                  <SelectItem value="IN_PROGRESS" className="text-white hover:bg-white/10">{t('In Progress')}</SelectItem>
-                  <SelectItem value="COMPLETED" className="text-white hover:bg-white/10">{t('Completed')}</SelectItem>
-                  <SelectItem value="EVALUATED" className="text-white hover:bg-white/10">{t('Evaluated')}</SelectItem>
-                  <SelectItem value="CANCELLED" className="text-white hover:bg-white/10">{t('Cancelled')}</SelectItem>
-                  <SelectItem value="MISSED" className="text-white hover:bg-white/10">{t('Missed')}</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-4 space-y-3">
+            {/* Two-column layout: Employee | Customer+Job */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Left column: Employee */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">{t('Employee')}</span>
+                <Select value={filterEmployee || '__all__'} onValueChange={v => setFilterEmployee(v === '__all__' ? '' : v)}>
+                  <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                    <SelectValue placeholder={t('Employee')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-white/20">
+                    <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Employees')}</SelectItem>
+                    {filterOptions.employees.map(e => (
+                      <SelectItem key={e.id} value={e.id} className="text-white hover:bg-white/10">{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Right column: Customer + Job */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">{t('Customer')}</span>
+                <Select value={filterCustomer || '__all__'} onValueChange={v => { setFilterCustomer(v === '__all__' ? '' : v); setFilterJobTemplate('') }}>
+                  <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                    <SelectValue placeholder={t('Customer')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-white/20">
+                    <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Customers')}</SelectItem>
+                    {filterOptions.customers.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-white hover:bg-white/10">{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterJobTemplate || '__all__'} onValueChange={v => setFilterJobTemplate(v === '__all__' ? '' : v)}>
+                  <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                    <SelectValue placeholder={t('Jobs')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-white/20">
+                    <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Jobs')}</SelectItem>
+                    {filteredTemplateOptions.map(tmpl => (
+                      <SelectItem key={tmpl.id} value={tmpl.id} className="text-white hover:bg-white/10">{tmpl.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Status filter - full width below */}
+            <Select value={filterStatus || '__all__'} onValueChange={v => setFilterStatus(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white w-full">
+                <SelectValue placeholder={t('Status')} />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-white/20">
+                <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Statuses')}</SelectItem>
+                <SelectItem value="OFFERED" className="text-white hover:bg-white/10">{t('Open')}</SelectItem>
+                <SelectItem value="CLAIMED" className="text-white hover:bg-white/10">{t('Claimed')}</SelectItem>
+                <SelectItem value="APPROVED" className="text-white hover:bg-white/10">{t('Approved')}</SelectItem>
+                <SelectItem value="IN_PROGRESS" className="text-white hover:bg-white/10">{t('In Progress')}</SelectItem>
+                <SelectItem value="COMPLETED" className="text-white hover:bg-white/10">{t('Completed')}</SelectItem>
+                <SelectItem value="EVALUATED" className="text-white hover:bg-white/10">{t('Evaluated')}</SelectItem>
+                <SelectItem value="CANCELLED" className="text-white hover:bg-white/10">{t('Cancelled')}</SelectItem>
+                <SelectItem value="MISSED" className="text-white hover:bg-white/10">{t('Missed')}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Legend when both sides active */}
+            {(showCalendarAvail || showCalendarJobs) && (
+              <div className="flex items-center gap-3 text-[10px] text-gray-400 pt-1">
+                {showCalendarAvail && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-2 rounded-sm bg-green-500" />
+                    <span>{t('Available')}</span>
+                    <div className="w-3 h-2 rounded-sm bg-red-500 ml-1" />
+                    <span>{t('Unavailable')}</span>
+                  </div>
+                )}
+                {showCalendarJobs && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-2 rounded-sm bg-blue-500" />
+                    <span>{t('Jobs')}</span>
+                  </div>
+                )}
+                {showCalendarAvail && showCalendarJobs && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-sm bg-green-500/30 border border-green-500" />
+                    <span>Match</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {hasActiveFilters && (
               <button onClick={clearFilters} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
                 <X className="h-3 w-3" /> {t('Clear filters')}
@@ -947,19 +1001,28 @@ export default function EmployerSchedulePage() {
 
                 // Employee availability for this day
                 const empAvail = showCalendarAvail ? getEmployeeAvailForDay(day, filterEmployee) : null
+                // Job schedule for this day (customer/template filter, ignores employee)
+                const jobSchedule = showCalendarJobs ? getJobScheduleForDay(day) : []
+                const hasScheduledJob = jobSchedule.length > 0
+                // Match: employee available AND job scheduled
+                const isMatch = showCalendarAvail && showCalendarJobs && empAvail?.isAvailable === true && hasScheduledJob
 
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDayIndex(index)}
                     className={`flex flex-col items-center justify-center rounded-xl py-2 transition-all relative overflow-hidden ${
-                      hasJobs
+                      isMatch
                         ? isSelected
-                          ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/40'
-                          : 'bg-white/10 text-gray-300 border-2 border-white/15 hover:border-white/30'
-                        : isSelected
-                          ? 'bg-white/15 text-white border-2 border-white/30'
-                          : 'bg-white/5 text-gray-500 border-2 border-white/10 hover:border-white/20'
+                          ? 'bg-green-500/25 text-green-200 border-2 border-green-500/60'
+                          : 'bg-green-500/15 text-green-300 border-2 border-green-500/40 hover:border-green-400/60'
+                        : hasJobs
+                          ? isSelected
+                            ? 'bg-blue-500/20 text-blue-300 border-2 border-blue-500/40'
+                            : 'bg-white/10 text-gray-300 border-2 border-white/15 hover:border-white/30'
+                          : isSelected
+                            ? 'bg-white/15 text-white border-2 border-white/30'
+                            : 'bg-white/5 text-gray-500 border-2 border-white/10 hover:border-white/20'
                     } ${isToday ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900' : ''}`}
                   >
                     {/* Urgency dot indicator */}
@@ -970,10 +1033,10 @@ export default function EmployerSchedulePage() {
                       <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-orange-500 rounded-full" />
                     )}
 
-                    <span className={`text-[10px] font-medium ${hasJobs ? '' : 'text-gray-500'}`}>
+                    <span className={`text-[10px] font-medium ${hasJobs || isMatch ? '' : 'text-gray-500'}`}>
                       {format(day, 'EEE')}
                     </span>
-                    <span className={`text-lg font-bold ${hasJobs ? '' : 'text-gray-600'}`}>
+                    <span className={`text-lg font-bold ${hasJobs || isMatch ? '' : 'text-gray-600'}`}>
                       {format(day, 'd')}
                     </span>
                     {hasJobs && (
@@ -984,15 +1047,24 @@ export default function EmployerSchedulePage() {
                       </span>
                     )}
 
-                    {/* Availability bar at bottom */}
-                    {showCalendarAvail && (
-                      <div className={`absolute bottom-0 left-0 right-0 h-1.5 ${
-                        empAvail?.isAvailable === true
-                          ? 'bg-green-500'
-                          : empAvail?.isAvailable === false
-                            ? 'bg-red-500'
-                            : 'bg-gray-600'
-                      }`} />
+                    {/* Split availability/job bars at bottom */}
+                    {(showCalendarAvail || showCalendarJobs) && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1.5 flex">
+                        {showCalendarAvail && (
+                          <div className={`${showCalendarJobs ? 'w-1/2' : 'w-full'} ${
+                            empAvail?.isAvailable === true
+                              ? 'bg-green-500'
+                              : empAvail?.isAvailable === false
+                                ? 'bg-red-500'
+                                : 'bg-gray-600'
+                          }`} />
+                        )}
+                        {showCalendarJobs && (
+                          <div className={`${showCalendarAvail ? 'w-1/2' : 'w-full'} ${
+                            hasScheduledJob ? 'bg-blue-500' : 'bg-transparent'
+                          }`} />
+                        )}
+                      </div>
                     )}
                   </button>
                 )
@@ -1069,27 +1141,36 @@ export default function EmployerSchedulePage() {
 
                 // Employee availability for this day
                 const empAvail = showCalendarAvail && isInMonth ? getEmployeeAvailForDay(day, filterEmployee) : null
+                // Job schedule for this day (customer/template filter, ignores employee)
+                const jobSchedule = showCalendarJobs && isInMonth ? getJobScheduleForDay(day) : []
+                const hasScheduledJob = jobSchedule.length > 0
+                // Match: employee available AND job scheduled
+                const isMatch = showCalendarAvail && showCalendarJobs && isInMonth && empAvail?.isAvailable === true && hasScheduledJob
 
                 return (
                   <button
                     key={day.toISOString()}
                     onClick={() => setMonthSelectedDay(day)}
                     className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[52px] transition-all relative overflow-hidden ${
-                      isSelected
-                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                        : isInMonth
-                          ? 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:border-white/20'
-                          : 'text-gray-700 border border-transparent'
+                      isMatch
+                        ? isSelected
+                          ? 'bg-green-500/25 text-green-200 border border-green-500/60'
+                          : 'bg-green-500/15 text-green-300 border border-green-500/40 hover:border-green-400/60'
+                        : isSelected
+                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                          : isInMonth
+                            ? 'bg-white/5 text-gray-300 border border-white/5 hover:bg-white/10 hover:border-white/20'
+                            : 'text-gray-700 border border-transparent'
                     } ${isToday ? 'ring-2 ring-blue-500 ring-offset-1 ring-offset-gray-900' : ''}`}
                   >
                     <span className={`text-xs font-semibold ${
-                      isSelected ? 'text-white' : isInMonth ? '' : 'text-gray-700'
+                      isMatch ? 'text-green-200' : isSelected ? 'text-white' : isInMonth ? '' : 'text-gray-700'
                     }`}>
                       {format(day, 'd')}
                     </span>
 
                     {/* Status dots */}
-                    {dayJobs.length > 0 && isInMonth && (
+                    {dayJobs.length > 0 && isInMonth && !isMatch && (
                       <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
                         {visibleDots.map(({ status, count }) => {
                           const config = STATUS_STYLES[status] || STATUS_STYLES.OFFERED
@@ -1111,15 +1192,29 @@ export default function EmployerSchedulePage() {
                       </div>
                     )}
 
-                    {/* Availability bar at bottom */}
-                    {showCalendarAvail && isInMonth && (
-                      <div className={`absolute bottom-0 left-0 right-0 h-1.5 ${
-                        empAvail?.isAvailable === true
-                          ? 'bg-green-500'
-                          : empAvail?.isAvailable === false
-                            ? 'bg-red-500'
-                            : 'bg-gray-600'
-                      }`} />
+                    {/* Match checkmark */}
+                    {isMatch && (
+                      <span className="text-green-300 text-sm font-bold mt-0.5">✓</span>
+                    )}
+
+                    {/* Split availability/job bars at bottom */}
+                    {(showCalendarAvail || showCalendarJobs) && isInMonth && !isMatch && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1.5 flex">
+                        {showCalendarAvail && (
+                          <div className={`${showCalendarJobs ? 'w-1/2' : 'w-full'} ${
+                            empAvail?.isAvailable === true
+                              ? 'bg-green-500'
+                              : empAvail?.isAvailable === false
+                                ? 'bg-red-500'
+                                : 'bg-gray-600'
+                          }`} />
+                        )}
+                        {showCalendarJobs && (
+                          <div className={`${showCalendarAvail ? 'w-1/2' : 'w-full'} ${
+                            hasScheduledJob ? 'bg-blue-500' : 'bg-transparent'
+                          }`} />
+                        )}
+                      </div>
                     )}
                   </button>
                 )
@@ -1146,20 +1241,35 @@ export default function EmployerSchedulePage() {
                     {selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')}
                   </p>
                 )}
-                {showCalendarAvail && (() => {
-                  const avail = getEmployeeAvailForDay(selectedDay, filterEmployee)
-                  const empName = filterOptions.employees.find(e => e.id === filterEmployee)?.name
-                  if (!empName) return null
+                {(showCalendarAvail || showCalendarJobs) && (() => {
+                  const avail = showCalendarAvail ? getEmployeeAvailForDay(selectedDay, filterEmployee) : null
+                  const empName = showCalendarAvail ? filterOptions.employees.find(e => e.id === filterEmployee)?.name : null
+                  const jobSchedule = showCalendarJobs ? getJobScheduleForDay(selectedDay) : []
+                  const hasJob = jobSchedule.length > 0
+                  const isMatch = avail?.isAvailable === true && hasJob
+
                   return (
-                    <p className={`text-xs mt-0.5 ${
-                      avail?.isAvailable === true ? 'text-green-400' : avail?.isAvailable === false ? 'text-red-400' : 'text-gray-500'
-                    }`}>
-                      {empName}: {avail?.isAvailable === true
-                        ? `${t('Available')}${avail.startTime ? ` ${avail.startTime.substring(0, 5)}${avail.endTime ? `-${avail.endTime.substring(0, 5)}` : ''}` : ''}`
-                        : avail?.isAvailable === false
-                          ? t('Unavailable')
-                          : t('Not set')}
-                    </p>
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      {empName && (
+                        <p className={`text-xs ${
+                          avail?.isAvailable === true ? 'text-green-400' : avail?.isAvailable === false ? 'text-red-400' : 'text-gray-500'
+                        }`}>
+                          {empName}: {avail?.isAvailable === true
+                            ? `${t('Available')}${avail.startTime ? ` ${avail.startTime.substring(0, 5)}${avail.endTime ? `-${avail.endTime.substring(0, 5)}` : ''}` : ''}`
+                            : avail?.isAvailable === false
+                              ? t('Unavailable')
+                              : t('Not set')}
+                        </p>
+                      )}
+                      {showCalendarJobs && (
+                        <p className={`text-xs ${hasJob ? 'text-blue-400' : 'text-gray-500'}`}>
+                          {hasJob ? `${jobSchedule.length} ${jobSchedule.length !== 1 ? t('jobs') : t('job')} ${t('scheduled')}` : t('No jobs scheduled')}
+                        </p>
+                      )}
+                      {isMatch && (
+                        <p className="text-xs text-green-400 font-semibold">✓ Match</p>
+                      )}
+                    </div>
                   )
                 })()}
               </div>
