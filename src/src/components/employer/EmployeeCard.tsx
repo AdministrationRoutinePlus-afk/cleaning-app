@@ -8,7 +8,7 @@ import { useState } from 'react'
 import type { Employee, EmployeeWeeklyAvailability } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon, Clock } from 'lucide-react'
+import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon, Clock, ChevronDown } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
@@ -66,6 +66,7 @@ export function EmployeeCard({
   const { t } = useTranslation()
   const { formatDate: formatDateLocale } = useDateFormat()
   const [activeTab, setActiveTab] = useState<string | null>(null)
+  const [showAvailability, setShowAvailability] = useState(false)
 
   const getStatusBadge = (status: Employee['status']) => {
     switch (status) {
@@ -196,14 +197,16 @@ export function EmployeeCard({
         </div>
 
         {/* Availability Section */}
-        <div className="bg-gray-800/60 rounded-xl border border-white/10 p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-purple-400" />
-              <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{t('Availability')}</span>
-            </div>
+        <div>
+          <button
+            onClick={() => setShowAvailability(!showAvailability)}
+            className="w-full bg-white/10 text-white border border-white/20 hover:bg-white/20 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAvailability ? 'rotate-180' : ''}`} />
+            <Clock className="w-4 h-4 text-purple-400" />
+            {t('Availability')}
             {employee.availability_mode && (
-              <Badge className={`text-[10px] ${
+              <Badge className={`text-[10px] ml-1 ${
                 employee.availability_mode === 'fixed'
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                   : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
@@ -211,37 +214,42 @@ export function EmployeeCard({
                 {employee.availability_mode === 'fixed' ? t('Fixed') : t('Custom')}
               </Badge>
             )}
-          </div>
-          {employee.availability_mode === 'fixed' && weeklyAvailability && weeklyAvailability.length > 0 ? (
-            <div className="grid grid-cols-7 gap-1">
-              {[1, 2, 3, 4, 5, 6, 0].map(day => {
-                const avail = weeklyAvailability.find(a => a.day_of_week === day)
-                const isAvailable = avail?.is_available
-                return (
-                  <div
-                    key={day}
-                    className={`text-center rounded-lg py-1.5 px-0.5 ${
-                      isAvailable
-                        ? 'bg-green-500/15 border border-green-500/30'
-                        : 'bg-white/5 border border-white/5'
-                    }`}
-                  >
-                    <p className={`text-[10px] font-bold ${isAvailable ? 'text-green-300' : 'text-gray-600'}`}>
-                      {t(DAY_KEYS[day]).slice(0, 3)}
-                    </p>
-                    {isAvailable && avail?.start_time && avail?.end_time && (
-                      <p className="text-[9px] text-green-400/80 mt-0.5">
-                        {avail.start_time.slice(0, 5)}-{avail.end_time.slice(0, 5)}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
+          </button>
+
+          {showAvailability && (
+            <div className="mt-2 bg-gray-800/60 rounded-xl border border-white/10 p-3">
+              {employee.availability_mode === 'fixed' && weeklyAvailability && weeklyAvailability.length > 0 ? (
+                <div className="space-y-1.5">
+                  {[1, 2, 3, 4, 5, 6, 0].map(day => {
+                    const avail = weeklyAvailability.find(a => a.day_of_week === day)
+                    const isAvailable = avail?.is_available
+                    return (
+                      <div
+                        key={day}
+                        className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+                          isAvailable
+                            ? 'bg-green-500/10 border border-green-500/20'
+                            : 'bg-white/5 border border-white/5'
+                        }`}
+                      >
+                        <span className={`text-sm font-semibold ${isAvailable ? 'text-green-300' : 'text-gray-600'}`}>
+                          {t(DAY_KEYS[day])}
+                        </span>
+                        <span className={`text-sm ${isAvailable ? 'text-green-400' : 'text-gray-600'}`}>
+                          {isAvailable && avail?.start_time && avail?.end_time
+                            ? `${avail.start_time.slice(0, 5)} — ${avail.end_time.slice(0, 5)}`
+                            : isAvailable ? t('Available') : '—'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : employee.availability_mode === 'custom' ? (
+                <p className="text-sm text-gray-400 text-center py-2">{t('Custom schedule set by employee')}</p>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-2">{t('Not configured')}</p>
+              )}
             </div>
-          ) : employee.availability_mode === 'custom' ? (
-            <p className="text-xs text-gray-500">{t('Custom schedule set by employee')}</p>
-          ) : (
-            <p className="text-xs text-gray-500">{t('Not configured')}</p>
           )}
         </div>
 
