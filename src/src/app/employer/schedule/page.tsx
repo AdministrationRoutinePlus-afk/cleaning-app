@@ -13,8 +13,8 @@
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInDays, parseISO, startOfDay, isWithinInterval } from 'date-fns'
-import type { JobSession, JobTemplate, Employee, Customer, JobSessionStatus } from '@/types/database'
+import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameMonth, differenceInDays, parseISO, startOfDay, isWithinInterval, getDay } from 'date-fns'
+import type { JobSession, JobTemplate, Employee, Customer, JobSessionStatus, EmployeeWeeklyAvailability, EmployeeSpecificAvailability } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
@@ -94,6 +94,16 @@ export default function EmployerSchedulePage() {
 
   // Training lookup: key = `${employee_id}:${job_template_id}`
   const [trainingLookup, setTrainingLookup] = useState<Record<string, { is_trained: boolean; can_coach: boolean }>>({})
+
+  // Availability state
+  const [showAvailabilityTab, setShowAvailabilityTab] = useState(false)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availEmployees, setAvailEmployees] = useState<Employee[]>([])
+  const [weeklyAvailMap, setWeeklyAvailMap] = useState<Map<string, EmployeeWeeklyAvailability[]>>(new Map())
+  const [specificAvailMap, setSpecificAvailMap] = useState<Map<string, EmployeeSpecificAvailability[]>>(new Map())
+  const [availabilityEmployeeFilter, setAvailabilityEmployeeFilter] = useState('')
+  const [showAvailableOnly, setShowAvailableOnly] = useState(false)
+  const [dayPanelTab, setDayPanelTab] = useState<'jobs' | 'availability'>('jobs')
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -250,6 +260,107 @@ export default function EmployerSchedulePage() {
   useEffect(() => {
     fetchFilterOptions()
   }, [fetchFilterOptions])
+
+  // Fetch availability data
+  const fetchAvailabilityData = useCallback(async () => {
+    setAvailabilityLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !isMountedRef.current) return
+
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!employer || !isMountedRef.current) return
+
+      // Load all active employees with availability_mode
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('created_by', employer.id)
+        .eq('status', 'ACTIVE')
+        .order('full_name')
+
+      if (!employees || !isMountedRef.current) return
+      setAvailEmployees(employees as Employee[])
+
+      const empIds = employees.map(e => e.id)
+      if (empIds.length === 0) {
+        setWeeklyAvailMap(new Map())
+        setSpecificAvailMap(new Map())
+        return
+      }
+
+      // Calculate date range for specific availability
+      let rangeStart: string
+      let rangeEnd: string
+      if (viewMode === 'week') {
+        rangeStart = format(startDate, 'yyyy-MM-dd')
+        rangeEnd = format(addDays(startDate, 6), 'yyyy-MM-dd')
+      } else {
+        const monthStart = startOfMonth(currentMonth)
+        const monthEnd = endOfMonth(currentMonth)
+        rangeStart = format(startOfWeek(monthStart, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+        rangeEnd = format(endOfWeek(monthEnd, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      }
+
+      const [weeklyRes, specificRes] = await Promise.all([
+        supabase
+          .from('employee_weekly_availability')
+          .select('*')
+          .in('employee_id', empIds),
+        supabase
+          .from('employee_specific_availability')
+          .select('*')
+          .in('employee_id', empIds)
+          .gte('date', rangeStart)
+          .lte('date', rangeEnd),
+      ])
+
+      if (!isMountedRef.current) return
+
+      // Group weekly availability by employee
+      const wMap = new Map<string, EmployeeWeeklyAvailability[]>()
+      for (const rec of (weeklyRes.data || []) as EmployeeWeeklyAvailability[]) {
+        const existing = wMap.get(rec.employee_id) || []
+        existing.push(rec)
+        wMap.set(rec.employee_id, existing)
+      }
+      setWeeklyAvailMap(wMap)
+
+      // Group specific availability by employee
+      const sMap = new Map<string, EmployeeSpecificAvailability[]>()
+      for (const rec of (specificRes.data || []) as EmployeeSpecificAvailability[]) {
+        const existing = sMap.get(rec.employee_id) || []
+        existing.push(rec)
+        sMap.set(rec.employee_id, existing)
+      }
+      setSpecificAvailMap(sMap)
+    } catch (error) {
+      console.error('Error fetching availability:', error)
+    } finally {
+      if (isMountedRef.current) {
+        setAvailabilityLoading(false)
+      }
+    }
+  }, [supabase, viewMode, startDate, currentMonth])
+
+  // Fetch availability when toggled on or date range changes
+  useEffect(() => {
+    if (showAvailabilityTab) {
+      fetchAvailabilityData()
+    }
+  }, [showAvailabilityTab, fetchAvailabilityData])
+
+  // Reset dayPanelTab when availability is turned off
+  useEffect(() => {
+    if (!showAvailabilityTab) {
+      setDayPanelTab('jobs')
+    }
+  }, [showAvailabilityTab])
 
   // Generate 7 days for the week
   const days = useMemo(() =>
@@ -499,6 +610,83 @@ export default function EmployerSchedulePage() {
     return map
   }, [jobSessions])
 
+  // Compute availability for selected day
+  const availabilityForSelectedDay = useMemo(() => {
+    if (!showAvailabilityTab) return []
+
+    const dayOfWeek = getDay(selectedDay) // 0=Sun..6=Sat
+    const dateStr = format(selectedDay, 'yyyy-MM-dd')
+
+    const results: { employee: Employee; isAvailable: boolean | null; startTime: string | null; endTime: string | null; mode: string }[] = []
+
+    for (const emp of availEmployees) {
+      let isAvailable: boolean | null = null
+      let startTime: string | null = null
+      let endTime: string | null = null
+      const mode = emp.availability_mode || 'none'
+
+      if (emp.availability_mode === 'fixed') {
+        const weeklyRecords = weeklyAvailMap.get(emp.id) || []
+        const match = weeklyRecords.find(r => r.day_of_week === dayOfWeek)
+        if (match) {
+          isAvailable = match.is_available
+          startTime = match.start_time
+          endTime = match.end_time
+        }
+      } else if (emp.availability_mode === 'custom') {
+        const specificRecords = specificAvailMap.get(emp.id) || []
+        const match = specificRecords.find(r => r.date === dateStr)
+        if (match) {
+          isAvailable = match.is_available
+          startTime = match.start_time
+          endTime = match.end_time
+        }
+      }
+
+      results.push({ employee: emp, isAvailable, startTime, endTime, mode })
+    }
+
+    // Apply filters
+    let filtered = results
+    if (availabilityEmployeeFilter) {
+      filtered = filtered.filter(r => r.employee.id === availabilityEmployeeFilter)
+    }
+    if (showAvailableOnly) {
+      filtered = filtered.filter(r => r.isAvailable === true)
+    }
+
+    // Sort: available first, then not set (null), then unavailable
+    filtered.sort((a, b) => {
+      const order = (v: boolean | null) => v === true ? 0 : v === null ? 1 : 2
+      return order(a.isAvailable) - order(b.isAvailable)
+    })
+
+    return filtered
+  }, [showAvailabilityTab, selectedDay, availEmployees, weeklyAvailMap, specificAvailMap, availabilityEmployeeFilter, showAvailableOnly])
+
+  // Availability summary counts
+  const availabilitySummary = useMemo(() => {
+    if (!showAvailabilityTab) return { available: 0, unavailable: 0, notSet: 0 }
+    // Count from unfiltered results for summary
+    const dayOfWeek = getDay(selectedDay)
+    const dateStr = format(selectedDay, 'yyyy-MM-dd')
+    let available = 0, unavailable = 0, notSet = 0
+    for (const emp of availEmployees) {
+      let isAvailable: boolean | null = null
+      if (emp.availability_mode === 'fixed') {
+        const match = (weeklyAvailMap.get(emp.id) || []).find(r => r.day_of_week === dayOfWeek)
+        if (match) isAvailable = match.is_available
+      } else if (emp.availability_mode === 'custom') {
+        const match = (specificAvailMap.get(emp.id) || []).find(r => r.date === dateStr)
+        if (match) isAvailable = match.is_available
+      }
+      if (isAvailable === true) available++
+      else if (isAvailable === false) unavailable++
+      else notSet++
+    }
+    return { available, unavailable, notSet }
+  }, [showAvailabilityTab, selectedDay, availEmployees, weeklyAvailMap, specificAvailMap])
+
   const hasActiveFilters = filterEmployee || filterCustomer || filterJobTemplate || filterStatus
   const activeFilterCount = [filterEmployee, filterCustomer, filterJobTemplate, filterStatus].filter(Boolean).length
 
@@ -594,19 +782,34 @@ export default function EmployerSchedulePage() {
               {activeStats.issues} {activeStats.issues !== 1 ? t('Issues').toLowerCase() : t('Issue').toLowerCase()}
             </button>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`relative p-2 rounded-lg border transition-all ${
-              showFilters ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            {activeFilterCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                const next = !showAvailabilityTab
+                setShowAvailabilityTab(next)
+                if (next) setDayPanelTab('availability')
+              }}
+              className={`p-2 rounded-lg border transition-all ${
+                showAvailabilityTab ? 'bg-purple-600 text-white border-purple-500' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+              }`}
+              title={t('Availability')}
+            >
+              <Users className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`relative p-2 rounded-lg border transition-all ${
+                showFilters ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Collapsible Filter Bar */}
@@ -882,26 +1085,56 @@ export default function EmployerSchedulePage() {
                     <span className="ml-2 text-sm text-gray-500 font-normal">({t('Today')})</span>
                   )}
                 </h3>
-                {selectedDayJobs.length > 0 && (
+                {dayPanelTab === 'jobs' && selectedDayJobs.length > 0 && (
                   <p className="text-gray-400 text-sm mt-0.5">
                     {selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')}
                   </p>
                 )}
               </div>
-              <button
-                onClick={() => setShowCompleted(!showCompleted)}
-                className="p-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
-                title={showCompleted ? t('Hide completed') : t('Show completed')}
-              >
-                {showCompleted ? (
-                  <EyeOff className="w-4 h-4 text-gray-300" />
-                ) : (
-                  <Eye className="w-4 h-4 text-gray-300" />
-                )}
-              </button>
+              {dayPanelTab === 'jobs' && (
+                <button
+                  onClick={() => setShowCompleted(!showCompleted)}
+                  className="p-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
+                  title={showCompleted ? t('Hide completed') : t('Show completed')}
+                >
+                  {showCompleted ? (
+                    <EyeOff className="w-4 h-4 text-gray-300" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-gray-300" />
+                  )}
+                </button>
+              )}
             </div>
+
+            {/* Tab Toggle (Jobs / Availability) */}
+            {showAvailabilityTab && (
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setDayPanelTab('jobs')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    dayPanelTab === 'jobs'
+                      ? 'bg-white/20 text-white border border-white/30'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {t('Jobs')}
+                </button>
+                <button
+                  onClick={() => setDayPanelTab('availability')}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    dayPanelTab === 'availability'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  {t('Availability')}
+                </button>
+              </div>
+            )}
           </div>
 
+          {/* Jobs Tab Content */}
+          {dayPanelTab === 'jobs' && (
           <div className="p-4">
             {selectedDayJobs.length === 0 ? (
               <div className="py-8 text-center">
@@ -1054,6 +1287,122 @@ export default function EmployerSchedulePage() {
               </div>
             )}
           </div>
+          )}
+
+          {/* Availability Tab Content */}
+          {dayPanelTab === 'availability' && (
+          <div className="p-4">
+            {availabilityLoading ? (
+              <div className="py-8 flex justify-center">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <>
+                {/* Filter row */}
+                <div className="flex items-center gap-2 mb-4">
+                  <Select value={availabilityEmployeeFilter || '__all__'} onValueChange={v => setAvailabilityEmployeeFilter(v === '__all__' ? '' : v)}>
+                    <SelectTrigger className="h-8 text-xs bg-white/5 border-white/20 text-white flex-1">
+                      <SelectValue placeholder={t('All Employees')} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-white/20">
+                      <SelectItem value="__all__" className="text-white hover:bg-white/10">{t('All Employees')}</SelectItem>
+                      {availEmployees.map(e => (
+                        <SelectItem key={e.id} value={e.id} className="text-white hover:bg-white/10">{e.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <button
+                    onClick={() => setShowAvailableOnly(!showAvailableOnly)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
+                      showAvailableOnly
+                        ? 'bg-green-500/20 text-green-300 border-green-500/30'
+                        : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    {t('Available')}
+                  </button>
+                </div>
+
+                {/* Employee availability list */}
+                {availabilityForSelectedDay.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-400">{t('No employees found')}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {availabilityForSelectedDay.map(({ employee, isAvailable, startTime, endTime, mode }) => {
+                      const colorIdx = employeeColorMap.get(employee.id)
+                      const color = colorIdx !== undefined ? EMPLOYEE_COLORS[colorIdx % EMPLOYEE_COLORS.length] : EMPLOYEE_COLORS[0]
+
+                      return (
+                        <div
+                          key={employee.id}
+                          className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                            isAvailable === true
+                              ? 'bg-green-500/5 border-green-500/20'
+                              : isAvailable === false
+                                ? 'bg-red-500/5 border-red-500/20'
+                                : 'bg-white/5 border-white/10'
+                          }`}
+                        >
+                          {/* Avatar */}
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border flex-shrink-0 ${color.border} ${color.text}`}
+                            style={{ backgroundColor: color.bg }}
+                          >
+                            {employee.full_name.charAt(0).toUpperCase()}
+                          </div>
+
+                          {/* Name + mode */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-semibold text-white truncate">{employee.full_name}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                mode === 'fixed'
+                                  ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                                  : mode === 'custom'
+                                    ? 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+                                    : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                              }`}>
+                                {mode === 'fixed' ? t('Fixed') : mode === 'custom' ? t('Custom') : '—'}
+                              </span>
+                            </div>
+                            {isAvailable === true && startTime && (
+                              <span className="text-xs text-gray-400">
+                                {startTime.substring(0, 5)}{endTime ? ` - ${endTime.substring(0, 5)}` : ''}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Status badge */}
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-full border flex-shrink-0 ${
+                            isAvailable === true
+                              ? 'bg-green-500/20 text-green-300 border-green-500/30'
+                              : isAvailable === false
+                                ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                                : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                          }`}>
+                            {isAvailable === true ? t('Available') : isAvailable === false ? t('Unavailable') : t('Not set')}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Summary footer */}
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-center gap-3 text-xs text-gray-400">
+                  <span className="text-green-400">{availabilitySummary.available} {t('Available').toLowerCase()}</span>
+                  <span className="text-gray-600">|</span>
+                  <span className="text-red-400">{availabilitySummary.unavailable} {t('Unavailable').toLowerCase()}</span>
+                  <span className="text-gray-600">|</span>
+                  <span className="text-gray-500">{availabilitySummary.notSet} {t('Not set').toLowerCase()}</span>
+                </div>
+              </>
+            )}
+          </div>
+          )}
         </div>
 
       </div>
