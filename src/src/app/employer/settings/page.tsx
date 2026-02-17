@@ -79,6 +79,7 @@ export default function EmployerSettingsPage() {
             reminder_1_day: true,
             reminder_6_hours: true,
             sound_enabled: true,
+            email_review_enabled: true,
           })
           .select()
           .single()
@@ -147,6 +148,7 @@ export default function EmployerSettingsPage() {
     reminder2Days: boolean
     reminder1Day: boolean
     reminder6Hours: boolean
+    emailReviewEnabled: boolean
   }) => {
     if (!employerId) return
 
@@ -161,6 +163,7 @@ export default function EmployerSettingsPage() {
         reminder_2_days: data.reminder2Days,
         reminder_1_day: data.reminder1Day,
         reminder_6_hours: data.reminder6Hours,
+        email_review_enabled: data.emailReviewEnabled,
         updated_at: new Date().toISOString(),
       })
       .eq('employer_id', employerId)
@@ -335,6 +338,7 @@ export default function EmployerSettingsPage() {
                 reminder2Days={settings.reminder_2_days}
                 reminder1Day={settings.reminder_1_day}
                 reminder6Hours={settings.reminder_6_hours}
+                emailReviewEnabled={settings.email_review_enabled ?? true}
                 onSave={handleSaveNotifications}
               />
             </AccordionContent>

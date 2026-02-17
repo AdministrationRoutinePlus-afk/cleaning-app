@@ -21,7 +21,7 @@
 import { toast } from 'sonner'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import type { Employee, Strike, Evaluation, JobSession, JobTemplate, EmployeeJobTraining, Customer } from '@/types/database'
+import type { Employee, Strike, Evaluation, JobSession, JobTemplate, EmployeeJobTraining, Customer, EmployeeWeeklyAvailability, EmployeeSpecificAvailability, AvailabilityMode } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/select'
 import { format } from 'date-fns'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, AlertTriangle, MapPin, Edit2, GraduationCap, Search, ChevronDown, ChevronRight } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, MapPin, Edit2, GraduationCap, Search, ChevronDown, ChevronRight, Calendar, Lock, Clock } from 'lucide-react'
 import { cleanupStaleSessions } from '@/lib/jobs/cleanupStaleSessions'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -76,7 +76,13 @@ export default function EmployeeProfilePage() {
   const [jobHistoryHasMore, setJobHistoryHasMore] = useState(false)
   const [jobHistoryLoadingMore, setJobHistoryLoadingMore] = useState(false)
   const [employerId, setEmployerId] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'history' | 'evaluations' | 'strikes' | 'training'>('history')
+  const [activeTab, setActiveTab] = useState<'history' | 'evaluations' | 'strikes' | 'training' | 'availability'>('history')
+
+  // Availability state
+  const [availabilityMode, setAvailabilityMode] = useState<AvailabilityMode | null>(null)
+  const [weeklyAvailability, setWeeklyAvailability] = useState<EmployeeWeeklyAvailability[]>([])
+  const [specificAvailability, setSpecificAvailability] = useState<EmployeeSpecificAvailability[]>([])
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
 
   // Training state
   const [trainingRecords, setTrainingRecords] = useState<EmployeeJobTraining[]>([])
@@ -122,6 +128,13 @@ export default function EmployeeProfilePage() {
   useEffect(() => {
     loadData()
   }, [employeeId])
+
+  // Load availability data when tab is selected
+  useEffect(() => {
+    if (activeTab === 'availability') {
+      loadAvailability()
+    }
+  }, [activeTab, employeeId])
 
   /**
    * Loads employee data, strikes, evaluations, and job history
@@ -297,6 +310,46 @@ export default function EmployeeProfilePage() {
       toast.error(t('Failed to load job history'))
     } finally {
       setJobHistoryLoadingMore(false)
+    }
+  }
+
+  /**
+   * Loads availability data for the employee (called when Availability tab is selected)
+   */
+  const loadAvailability = async () => {
+    setAvailabilityLoading(true)
+    try {
+      // Get availability_mode from employee record
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('availability_mode')
+        .eq('id', employeeId)
+        .single()
+
+      const mode = (empData?.availability_mode as AvailabilityMode) || null
+      setAvailabilityMode(mode)
+
+      if (mode === 'fixed') {
+        const { data } = await supabase
+          .from('employee_weekly_availability')
+          .select('*')
+          .eq('employee_id', employeeId)
+        setWeeklyAvailability(data || [])
+      } else if (mode === 'custom') {
+        const today = format(new Date(), 'yyyy-MM-dd')
+        const { data } = await supabase
+          .from('employee_specific_availability')
+          .select('*')
+          .eq('employee_id', employeeId)
+          .gte('date', today)
+          .order('date', { ascending: true })
+          .limit(14)
+        setSpecificAvailability(data || [])
+      }
+    } catch (error) {
+      console.error('Error loading availability:', error)
+    } finally {
+      setAvailabilityLoading(false)
     }
   }
 
@@ -912,6 +965,7 @@ export default function EmployeeProfilePage() {
               { key: 'evaluations' as const, label: t('Evaluations'), count: evaluations.length },
               { key: 'strikes' as const, label: t('Strikes'), count: strikes.length },
               { key: 'training' as const, label: t('Training'), count: trainingRecords.filter(r => r.is_trained).length },
+              { key: 'availability' as const, label: t('Availability'), count: null },
             ]).map(({ key, label, count }) => (
               <button
                 key={key}
@@ -922,7 +976,7 @@ export default function EmployeeProfilePage() {
                     : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}
               >
-                {label} ({count})
+                {count !== null ? `${label} (${count})` : label}
               </button>
             ))}
           </div>
@@ -1304,6 +1358,176 @@ export default function EmployeeProfilePage() {
                   )
                 })
               })()}
+            </div>
+          )}
+
+          {/* Availability Tab */}
+          {activeTab === 'availability' && (
+            <div className="mt-4 space-y-4">
+              {availabilityLoading ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : availabilityMode === null ? (
+                <div className="text-center py-8">
+                  <Calendar className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-500">{t('No availability set')}</p>
+                  <p className="text-xs text-gray-600 mt-1">{t('Managed by employee')}</p>
+                </div>
+              ) : (
+                <>
+                  {/* Mode indicator */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge className={availabilityMode === 'fixed'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                        : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      }>
+                        {availabilityMode === 'fixed' ? t('Fixed Weekly') : t('Custom Dates')}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-gray-500">{t('Managed by employee')}</p>
+                  </div>
+
+                  {/* Fixed mode: weekly grid */}
+                  {availabilityMode === 'fixed' && (
+                    <div className="space-y-2">
+                      {[
+                        { dayOfWeek: 1, dayName: 'Monday' },
+                        { dayOfWeek: 2, dayName: 'Tuesday' },
+                        { dayOfWeek: 3, dayName: 'Wednesday' },
+                        { dayOfWeek: 4, dayName: 'Thursday' },
+                        { dayOfWeek: 5, dayName: 'Friday' },
+                        { dayOfWeek: 6, dayName: 'Saturday' },
+                        { dayOfWeek: 0, dayName: 'Sunday' },
+                      ].map(({ dayOfWeek, dayName }) => {
+                        const record = weeklyAvailability.find(r => r.day_of_week === dayOfWeek)
+                        const isConfigured = !!record
+                        const isAvailable = record?.is_available ?? true
+                        const hasTime = record?.start_time || record?.end_time
+
+                        return (
+                          <div
+                            key={dayOfWeek}
+                            className={`flex items-center justify-between p-4 rounded-xl ${
+                              !isConfigured
+                                ? 'bg-blue-500/10 border border-blue-500/30'
+                                : isAvailable
+                                  ? 'bg-green-500/10 border border-green-500/30'
+                                  : 'bg-red-500/10 border border-red-500/30'
+                            }`}
+                          >
+                            <span className={`text-sm font-semibold ${
+                              !isConfigured ? 'text-blue-300' : isAvailable ? 'text-green-300' : 'text-red-300'
+                            }`}>
+                              {t(dayName)}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {hasTime && isAvailable && isConfigured ? (
+                                <span className="text-sm text-green-400 flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {record.start_time?.slice(0, 5)} - {record.end_time?.slice(0, 5)}
+                                </span>
+                              ) : isConfigured ? (
+                                <span className={`text-sm ${isAvailable ? 'text-green-400' : 'text-red-400'}`}>
+                                  {isAvailable ? t('Available') : t('Unavailable')}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-blue-400">{t('Not set')}</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {/* Legend */}
+                      <div className="flex items-center justify-center gap-3 text-xs text-gray-400 flex-wrap pt-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded bg-blue-500/40"></div>
+                          <span>{t('Not set')}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded bg-green-500/40"></div>
+                          <span>{t('Available')}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded bg-red-500/40"></div>
+                          <span>{t('Unavailable')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom mode: specific dates */}
+                  {availabilityMode === 'custom' && (
+                    <div className="space-y-2">
+                      {specificAvailability.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">{t('No upcoming availability set')}</p>
+                      ) : (
+                        <>
+                          {specificAvailability.map((day) => {
+                            const hasTime = day.start_time || day.end_time
+                            const dateObj = new Date(day.date + 'T00:00:00')
+
+                            return (
+                              <div
+                                key={day.id}
+                                className={`flex items-center justify-between p-4 rounded-xl ${
+                                  day.is_available
+                                    ? 'bg-green-500/10 border border-green-500/30'
+                                    : 'bg-red-500/10 border border-red-500/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="text-center w-12">
+                                    <p className={`text-xs font-medium ${day.is_available ? 'text-green-400' : 'text-red-400'}`}>
+                                      {format(dateObj, 'EEE')}
+                                    </p>
+                                    <p className={`text-lg font-bold ${day.is_available ? 'text-green-200' : 'text-red-200'}`}>
+                                      {format(dateObj, 'd')}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500">{format(dateObj, 'MMM')}</p>
+                                  </div>
+                                  <div>
+                                    <span className={`text-sm font-medium ${day.is_available ? 'text-green-300' : 'text-red-300'}`}>
+                                      {day.is_available ? t('Available') : t('Unavailable')}
+                                    </span>
+                                    {hasTime && day.is_available && (
+                                      <p className="text-xs text-green-400 flex items-center gap-1 mt-0.5">
+                                        <Clock className="w-3 h-3" />
+                                        {day.start_time?.slice(0, 5)} - {day.end_time?.slice(0, 5)}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                {day.is_locked && (
+                                  <Lock className="w-4 h-4 text-amber-400" />
+                                )}
+                              </div>
+                            )
+                          })}
+                        </>
+                      )}
+
+                      {/* Legend */}
+                      <div className="flex items-center justify-center gap-3 text-xs text-gray-400 flex-wrap pt-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded bg-green-500/40"></div>
+                          <span>{t('Available')}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded bg-red-500/40"></div>
+                          <span>{t('Unavailable')}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>{t('Locked')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>

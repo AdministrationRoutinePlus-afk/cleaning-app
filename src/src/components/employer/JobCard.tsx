@@ -48,7 +48,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
       const activeCount = activeSessions?.length ?? 0
       let confirmMsg = t('Are you sure you want to deactivate this job template? All OFFERED sessions will be cancelled.')
       if (activeCount > 0) {
-        confirmMsg += `\n\n${activeCount} ${t('session')}${activeCount !== 1 ? t('s are') : t(' is')} ${t('still active (CLAIMED/APPROVED/IN_PROGRESS) and will not be cancelled.')}`
+        confirmMsg += `\n\n${activeCount} ${activeCount !== 1 ? t('sessions are') : t('session is')} ${t('still active (CLAIMED/APPROVED/IN_PROGRESS) and will not be cancelled.')}`
       }
 
       if (!confirm(confirmMsg)) return
@@ -189,7 +189,7 @@ export function JobCard({ job, customerName, onUpdate, sessionCounts }: JobCardP
               }`}>
                 {sessionCounts.unclaimed > 0
                   ? `${sessionCounts.unclaimed} ${t('unclaimed')} / ${sessionCounts.total} ${t('total')}`
-                  : `${sessionCounts.total} ${t('session')}${sessionCounts.total !== 1 ? 's' : ''}`}
+                  : `${sessionCounts.total} ${sessionCounts.total !== 1 ? t('sessions') : t('session')}`}
               </Badge>
             </div>
           )}

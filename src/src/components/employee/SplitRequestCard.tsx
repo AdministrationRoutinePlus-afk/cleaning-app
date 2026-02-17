@@ -45,6 +45,35 @@ export function SplitRequestCard({ split, onUpdate }: SplitRequestCardProps) {
 
       if (error) throw error
 
+      // Notify the initiator that their split was accepted
+      const { data: initiatorEmployee } = await supabase
+        .from('employees')
+        .select('user_id')
+        .eq('id', split.requested_by)
+        .single()
+
+      if (initiatorEmployee) {
+        // Get current user's name for the notification message
+        const { data: { user } } = await supabase.auth.getUser()
+        let partnerName = t('Your partner')
+        if (user) {
+          const { data: myEmployee } = await supabase
+            .from('employees')
+            .select('full_name')
+            .eq('user_id', user.id)
+            .single()
+          if (myEmployee) partnerName = myEmployee.full_name
+        }
+
+        await supabase.from('notifications').insert({
+          user_id: initiatorEmployee.user_id,
+          user_type: 'EMPLOYEE',
+          type: 'SPLIT_ACCEPTED',
+          title: t('Split request accepted'),
+          message: `${partnerName} ${t('accepted your split request for')} ${job_template.title}`,
+        })
+      }
+
       toast.success(t('Split accepted! Waiting for employer approval.'))
       onUpdate()
     } catch (error) {
@@ -69,6 +98,34 @@ export function SplitRequestCard({ split, onUpdate }: SplitRequestCardProps) {
 
       if (error) throw error
 
+      // Notify the initiator that their split was declined
+      const { data: initiatorEmployee } = await supabase
+        .from('employees')
+        .select('user_id')
+        .eq('id', split.requested_by)
+        .single()
+
+      if (initiatorEmployee) {
+        const { data: { user } } = await supabase.auth.getUser()
+        let partnerName = t('Your partner')
+        if (user) {
+          const { data: myEmployee } = await supabase
+            .from('employees')
+            .select('full_name')
+            .eq('user_id', user.id)
+            .single()
+          if (myEmployee) partnerName = myEmployee.full_name
+        }
+
+        await supabase.from('notifications').insert({
+          user_id: initiatorEmployee.user_id,
+          user_type: 'EMPLOYEE',
+          type: 'SPLIT_DECLINED',
+          title: t('Split request declined'),
+          message: `${partnerName} ${t('declined your split request for')} ${job_template.title}`,
+        })
+      }
+
       toast.success(t('Split request declined'))
       onUpdate()
     } catch (error) {
@@ -91,7 +148,7 @@ export function SplitRequestCard({ split, onUpdate }: SplitRequestCardProps) {
   const formatScheduledDate = (dateStr: string | null) => {
     if (!dateStr) return '\u2014'
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -117,22 +174,36 @@ export function SplitRequestCard({ split, onUpdate }: SplitRequestCardProps) {
           </div>
         )}
 
-        {/* Job & Duration */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
-            <div>
-              <p className="text-gray-300 text-xs">{t('Job')}</p>
-              <p className="text-white font-semibold text-sm">{job_template.title}</p>
-            </div>
+        {/* Job name with code */}
+        <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-purple-400 flex-shrink-0" />
+          <div>
+            <p className="text-gray-300 text-xs">{t('Job')}</p>
+            <p className="text-white font-semibold text-sm">
+              {job_template.job_code && <span className="text-gray-400 mr-1">{job_template.job_code}</span>}
+              {job_template.title}
+            </p>
           </div>
+        </div>
+
+        {/* Duration & Hours given */}
+        <div className="grid grid-cols-2 gap-2">
           <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
             <div>
-              <p className="text-gray-300 text-xs">{t('Duration')}</p>
+              <p className="text-gray-300 text-xs">{t('Total Duration')}</p>
               <p className="text-white font-semibold text-sm">{formatDuration(job_template.duration_minutes)}</p>
             </div>
           </div>
+          {split.partner_minutes && (
+            <div className="bg-purple-500/10 rounded-lg px-3 py-2 flex items-center gap-2 border border-purple-500/20">
+              <Clock className="w-4 h-4 text-purple-400 flex-shrink-0" />
+              <div>
+                <p className="text-purple-300 text-xs">{t('Your Part')}</p>
+                <p className="text-white font-semibold text-sm">{formatDuration(split.partner_minutes)}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Date */}

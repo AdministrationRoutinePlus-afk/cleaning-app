@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import type { JobSessionFull } from '@/types/database'
+import type { JobSessionFull, JobSplitStatus } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
@@ -38,6 +38,13 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const [imageError, setImageError] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [evalRating, setEvalRating] = useState<number | null>(null)
+  const [splitStatus, setSplitStatus] = useState<JobSplitStatus | null>(null)
+  const [splitPartnerName, setSplitPartnerName] = useState<string | null>(null)
+  const [splitPartnerMinutes, setSplitPartnerMinutes] = useState<number | null>(null)
+  const [splitId, setSplitId] = useState<string | null>(null)
+  const [splitRequestedBy, setSplitRequestedBy] = useState<string | null>(null)
+  const [cancelingSplit, setCancelingSplit] = useState(false)
+  const [showCancelSplitDialog, setShowCancelSplitDialog] = useState(false)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -63,6 +70,25 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           .then(({ data }) => { if (data) setCurrentEmployeeId(data.id) })
       }
     })
+
+    // Load split request status for this job session
+    supabase
+      .from('job_splits')
+      .select('id, status, partner_minutes, requested_by, partner_id, requested_by_employee:employees!job_splits_requested_by_fkey(full_name), partner_employee:employees!job_splits_partner_id_fkey(full_name)')
+      .eq('job_session_id', jobSession.id)
+      .in('status', ['PENDING_PARTNER', 'PENDING_EMPLOYER', 'APPROVED'])
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setSplitStatus(data.status as JobSplitStatus)
+          setSplitPartnerMinutes(data.partner_minutes)
+          setSplitId(data.id)
+          setSplitRequestedBy(data.requested_by)
+          const partner = data.partner_employee as unknown as { full_name: string } | null
+          const requester = data.requested_by_employee as unknown as { full_name: string } | null
+          setSplitPartnerName(partner?.full_name || requester?.full_name || null)
+        }
+      })
   }, [jobSession.id, status])
   const { job_code, title, address, customer, image_url, video_url, pptx_url } = job_template
   const hasImage = image_url && !imageError
@@ -106,7 +132,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return t('Not scheduled')
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -252,6 +278,34 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
     router.push(`/employee/jobs/${jobSession.id}`)
   }
 
+  // Handle Cancel Split Request
+  const handleCancelSplit = async () => {
+    if (!splitId) return
+    setCancelingSplit(true)
+    try {
+      const { error } = await supabase
+        .from('job_splits')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('id', splitId)
+
+      if (error) throw error
+
+      toast.success(t('Split request cancelled'))
+      setSplitStatus(null)
+      setSplitId(null)
+      setSplitRequestedBy(null)
+      setSplitPartnerName(null)
+      setSplitPartnerMinutes(null)
+      if (onStatusChange) onStatusChange()
+    } catch (error) {
+      console.error('Error canceling split:', error)
+      toast.error(t('Failed to cancel split request'))
+    } finally {
+      setCancelingSplit(false)
+      setShowCancelSplitDialog(false)
+    }
+  }
+
   // Render action buttons based on status
   const renderActionButtons = () => {
     switch (status) {
@@ -274,7 +328,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
                 {t('Cancel')}
               </Button>
             </div>
-            {currentEmployeeId && (
+            {currentEmployeeId && !splitStatus && (
               <Button
                 onClick={() => setShowSplitDialog(true)}
                 disabled={loading}
@@ -315,7 +369,7 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
                 {t('Request Exchange')}
               </Button>
             )}
-            {currentEmployeeId && !jobSession.split_with && (
+            {currentEmployeeId && !jobSession.split_with && !splitStatus && (
               <Button
                 onClick={() => setShowSplitDialog(true)}
                 disabled={loading}
@@ -456,7 +510,9 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
 
         {/* Main Info */}
         <div className="space-y-1">
-          <h3 className="text-xl font-bold text-white leading-tight drop-shadow-lg">{title}</h3>
+          <h3 className="text-xl font-bold text-white leading-tight drop-shadow-lg">
+            {jobSession.full_job_code || `${job_code}-${jobSession.session_code}`} — {title}
+          </h3>
           {customer && (
             <p className="text-gray-300 text-sm font-medium">
               {customer.full_name}
@@ -523,6 +579,48 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           </div>
         )}
       </div>
+
+      {/* Split Status Banner */}
+      {splitStatus && splitStatus !== 'APPROVED' && (
+        <div className="px-4 pb-2 relative z-10">
+          <div className={`rounded-xl p-3 border ${
+            splitStatus === 'PENDING_PARTNER'
+              ? 'bg-purple-500/10 border-purple-500/30'
+              : 'bg-blue-500/10 border-blue-500/30'
+          }`}>
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-purple-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className={`text-xs font-medium ${
+                  splitStatus === 'PENDING_PARTNER' ? 'text-purple-300' : 'text-blue-300'
+                }`}>
+                  {splitStatus === 'PENDING_PARTNER'
+                    ? `${t('Split requested')} — ${t('Waiting for')} ${splitPartnerName || t('teammate')}`
+                    : `${t('Split requested')} — ${t('Waiting for employer approval')}`
+                  }
+                </p>
+                {splitPartnerMinutes && (
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    {t('Teammate')}: {Math.floor(splitPartnerMinutes / 60)}h{splitPartnerMinutes % 60 > 0 ? `${splitPartnerMinutes % 60}m` : ''}
+                  </p>
+                )}
+              </div>
+              {/* Cancel Split button - only for the requester */}
+              {currentEmployeeId && splitRequestedBy === currentEmployeeId && (splitStatus === 'PENDING_PARTNER' || splitStatus === 'PENDING_EMPLOYER') && (
+                <Button
+                  onClick={() => setShowCancelSplitDialog(true)}
+                  disabled={cancelingSplit}
+                  size="sm"
+                  className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 text-xs px-2 py-1 h-auto"
+                >
+                  <X className="w-3 h-3 mr-1" />
+                  {t('Cancel')}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Evaluation Rating for EVALUATED sessions */}
       {status === 'EVALUATED' && evalRating && (
@@ -611,9 +709,32 @@ export function MyJobCard({ jobSession, onStatusChange }: MyJobCardProps) {
           onOpenChange={setShowSplitDialog}
           jobSessionId={jobSession.id}
           currentEmployeeId={currentEmployeeId}
+          totalDurationMinutes={job_template?.duration_minutes ?? null}
           onSuccess={onStatusChange}
         />
       )}
+
+      {/* Cancel Split Dialog */}
+      <AlertDialog open={showCancelSplitDialog} onOpenChange={setShowCancelSplitDialog}>
+        <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">{t('Cancel Split Request?')}</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              {t('Are you sure you want to cancel this split request? The partner will no longer be involved in this job.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelingSplit} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">{t('Keep Split')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSplit}
+              disabled={cancelingSplit}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {cancelingSplit ? t('Canceling...') : t('Yes, Cancel Split')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

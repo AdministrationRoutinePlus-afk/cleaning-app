@@ -89,22 +89,36 @@ export default function EmployerUsersPage() {
       // Cleanup stale sessions before fetching
       await cleanupStaleSessions(supabase)
 
-      // Load employees
+      // Get current employer
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: employer } = await supabase
+        .from('employers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!employer) return
+
+      // Load employees scoped to this employer
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
         .select('*')
+        .eq('created_by', employer.id)
         .order('created_at', { ascending: false })
 
       if (employeesError) throw employeesError
       setEmployees(employeesData || [])
 
-      // Load job sessions with details for employee cards
+      // Load job sessions with details for employee cards, scoped to this employer's jobs
       const { data: jobSessionsData, error: jobSessionsError } = await supabase
         .from('job_sessions')
         .select(`
           id, assigned_to, status, full_job_code, scheduled_date, scheduled_time,
-          job_template:job_templates(title, address, customer:customers(full_name))
+          job_template:job_templates!inner(title, address, created_by, customer:customers(full_name))
         `)
+        .eq('job_template.created_by', employer.id)
         .not('assigned_to', 'is', null)
 
       if (jobSessionsError) throw jobSessionsError
@@ -129,10 +143,11 @@ export default function EmployerUsersPage() {
       }
       setEmployeeJobs(jobsMap)
 
-      // Load customers
+      // Load customers scoped to this employer
       const { data: customersData, error: customersError } = await supabase
         .from('customers')
         .select('*')
+        .eq('created_by', employer.id)
         .order('created_at', { ascending: false })
 
       if (customersError) throw customersError

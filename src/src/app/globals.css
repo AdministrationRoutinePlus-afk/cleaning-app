@@ -238,6 +238,17 @@
   }
 }
 
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Card styling - Apple-like subtle shadows */
 @layer components {
   .card-apple {

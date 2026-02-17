@@ -20,15 +20,16 @@ import { X, Plus } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
-const DAYS_OF_WEEK = [
-  { value: 'SUN', label: 'Sunday' },
-  { value: 'MON', label: 'Monday' },
-  { value: 'TUE', label: 'Tuesday' },
-  { value: 'WED', label: 'Wednesday' },
-  { value: 'THU', label: 'Thursday' },
-  { value: 'FRI', label: 'Friday' },
-  { value: 'SAT', label: 'Saturday' },
+const DAYS_OF_WEEK_KEYS = [
+  { value: 'SUN', labelKey: 'Sunday' },
+  { value: 'MON', labelKey: 'Monday' },
+  { value: 'TUE', labelKey: 'Tuesday' },
+  { value: 'WED', labelKey: 'Wednesday' },
+  { value: 'THU', labelKey: 'Thursday' },
+  { value: 'FRI', labelKey: 'Friday' },
+  { value: 'SAT', labelKey: 'Saturday' },
 ]
 
 interface BulkSchedulerDialogProps {
@@ -40,6 +41,7 @@ interface BulkSchedulerDialogProps {
 
 export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkSchedulerDialogProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const [loading, setLoading] = useState(false)
   const [previewCount, setPreviewCount] = useState(0)
 
@@ -178,8 +180,8 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                     <SelectValue placeholder={t('Select day')} />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-white/20">
-                    {DAYS_OF_WEEK.map(day => (
-                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.label)}</SelectItem>
+                    {DAYS_OF_WEEK_KEYS.map(day => (
+                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.labelKey)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -205,8 +207,8 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                     <SelectValue placeholder={t('Select day')} />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-white/20">
-                    {DAYS_OF_WEEK.map(day => (
-                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.label)}</SelectItem>
+                    {DAYS_OF_WEEK_KEYS.map(day => (
+                      <SelectItem key={day.value} value={day.value} className="text-white hover:bg-white/10">{t(day.labelKey)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -226,9 +228,9 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
             {windowStartDay && windowEndDay && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2">
                 <p className="text-xs text-blue-300 font-medium">
-                  {t(DAYS_OF_WEEK.find(d => d.value === windowStartDay)?.label || '')} {timeWindowStart || ''}
+                  {t(DAYS_OF_WEEK_KEYS.find(d => d.value === windowStartDay)?.labelKey || '')} {timeWindowStart || ''}
                   {' \u2192 '}
-                  {t(DAYS_OF_WEEK.find(d => d.value === windowEndDay)?.label || '')} {timeWindowEnd || ''}
+                  {t(DAYS_OF_WEEK_KEYS.find(d => d.value === windowEndDay)?.labelKey || '')} {timeWindowEnd || ''}
                 </p>
               </div>
             )}
@@ -291,7 +293,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                   <div className="flex flex-wrap gap-2">
                     {excludeDates.map(date => (
                       <Badge key={date} variant="outline" className="flex items-center gap-1 bg-red-500/20 text-red-300 border-red-500/30">
-                        {format(parseISO(date), 'MMM d')}
+                        {formatDateLocale(parseISO(date), 'MMM d')}
                         <button
                           type="button"
                           onClick={() => setExcludeDates(excludeDates.filter(d => d !== date))}
@@ -336,7 +338,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                 <div className="flex flex-wrap gap-2">
                   {specificDates.map(date => (
                     <Badge key={date} variant="secondary" className="flex items-center gap-1 py-1 bg-white/10 text-gray-200 border border-white/20">
-                      {format(parseISO(date), 'EEE, MMM d')}
+                      {formatDateLocale(parseISO(date), 'EEE, MMM d')}
                       <button
                         type="button"
                         onClick={() => setSpecificDates(specificDates.filter(d => d !== date))}
@@ -384,7 +386,7 @@ export function BulkSchedulerDialog({ job, open, onOpenChange, onUpdate }: BulkS
                             key={i}
                             className="inline-block text-xs px-2 py-1 rounded-md bg-blue-500/20 text-blue-200 border border-blue-500/30"
                           >
-                            {format(parseISO(s.scheduled_date), 'EEE, MMM d')}
+                            {formatDateLocale(parseISO(s.scheduled_date), 'EEE, MMM d')}
                           </span>
                         ))}
                         {remaining > 0 && (

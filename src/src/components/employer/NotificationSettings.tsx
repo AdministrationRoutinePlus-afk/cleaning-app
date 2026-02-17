@@ -21,6 +21,7 @@ interface NotificationSettingsProps {
   reminder2Days: boolean
   reminder1Day: boolean
   reminder6Hours: boolean
+  emailReviewEnabled: boolean
   onSave: (data: {
     pushEnabled: boolean
     soundEnabled: boolean
@@ -30,6 +31,7 @@ interface NotificationSettingsProps {
     reminder2Days: boolean
     reminder1Day: boolean
     reminder6Hours: boolean
+    emailReviewEnabled: boolean
   }) => Promise<void>
 }
 
@@ -42,6 +44,7 @@ export function NotificationSettings({
   reminder2Days,
   reminder1Day,
   reminder6Hours,
+  emailReviewEnabled,
   onSave,
 }: NotificationSettingsProps) {
   const { t } = useTranslation()
@@ -54,6 +57,7 @@ export function NotificationSettings({
     reminder2Days,
     reminder1Day,
     reminder6Hours,
+    emailReviewEnabled,
   })
   const [saving, setSaving] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<string>('default')
@@ -187,6 +191,28 @@ export function NotificationSettings({
               checked={settings.notifyExchangeRequest}
               onCheckedChange={(checked) => updateSetting('notifyExchangeRequest', checked)}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Email Reviews */}
+      <div className="space-y-4">
+        <h3 className="font-medium text-sm text-gray-400">{t('Email Reviews')}</h3>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="email_review_enabled" className="flex-1 text-gray-300">
+                {t('Send review request emails')}
+              </Label>
+              <Switch
+                id="email_review_enabled"
+                checked={settings.emailReviewEnabled}
+                onCheckedChange={(checked) => updateSetting('emailReviewEnabled', checked)}
+              />
+            </div>
+            <p className="text-xs text-gray-500 ml-0">
+              {t('When enabled, customers receive an email to rate their cleaning after job completion')}
+            </p>
           </div>
         </div>
       </div>

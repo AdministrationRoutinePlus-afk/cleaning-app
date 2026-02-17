@@ -70,6 +70,8 @@ export async function duplicateJob(
       status: 'DRAFT' as const,
       customer_id: sourceJob.customer_id,
       created_by: sourceJob.created_by,
+      video_url: sourceJob.video_url || null,
+      pptx_url: sourceJob.pptx_url || null,
       // Legacy fields
       available_days: sourceJob.available_days || [],
       frequency_per_week: sourceJob.frequency_per_week || null,

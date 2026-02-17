@@ -61,7 +61,8 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
   const [uploading, setUploading] = useState<number | null>(null)
   const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({})
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const addStep = () => {
     const newStep: Step = {

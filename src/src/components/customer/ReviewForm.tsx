@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { User, Calendar, CheckCircle } from 'lucide-react'
 import type { JobSession, Customer } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -28,11 +28,12 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5 | null>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!rating || submitting) return
+    if (!rating || submitting || !jobSession.assigned_to) return
 
     setSubmitting(true)
     try {
@@ -41,7 +42,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
         .insert({
           job_session_id: jobSession.id,
           customer_id: customer.id,
-          employee_id: jobSession.assigned_to || '',
+          employee_id: jobSession.assigned_to!,
           rating,
           comment: comment.trim() || null,
           submitted_at: new Date().toISOString()
@@ -68,7 +69,7 @@ export function ReviewForm({ jobSession, customer, onSuccess, onCancel }: Review
   const formatDate = (timestamp: string | null) => {
     if (!timestamp) return 'N/A'
     const date = new Date(timestamp)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',

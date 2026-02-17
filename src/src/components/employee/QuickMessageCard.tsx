@@ -1,25 +1,60 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
-import { Send, Check } from 'lucide-react'
+import type { Message } from '@/types/database'
+import { Send, Check, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
 export function QuickMessageCard() {
   const { t } = useTranslation()
+  const router = useRouter()
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const supabase = createClient()
+  const [recentMessages, setRecentMessages] = useState<Message[]>([])
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const isMountedRef = useRef(true)
 
   useEffect(() => {
+    isMountedRef.current = true
     loadConversation()
+    return () => { isMountedRef.current = false }
   }, [])
+
+  // Subscribe to realtime messages once we have a conversationId
+  useEffect(() => {
+    if (!conversationId) return
+
+    const channel = supabase
+      .channel(`quick-msg-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          if (!isMountedRef.current) return
+          const newMsg = payload.new as Message
+          setRecentMessages(prev => [...prev, newMsg].slice(-3))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [conversationId])
 
   const loadConversation = async () => {
     try {
@@ -47,6 +82,8 @@ export function QuickMessageCard() {
 
       if (myConversation) {
         setConversationId(myConversation.id)
+        // Fetch last 3 messages
+        loadRecentMessages(myConversation.id)
       } else {
         // Create conversation if it doesn't exist
         await createEmployerConversation(user.id)
@@ -56,20 +93,42 @@ export function QuickMessageCard() {
     }
   }
 
+  const loadRecentMessages = async (convId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', convId)
+        .order('sent_at', { ascending: false })
+        .limit(3)
+
+      if (error) throw error
+      if (isMountedRef.current && data) {
+        // Reverse so oldest is first (display order)
+        setRecentMessages(data.reverse())
+      }
+    } catch (error) {
+      console.error('Error loading recent messages:', error)
+    }
+  }
+
   const createEmployerConversation = async (userId: string) => {
     try {
-      // Get employer user_id
-      const { data: employers, error: employerError } = await supabase
-        .from('employers')
-        .select('user_id')
-        .not('user_id', 'is', null)
+      // Get employer user_id via the employee's created_by relationship
+      const { data: employee, error: empError } = await supabase
+        .from('employees')
+        .select('created_by, employer:employers!employees_created_by_fkey(user_id)')
+        .eq('user_id', userId)
+        .single()
 
-      if (employerError || !employers || employers.length === 0) {
-        console.error('No employer found')
+      const employerArr = employee?.employer as unknown as { user_id: string }[] | null
+      const employer = employerArr?.[0] ?? null
+      if (empError || !employer?.user_id) {
+        console.warn('No employer found for this employee')
         return
       }
 
-      const employerUserId = employers[0].user_id
+      const employerUserId = employer.user_id
 
       // Create conversation
       const { data: conversation, error: convError } = await supabase
@@ -129,6 +188,42 @@ export function QuickMessageCard() {
 
   return (
     <div className="space-y-3">
+      {/* Recent messages preview */}
+      {recentMessages.length > 0 && (
+        <div className="space-y-2 mb-2">
+          {recentMessages.map((msg) => {
+            const isMe = msg.sender_id === currentUserId
+            return (
+              <div
+                key={msg.id}
+                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-2 text-sm ${
+                    isMe
+                      ? 'bg-blue-500/20 text-blue-300'
+                      : 'bg-white/10 text-gray-300'
+                  }`}
+                >
+                  <p className="break-words">{msg.content}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* View Full Chat link */}
+      {conversationId && (
+        <button
+          onClick={() => router.push('/employee/messages')}
+          className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs transition-colors"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          {t('View Full Chat')}
+        </button>
+      )}
+
       <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}

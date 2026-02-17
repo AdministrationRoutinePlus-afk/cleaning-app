@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { EmployeeChatView } from '@/components/employee/EmployeeChatView'
 import { ExchangeBoard } from '@/components/employee/ExchangeBoard'
 import { format } from 'date-fns'
-import { MessageSquare, ClipboardList, ChevronDown, ChevronRight, ChevronLeft, CheckSquare } from 'lucide-react'
+import { MessageSquare, ClipboardList, ChevronLeft, ChevronRight, CheckSquare, Users, Megaphone, ArrowLeftRight, Briefcase } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 // Extended type for schedule messages with job details
 interface ScheduleMessageWithDetails extends ScheduleMessage {
@@ -38,13 +39,24 @@ interface CustomerWithJobs {
   jobs: JobTemplateWithSteps[]
 }
 
+interface ConversationRow {
+  id: string
+  type: 'boss' | 'team' | 'swap' | 'announcement' | 'jobs'
+  name: string
+  icon: typeof MessageSquare
+  lastMessage: string | null
+  timestamp: string | null
+  unreadCount: number
+  conversationId?: string
+}
+
 type MainTab = 'chat' | 'procedures'
 
 export default function EmployeeMessagesPage() {
   const { t } = useTranslation()
+  const { formatDate } = useDateFormat()
   const [mainTab, setMainTab] = useState<MainTab>('chat')
-  const [activeTab, setActiveTab] = useState('employer')
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const [selectedView, setSelectedView] = useState<string | null>(null)
   const [employerConversation, setEmployerConversation] = useState<ConversationWithDetails | null>(null)
   const [announcements, setAnnouncements] = useState<ConversationWithDetails[]>([])
   const [coworkerConversation, setCoworkerConversation] = useState<ConversationWithDetails | null>(null)
@@ -53,13 +65,10 @@ export default function EmployeeMessagesPage() {
   const [loading, setLoading] = useState(true)
   const [loadingConversation, setLoadingConversation] = useState(true)
   const [creatingConversation, setCreatingConversation] = useState(false)
-  const [announcementsMarkedRead, setAnnouncementsMarkedRead] = useState(false)
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<string | null>(null)
   // Procedures state
   const [procedures, setProcedures] = useState<CustomerWithJobs[]>([])
   const [loadingProcedures, setLoadingProcedures] = useState(false)
-  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
-  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
   const [selectedJob, setSelectedJob] = useState<JobTemplateWithSteps | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithJobs | null>(null)
 
@@ -75,83 +84,59 @@ export default function EmployeeMessagesPage() {
 
   useEffect(() => {
     if (currentEmployee) {
-      // Load all conversations and messages on mount to check for unread
       loadEmployerConversation()
       loadAnnouncements()
       loadCoworkerConversation()
       loadJobMessages()
-
-      // Reset the flag when reloading (coming back to messages page)
-      setAnnouncementsMarkedRead(false)
     }
   }, [currentEmployee])
 
-  // Mark messages as read when switching to a tab
+  // Mark messages as read when opening a conversation
   useEffect(() => {
-    const markMessagesAsRead = async () => {
+    if (!selectedView) return
+
+    const markRead = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      if (activeTab === 'employer' && employerConversation) {
-        // Mark employer messages as read
+      if (selectedView === 'boss' && employerConversation) {
         await supabase
           .from('messages')
           .update({ read_at: new Date().toISOString() })
           .eq('conversation_id', employerConversation.id)
           .is('read_at', null)
           .neq('sender_id', user.id)
-
-        // Reload to update the red dot
         loadEmployerConversation()
-      } else if (activeTab === 'coworkers' && coworkerConversation) {
-        // Mark coworker messages as read
+      } else if (selectedView === 'team' && coworkerConversation) {
         await supabase
           .from('messages')
           .update({ read_at: new Date().toISOString() })
           .eq('conversation_id', coworkerConversation.id)
           .is('read_at', null)
           .neq('sender_id', user.id)
-
-        // Reload to update the red dot
         loadCoworkerConversation()
-      } else if (activeTab === 'announcements') {
-        // Only mark as read if we haven't already done so
-        if (announcements.length > 0 && !announcementsMarkedRead) {
-          const announcementIds = announcements.map(a => a.id)
-
-          // Update in database - mark ALL messages as read, not just from others
-          await supabase
-            .from('messages')
-            .update({ read_at: new Date().toISOString() })
-            .in('conversation_id', announcementIds)
-            .is('read_at', null)
-
-          // Reload announcements from database to get fresh data with read_at set
-          await loadAnnouncements()
-
-          // Set flag to prevent re-marking on re-render
-          setAnnouncementsMarkedRead(true)
-        }
-      } else if (activeTab === 'jobs' && jobMessages.length > 0) {
-        // Mark all job messages as read
-        const unreadJobMessageIds = jobMessages
-          .filter(m => !m.read_at)
-          .map(m => m.id)
-
-        if (unreadJobMessageIds.length > 0) {
+      } else if (selectedView === 'announcement' && announcements.length > 0) {
+        const announcementIds = announcements.map(a => a.id)
+        await supabase
+          .from('messages')
+          .update({ read_at: new Date().toISOString() })
+          .in('conversation_id', announcementIds)
+          .is('read_at', null)
+        loadAnnouncements()
+      } else if (selectedView === 'jobs' && jobMessages.length > 0) {
+        const unreadIds = jobMessages.filter(m => !m.read_at).map(m => m.id)
+        if (unreadIds.length > 0) {
           await supabase
             .from('schedule_messages')
             .update({ read_at: new Date().toISOString() })
-            .in('id', unreadJobMessageIds)
-
-          // Reload to update the red dot
+            .in('id', unreadIds)
           loadJobMessages()
         }
       }
     }
 
-    markMessagesAsRead()
-  }, [activeTab, employerConversation?.id, coworkerConversation?.id, announcements.length, jobMessages.length, selectedConversation])
+    markRead()
+  }, [selectedView])
 
   const loadCurrentEmployee = async () => {
     try {
@@ -182,7 +167,6 @@ export default function EmployeeMessagesPage() {
         return
       }
 
-      // Find direct conversation with employer
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -195,13 +179,11 @@ export default function EmployeeMessagesPage() {
 
       if (error) throw error
 
-      // Filter to find conversation where current user is participant
       const conversations = data as ConversationWithDetails[]
       const myConversation = conversations.find(conv =>
         conv.conversation_participants?.some((p: any) => p.user_id === user.id)
       )
 
-      // If no conversation exists and we're not already creating one, create it
       if (!myConversation && !creatingConversation) {
         await createEmployerConversation()
       } else if (myConversation) {
@@ -216,7 +198,7 @@ export default function EmployeeMessagesPage() {
   }
 
   const createEmployerConversation = async () => {
-    if (creatingConversation) return // Prevent duplicate creation attempts
+    if (creatingConversation) return
 
     setCreatingConversation(true)
     try {
@@ -226,27 +208,18 @@ export default function EmployeeMessagesPage() {
         return
       }
 
-      // Get employer user_id - get all employers with user_id not null
       const { data: employers, error: employerError } = await supabase
         .from('employers')
         .select('user_id')
         .not('user_id', 'is', null)
 
-      if (employerError) {
-        console.error('Error fetching employers:', employerError)
-        setCreatingConversation(false)
-        return
-      }
-
-      if (!employers || employers.length === 0) {
-        console.error('No employer found with user_id. Make sure an employer account is logged in and has a user_id.')
+      if (employerError || !employers || employers.length === 0) {
         setCreatingConversation(false)
         return
       }
 
       const employerUserId = employers[0].user_id
 
-      // Create conversation
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
         .insert({
@@ -258,7 +231,6 @@ export default function EmployeeMessagesPage() {
 
       if (convError) throw convError
 
-      // Add participants (employee and employer)
       const { error: participantsError } = await supabase
         .from('conversation_participants')
         .insert([
@@ -268,7 +240,6 @@ export default function EmployeeMessagesPage() {
 
       if (participantsError) throw participantsError
 
-      // Set the conversation directly instead of reloading
       setEmployerConversation({
         ...conversation,
         messages: [],
@@ -303,7 +274,6 @@ export default function EmployeeMessagesPage() {
 
       if (error) throw error
 
-      // Filter conversations where current user is a participant
       const userAnnouncements = (data as ConversationWithDetails[]).filter(conv =>
         conv.conversation_participants?.some((p: any) => p.user_id === user.id)
       )
@@ -320,7 +290,6 @@ export default function EmployeeMessagesPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Find employee group conversation
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -333,7 +302,6 @@ export default function EmployeeMessagesPage() {
 
       if (error) throw error
 
-      // Filter to find conversation where current user is participant
       const conversations = data as ConversationWithDetails[]
       const groupConv = conversations.find(conv =>
         conv.conversation_participants?.some((p: any) => p.user_id === user.id)
@@ -377,7 +345,6 @@ export default function EmployeeMessagesPage() {
         .update({ read_at: new Date().toISOString() })
         .eq('id', messageId)
 
-      // Update local state
       setJobMessages(prev =>
         prev.map(msg =>
           msg.id === messageId ? { ...msg, read_at: new Date().toISOString() } : msg
@@ -391,7 +358,6 @@ export default function EmployeeMessagesPage() {
   const loadProcedures = async () => {
     setLoadingProcedures(true)
     try {
-      // Fetch all job templates with their customers and steps/checklists
       const { data: jobTemplates, error } = await supabase
         .from('job_templates')
         .select(`
@@ -407,7 +373,6 @@ export default function EmployeeMessagesPage() {
 
       if (error) throw error
 
-      // Group by customer
       const customerMap = new Map<string, CustomerWithJobs>()
 
       ;(jobTemplates as JobTemplateWithSteps[])?.forEach(job => {
@@ -421,9 +386,7 @@ export default function EmployeeMessagesPage() {
           })
         }
 
-        // Sort steps by step_order
         job.job_steps = job.job_steps?.sort((a, b) => a.step_order - b.step_order) || []
-        // Sort checklist items by item_order
         job.job_steps.forEach(step => {
           step.job_step_checklist = step.job_step_checklist?.sort((a, b) => a.item_order - b.item_order) || []
         })
@@ -431,7 +394,6 @@ export default function EmployeeMessagesPage() {
         customerMap.get(customerId)!.jobs.push(job)
       })
 
-      // Convert to array and sort by customer name
       const proceduresArray = Array.from(customerMap.values())
         .sort((a, b) => (a.customer.full_name || '').localeCompare(b.customer.full_name || ''))
 
@@ -444,90 +406,138 @@ export default function EmployeeMessagesPage() {
     }
   }
 
-  // Load procedures when switching to procedures tab
   useEffect(() => {
     if (mainTab === 'procedures' && procedures.length === 0) {
       loadProcedures()
     }
   }, [mainTab])
 
-  const toggleCustomer = (customerId: string) => {
-    setExpandedCustomers(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(customerId)) {
-        newSet.delete(customerId)
-      } else {
-        newSet.add(customerId)
-      }
-      return newSet
+  // Build conversation list
+  const getConversationList = (): ConversationRow[] => {
+    const rows: ConversationRow[] = []
+
+    // Boss conversation
+    if (employerConversation) {
+      const msgs = employerConversation.messages || []
+      const sorted = [...msgs].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
+      const latest = sorted[0]
+      const unread = msgs.filter(m => !m.read_at).length
+
+      rows.push({
+        id: 'boss',
+        type: 'boss',
+        name: t('Boss'),
+        icon: MessageSquare,
+        lastMessage: latest?.content || null,
+        timestamp: latest?.sent_at || employerConversation.created_at,
+        unreadCount: unread,
+        conversationId: employerConversation.id,
+      })
+    }
+
+    // Job messages
+    if (jobMessages.length > 0) {
+      const latest = jobMessages[0] // Already sorted desc
+      const unread = jobMessages.filter(m => !m.read_at).length
+
+      rows.push({
+        id: 'jobs',
+        type: 'jobs',
+        name: t('Jobs'),
+        icon: Briefcase,
+        lastMessage: latest?.message || null,
+        timestamp: latest?.sent_at || null,
+        unreadCount: unread,
+      })
+    }
+
+    // Announcements
+    if (announcements.length > 0) {
+      const allMsgs = announcements.flatMap(a => a.messages || [])
+      const sorted = [...allMsgs].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
+      const latest = sorted[0]
+      const unread = allMsgs.filter(m => !m.read_at).length
+
+      rows.push({
+        id: 'announcement',
+        type: 'announcement',
+        name: t('News'),
+        icon: Megaphone,
+        lastMessage: latest?.content || null,
+        timestamp: latest?.sent_at || null,
+        unreadCount: unread,
+      })
+    }
+
+    // Team conversation
+    if (coworkerConversation) {
+      const msgs = coworkerConversation.messages || []
+      const sorted = [...msgs].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
+      const latest = sorted[0]
+      const unread = msgs.filter(m => !m.read_at).length
+
+      rows.push({
+        id: 'team',
+        type: 'team',
+        name: t('Team'),
+        icon: Users,
+        lastMessage: latest?.content || null,
+        timestamp: latest?.sent_at || coworkerConversation.created_at,
+        unreadCount: unread,
+        conversationId: coworkerConversation.id,
+      })
+    }
+
+    // Swap always available
+    if (currentEmployee) {
+      rows.push({
+        id: 'swap',
+        type: 'swap',
+        name: t('Swap'),
+        icon: ArrowLeftRight,
+        lastMessage: t('Shift exchange board'),
+        timestamp: null,
+        unreadCount: 0,
+      })
+    }
+
+    // Sort by most recent message
+    rows.sort((a, b) => {
+      if (!a.timestamp && !b.timestamp) return 0
+      if (!a.timestamp) return 1
+      if (!b.timestamp) return -1
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     })
+
+    return rows
   }
 
-  const toggleJob = (jobId: string) => {
-    setExpandedJobs(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(jobId)) {
-        newSet.delete(jobId)
-      } else {
-        newSet.add(jobId)
-      }
-      return newSet
-    })
+  const formatTimestamp = (ts: string | null): string => {
+    if (!ts) return ''
+    const date = new Date(ts)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) {
+      return format(date, 'h:mm a')
+    } else if (diffDays === 1) {
+      return t('Yesterday')
+    } else if (diffDays < 7) {
+      return formatDate(date, 'EEEE')
+    } else {
+      return formatDate(date, 'MMM d')
+    }
   }
 
-  const toggleStep = (stepId: string) => {
-    setExpandedSteps(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(stepId)) {
-        newSet.delete(stepId)
-      } else {
-        newSet.add(stepId)
-      }
-      return newSet
-    })
-  }
-
-  const formatAnnouncementDate = (timestamp: string) => {
-    const date = new Date(timestamp)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    })
-  }
-
-  const hasUnreadMessages = (conv: ConversationWithDetails | null) => {
-    if (!conv || !conv.messages) return false
-    // Check if there are unread messages
-    return conv.messages.some(m => !m.read_at)
-  }
-
-  const hasUnreadAnnouncements = () => {
-    return announcements.some(announcement => hasUnreadMessages(announcement))
-  }
-
-  const hasAnyUnreadMessages = () => {
-    // Check if there are unread messages in any tab
-    const hasUnreadBoss = employerConversation && hasUnreadMessages(employerConversation)
-    const hasUnreadJobs = jobMessages.filter(m => !m.read_at).length > 0
-    const hasUnreadNews = hasUnreadAnnouncements()
-    const hasUnreadTeam = coworkerConversation && hasUnreadMessages(coworkerConversation)
-
-    return hasUnreadBoss || hasUnreadJobs || hasUnreadNews || hasUnreadTeam
-  }
-
-  const getJobTimeWindow = (jobTemplate: JobTemplate, scheduledDate: string | null, scheduledEndDate: string | null) => {
-    // Use the time window from the job template
-    const windowStart = jobTemplate.time_window_start
-    const windowEnd = jobTemplate.time_window_end
-
-    return {
-      startDate: scheduledDate,
-      startTime: windowStart,
-      endDate: scheduledEndDate || scheduledDate, // Use scheduled end date or same day
-      endTime: windowEnd
+  const getIconColor = (type: string) => {
+    switch (type) {
+      case 'boss': return 'bg-blue-500/20 text-blue-400'
+      case 'jobs': return 'bg-yellow-500/20 text-yellow-400'
+      case 'announcement': return 'bg-pink-500/20 text-pink-400'
+      case 'team': return 'bg-green-500/20 text-green-400'
+      case 'swap': return 'bg-orange-500/20 text-orange-400'
+      default: return 'bg-white/10 text-gray-400'
     }
   }
 
@@ -557,297 +567,266 @@ export default function EmployeeMessagesPage() {
     )
   }
 
+  // Render the selected conversation view
+  const renderConversationView = () => {
+    if (selectedView === 'boss' && employerConversation) {
+      return (
+        <EmployeeChatView
+          conversationId={employerConversation.id}
+          title={t('Chat with Boss')}
+          onBack={() => setSelectedView(null)}
+        />
+      )
+    }
+
+    if (selectedView === 'team' && coworkerConversation) {
+      return (
+        <EmployeeChatView
+          conversationId={coworkerConversation.id}
+          title={t('Team Chat')}
+          onBack={() => setSelectedView(null)}
+        />
+      )
+    }
+
+    if (selectedView === 'announcement') {
+      if (selectedAnnouncement) {
+        return (
+          <EmployeeChatView
+            conversationId={selectedAnnouncement}
+            title={t('Announcement')}
+            onBack={() => setSelectedAnnouncement(null)}
+            readOnly
+          />
+        )
+      }
+
+      // Show announcement list
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => setSelectedView(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <h2 className="text-lg font-bold text-white">{t('News')}</h2>
+          </div>
+          {announcements.length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
+              <p className="text-gray-300">{t('No announcements yet')}</p>
+            </div>
+          ) : (
+            announcements.map((ann) => {
+              const firstMessage = ann.messages?.[0]
+              return (
+                <button
+                  key={ann.id}
+                  onClick={() => setSelectedAnnouncement(ann.id)}
+                  className="w-full text-left bg-white/5 rounded-xl p-3 border border-white/10 mb-2 hover:border-pink-500/30 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-1">
+                    <p className="text-xs text-gray-400">
+                      {formatDate(new Date(ann.created_at), 'MMM d, yyyy h:mm a')}
+                    </p>
+                    <Badge className="text-xs bg-pink-500/20 text-pink-300 border border-pink-500/50 font-bold">
+                      {t('NEWS')}
+                    </Badge>
+                  </div>
+                  {firstMessage && (
+                    <p className="text-sm text-white line-clamp-2">{firstMessage.content}</p>
+                  )}
+                </button>
+              )
+            })
+          )}
+        </div>
+      )
+    }
+
+    if (selectedView === 'jobs') {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => setSelectedView(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <h2 className="text-lg font-bold text-white">{t('Job Notifications')}</h2>
+          </div>
+          {jobMessages.length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
+              <p className="text-gray-300">{t('No job notifications yet')}</p>
+              <p className="text-sm text-gray-400 mt-1">
+                {t('Your employer will send you important job updates here')}
+              </p>
+            </div>
+          ) : (
+            jobMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`cursor-pointer transition-all rounded-xl border ${
+                  !msg.read_at
+                    ? 'bg-yellow-500/10 border-yellow-500/50'
+                    : 'bg-white/5 border-white/10'
+                }`}
+                onClick={() => markJobMessageRead(msg.id)}
+              >
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="font-mono text-xs text-gray-400 mb-1">
+                        {msg.job_session?.job_template?.job_code || 'Job'}
+                      </p>
+                      <h3 className="font-bold text-white">
+                        {msg.job_session?.job_template?.title || 'Job Notification'}
+                      </h3>
+                    </div>
+                    {!msg.read_at && (
+                      <Badge className="bg-yellow-500 text-black font-bold text-xs shrink-0 ml-2">{t('NEW')}</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-300 mb-2">{msg.message}</p>
+                  {msg.job_session?.scheduled_date && msg.job_session.job_template && (
+                    <div className="bg-white/5 p-2 rounded-lg space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">{t('Window Start:')}</span>
+                        <span className="text-white font-medium">
+                          {formatDate(new Date(msg.job_session.scheduled_date), 'EEE, MMM d, yyyy')}
+                          {msg.job_session.job_template.time_window_start && ` at ${msg.job_session.job_template.time_window_start.substring(0, 5)}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">{t('Window End:')}</span>
+                        <span className="text-white font-medium">
+                          {formatDate(new Date(msg.job_session.scheduled_end_date || msg.job_session.scheduled_date), 'EEE, MMM d, yyyy')}
+                          {msg.job_session.job_template.time_window_end && ` at ${msg.job_session.job_template.time_window_end.substring(0, 5)}`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-gray-500 text-xs text-right mt-2">
+                    {t('Sent')} {formatDate(new Date(msg.sent_at), 'MMM d, h:mm a')}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )
+    }
+
+    if (selectedView === 'swap') {
+      return (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => setSelectedView(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <h2 className="text-lg font-bold text-white">{t('Swap')}</h2>
+          </div>
+          <ExchangeBoard employeeId={currentEmployee.id} />
+        </div>
+      )
+    }
+
+    return null
+  }
+
   return (
     <div className="min-h-screen p-4 pb-20">
       <div className="max-w-lg mx-auto">
         {/* Main Tab Selector - 2 Square Buttons */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            onClick={() => setMainTab('chat')}
-            className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
-              mainTab === 'chat'
-                ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
-                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-            }`}
-          >
-            <MessageSquare className={`w-10 h-10 ${mainTab === 'chat' ? 'text-white' : 'text-gray-400'}`} />
-            <span>{t('Chat')}</span>
-            {hasAnyUnreadMessages() && (
-              <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-            )}
-          </button>
+        {!selectedView && (
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button
+              onClick={() => setMainTab('chat')}
+              className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
+                mainTab === 'chat'
+                  ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
+                  : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+              }`}
+            >
+              <MessageSquare className={`w-10 h-10 ${mainTab === 'chat' ? 'text-white' : 'text-gray-400'}`} />
+              <span>{t('Chat')}</span>
+            </button>
 
-          <button
-            onClick={() => setMainTab('procedures')}
-            className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
-              mainTab === 'procedures'
-                ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
-                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-            }`}
-          >
-            <ClipboardList className={`w-10 h-10 ${mainTab === 'procedures' ? 'text-white' : 'text-gray-400'}`} />
-            <span>{t('Procedures')}</span>
-          </button>
-        </div>
+            <button
+              onClick={() => setMainTab('procedures')}
+              className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold text-base transition-all ${
+                mainTab === 'procedures'
+                  ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
+                  : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+              }`}
+            >
+              <ClipboardList className={`w-10 h-10 ${mainTab === 'procedures' ? 'text-white' : 'text-gray-400'}`} />
+              <span>{t('Procedures')}</span>
+            </button>
+          </div>
+        )}
 
         {mainTab === 'chat' ? (
-          /* CHAT SECTION */
           <div className="w-full">
-            {/* Chat Sub-tabs */}
-            <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setActiveTab('employer')}
-                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'employer'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{t('Boss')}</span>
-                    {employerConversation && hasUnreadMessages(employerConversation) && (
-                      <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('jobs')}
-                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'jobs'
-                      ? 'bg-gradient-to-r from-yellow-600 to-yellow-700 text-white shadow-lg'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{t('Jobs')}</span>
-                    {jobMessages.filter(m => !m.read_at).length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                        <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                          {jobMessages.filter(m => !m.read_at).length}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('announcements')}
-                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'announcements'
-                      ? 'bg-gradient-to-r from-pink-600 to-pink-700 text-white shadow-lg'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{t('News')}</span>
-                    {hasUnreadAnnouncements() && (
-                      <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('coworkers')}
-                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'coworkers'
-                      ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{t('Team')}</span>
-                    {coworkerConversation && hasUnreadMessages(coworkerConversation) && (
-                      <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('exchanges')}
-                  className={`relative py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                    activeTab === 'exchanges'
-                      ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg'
-                      : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{t('Swap')}</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Employer Tab */}
-          {activeTab === 'employer' && (
-            loadingConversation ? (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                  <div className="animate-pulse space-y-4">
-                    <div className="h-4 bg-white/20 rounded w-3/4"></div>
-                    <div className="h-4 bg-white/20 rounded w-1/2"></div>
-                    <div className="h-4 bg-white/20 rounded w-2/3"></div>
-                  </div>
-              </div>
-            ) : employerConversation ? (
-              <EmployeeChatView
-                conversationId={employerConversation.id}
-                title={t('Chat with Boss')}
-              />
+            {selectedView ? (
+              renderConversationView()
             ) : (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                  <p className="text-yellow-300 text-lg font-semibold mb-3">{t('Chat Not Available')}</p>
-                  <p className="text-gray-300 mb-2">
-                    {t('The employer account needs to be set up first.')}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    {t('Ask your admin to log in to their employer account at least once to enable messaging.')}
-                  </p>
-              </div>
-            )
-          )}
+              /* Conversation List */
+              <div className="space-y-2">
+                {loadingConversation ? (
+                  <div className="animate-pulse space-y-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-16 bg-white/5 rounded-xl"></div>
+                    ))}
+                  </div>
+                ) : (
+                  getConversationList().map((row) => {
+                    const Icon = row.icon
+                    const isUnread = row.unreadCount > 0
 
-          {/* Jobs Tab - Messages pushed from Schedule */}
-          {activeTab === 'jobs' && (
-            <div className="space-y-3">
-              {jobMessages.length === 0 ? (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                    <p className="text-gray-300">{t('No job notifications yet')}</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      {t('Your employer will send you important job updates here')}
-                    </p>
-                </div>
-              ) : (
-                jobMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] rounded-xl border-2 ${
-                      !msg.read_at
-                        ? 'bg-yellow-500/10 border-yellow-500/50 shadow-lg shadow-yellow-500/20 hover:border-yellow-500/70'
-                        : 'bg-white/5 border-white/10 hover:border-yellow-500/40'
-                    }`}
-                    onClick={() => markJobMessageRead(msg.id)}
-                  >
-                    <div className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <p className="font-mono text-xs text-gray-400 mb-1">
-                            {msg.job_session?.job_template?.job_code || 'Job'}
-                          </p>
-                          <h3 className="font-bold text-lg text-white leading-tight">
-                            {msg.job_session?.job_template?.title || 'Job Notification'}
-                          </h3>
-                        </div>
-                        {!msg.read_at && (
-                          <Badge className="bg-yellow-500 text-black font-bold text-xs shrink-0 ml-2">NEW</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-300 mb-3 leading-relaxed">{msg.message}</p>
-                      <div className="space-y-2 text-xs">
-                        {msg.job_session?.scheduled_date && msg.job_session.job_template && (
-                          <div className="bg-white/5 p-2 rounded-lg space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-400">{t('Window Start:')}</span>
-                              <span className="text-white font-medium">
-                                {format(new Date(msg.job_session.scheduled_date), 'EEE, MMM d, yyyy')}
-                                {msg.job_session.job_template.time_window_start && ` at ${msg.job_session.job_template.time_window_start.substring(0, 5)}`}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-400">{t('Window End:')}</span>
-                              <span className="text-white font-medium">
-                                {format(new Date(msg.job_session.scheduled_end_date || msg.job_session.scheduled_date), 'EEE, MMM d, yyyy')}
-                                {msg.job_session.job_template.time_window_end && ` at ${msg.job_session.job_template.time_window_end.substring(0, 5)}`}
-                              </span>
-                            </div>
+                    return (
+                      <button
+                        key={row.id}
+                        onClick={() => setSelectedView(row.type)}
+                        className={`w-full text-left rounded-xl p-3 border mb-2 transition-colors ${
+                          isUnread
+                            ? 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
+                            : 'bg-white/5 border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${getIconColor(row.type)}`}>
+                            <Icon className="w-5 h-5" />
                           </div>
-                        )}
-                        <div className="text-gray-500 text-right">
-                          {t('Sent')} {format(new Date(msg.sent_at), 'MMM d, h:mm a')}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-white text-sm">{row.name}</p>
+                              <div className="flex items-center gap-2">
+                                {row.timestamp && (
+                                  <span className="text-xs text-gray-500">{formatTimestamp(row.timestamp)}</span>
+                                )}
+                                {isUnread && (
+                                  <span className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                    {row.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {row.lastMessage && (
+                              <p className="text-xs text-gray-400 truncate mt-0.5">{row.lastMessage}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* Announcements Tab */}
-          {activeTab === 'announcements' && (
-            <><div className="space-y-3">
-              {announcements.length === 0 ? (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                    <p className="text-gray-300">{t('No announcements yet')}</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      {t('Company announcements will appear here')}
-                    </p>
-                </div>
-              ) : (
-                announcements.map((announcement) => {
-                  const firstMessage = announcement.messages?.[0]
-                  return (
-                    <div
-                      key={announcement.id}
-                      className="cursor-pointer transition-all duration-300 hover:scale-102 bg-white/5 rounded-xl border-2 border-purple-500/30 hover:border-purple-500/50 shadow-lg hover:shadow-purple-500/20"
-                      onClick={() => setSelectedConversation(announcement.id)}
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <p className="text-xs text-gray-400">
-                            {formatAnnouncementDate(announcement.created_at)}
-                          </p>
-                          <Badge className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/50 font-bold">
-                            ANNOUNCEMENT
-                          </Badge>
-                        </div>
-                        {firstMessage && (
-                          <p className="text-sm text-white leading-relaxed line-clamp-3">
-                            {firstMessage.content}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            {/* Modal for viewing full announcement */}
-            {selectedConversation && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
-                  <EmployeeChatView
-                    conversationId={selectedConversation}
-                    onBack={() => setSelectedConversation(null)}
-                    title={t('Announcement')}
-                  />
-                </div>
+                      </button>
+                    )
+                  })
+                )}
               </div>
-            )}
-          </>)}
-
-          {/* Coworkers Tab */}
-          {activeTab === 'coworkers' && (
-            coworkerConversation ? (
-              <EmployeeChatView
-                conversationId={coworkerConversation.id}
-                title={t('Team Chat')}
-              />
-            ) : (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                  <p className="text-gray-300">{t('No team chat available yet')}</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    {t('Your employer will create a team chat for all employees')}
-                  </p>
-              </div>
-            )
-          )}
-
-            {/* Exchanges Tab */}
-            {activeTab === 'exchanges' && (
-              <ExchangeBoard employeeId={currentEmployee.id} />
             )}
           </div>
         ) : (

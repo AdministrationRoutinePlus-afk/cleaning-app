@@ -19,7 +19,7 @@ interface AvailabilityEditorProps {
 }
 
 const DAYS: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-const DAY_LABELS: Record<DayOfWeek, string> = {
+const DAY_KEYS: Record<DayOfWeek, string> = {
   MON: 'Monday',
   TUE: 'Tuesday',
   WED: 'Wednesday',
@@ -290,7 +290,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
   }
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -299,13 +299,13 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-white/10 border-white/20">
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-white/10 rounded w-1/4"></div>
             <div className="space-y-3">
               {[...Array(7)].map((_, i) => (
-                <div key={i} className="h-12 bg-gray-200 rounded"></div>
+                <div key={i} className="h-12 bg-white/10 rounded"></div>
               ))}
             </div>
           </div>
@@ -361,7 +361,7 @@ export function AvailabilityEditor({ employeeId }: AvailabilityEditorProps) {
                       }`}>
                         {day}
                       </div>
-                      <span className="font-semibold text-white text-sm">{t(DAY_LABELS[day])}</span>
+                      <span className="font-semibold text-white text-sm">{t(DAY_KEYS[day])}</span>
                     </div>
                     <Switch
                       id={`${day}-toggle`}

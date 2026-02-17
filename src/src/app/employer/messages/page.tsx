@@ -142,7 +142,7 @@ export default function EmployerMessagesPage() {
           requested_by_employee:employees!job_splits_requested_by_fkey(*),
           partner_employee:employees!job_splits_partner_id_fkey(*)
         `)
-        .eq('status', 'PENDING_EMPLOYER')
+        .in('status', ['PENDING_PARTNER', 'PENDING_EMPLOYER'])
         .order('created_at', { ascending: false })
 
       if (!splitError) {
@@ -357,7 +357,7 @@ export default function EmployerMessagesPage() {
 
   const formatAnnouncementDate = (timestamp: string) => {
     const date = new Date(timestamp)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',

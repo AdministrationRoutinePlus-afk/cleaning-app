@@ -72,6 +72,8 @@ export const fr: Record<string, string> = {
   'of': 'de',
   'to': '\u00e0',
   'from': 'de',
+  'Off': 'Fermé',
+  'Tap a day to toggle. Tap again to adjust hours.': 'Appuyez sur un jour pour activer. Appuyez à nouveau pour ajuster les heures.',
   'at': '\u00e0',
   'on': 'le',
   'in': 'dans',
@@ -137,6 +139,8 @@ export const fr: Record<string, string> = {
   'Settings': 'Param\u00e8tres',
   'Marketplace': 'March\u00e9',
   'My Jobs': 'Mes contrats',
+  'Find Jobs': 'Trouver un emploi',
+  'Splits': 'Partages',
   'Reviews': '\u00c9valuations',
   'Profile': 'Profil',
 
@@ -544,6 +548,8 @@ export const fr: Record<string, string> = {
   'Personal Info': 'Infos personnelles',
   'Set Availability': 'D\u00e9finir la disponibilit\u00e9',
   'Available': 'Disponible',
+  'Not Available': 'Non disponible',
+  'Set all days': 'Définir tous les jours',
   'Unavailable': 'Indisponible',
 
   // ========== Employee - Exchange Board ==========
@@ -1533,6 +1539,7 @@ export const fr: Record<string, string> = {
   'Client code must be exactly 3 letters': 'Le code client doit être exactement 3 lettres',
   'Please fill in the job title': 'Veuillez remplir le titre de l\'emploi',
   'Please fill in title and client code': 'Veuillez remplir le titre et le code client',
+  'Please add at least one date before activating': 'Veuillez ajouter au moins une date avant d\'activer',
   'Please enter a description': 'Veuillez entrer une description',
   'Please enter a message': 'Veuillez entrer un message',
   'Please enter a valid email address': 'Veuillez entrer une adresse courriel valide',
@@ -1595,4 +1602,132 @@ export const fr: Record<string, string> = {
   // -- Training Status --
   'This employee is not trained for this job': 'Cet employ\u00e9 n\'est pas form\u00e9 pour cet emploi',
   'Not trained for this job': 'Non form\u00e9 pour cet emploi',
+
+  // -- Job Steps Resume/Accordion --
+  'steps completed': 'étapes complétées',
+  'View step details': 'Voir les détails de l\'étape',
+  'items checked': 'éléments cochés',
+
+  // -- Onboarding Wizard --
+  'Welcome!': 'Bienvenue !',
+  "Let's get you set up. This app helps you manage your cleaning jobs, track your earnings, and communicate with your boss.": "Configurons votre compte. Cette application vous aide à gérer vos emplois de nettoyage, suivre vos gains et communiquer avec votre employeur.",
+  'This will only take a minute.': 'Cela ne prendra qu\'une minute.',
+  'Set Your Availability': 'Définissez vos disponibilités',
+  'Tell us when you are available to work.': 'Dites-nous quand vous êtes disponible pour travailler.',
+  'You can change this at any time from your profile.': 'Vous pouvez modifier ceci à tout moment depuis votre profil.',
+  "You're Ready!": 'Vous êtes prêt !',
+  'Head to Jobs to find available work.': 'Allez dans Emplois pour trouver du travail disponible.',
+  'Browse Jobs': 'Parcourir les emplois',
+
+  // -- Employer Availability View --
+  'No availability set': 'Aucune disponibilité définie',
+  'Managed by employee': 'Géré par l\'employé',
+  'No upcoming availability set': 'Aucune disponibilité à venir définie',
+
+  // ========== Missing Keys (Full Audit) ==========
+
+  // -- Photos/Upload (Employee Job) --
+  'Add Photo': 'Ajouter une photo',
+  'Photo uploaded': 'Photo téléversée',
+  'Photo must be under 5MB': 'La photo doit faire moins de 5 Mo',
+  'Maximum 3 photos per step': 'Maximum 3 photos par étape',
+  'Failed to upload photo': 'Échec du téléversement de la photo',
+
+  // -- Employee Job Flow --
+  'All Steps': 'Toutes les étapes',
+  'Step by Step': 'Étape par étape',
+  'Back to Steps': 'Retour aux étapes',
+  'Claim This Job': 'Réclamer cet emploi',
+  'Claim This Job?': 'Réclamer cet emploi ?',
+  'Review & Complete': 'Réviser et terminer',
+  'Review Summary': 'Résumé de la révision',
+  'Start Now': 'Commencer maintenant',
+  'Upcoming Jobs': 'Emplois à venir',
+  'Job skipped': 'Emploi ignoré',
+  'SKIP': 'PASSER',
+  'Undo': 'Annuler',
+  'Filter jobs...': 'Filtrer les emplois...',
+  'new job available': 'nouvel emploi disponible',
+  'new jobs available': 'nouveaux emplois disponibles',
+  'scheduled': 'planifié(s)',
+
+  // -- Split Jobs --
+  'Cancel Split': 'Annuler le partage',
+  'Cancel Split Request': 'Annuler la demande de partage',
+  'Cancel Split Request?': 'Annuler la demande de partage ?',
+  'Cancel this split request?': 'Annuler cette demande de partage ?',
+  'Are you sure you want to cancel this split request? The partner will no longer be involved in this job.': 'Êtes-vous sûr de vouloir annuler cette demande de partage ? Le partenaire ne sera plus impliqué dans cet emploi.',
+  'Yes, Cancel Split': 'Oui, annuler le partage',
+  'Keep Split': 'Garder le partage',
+  'Split request accepted': 'Demande de partage acceptée',
+  'Split request cancelled': 'Demande de partage annulée',
+  'Split request pending employer approval': 'Demande de partage en attente de l\'approbation de l\'employeur',
+  'Split request pending partner approval': 'Demande de partage en attente de l\'approbation du partenaire',
+  'Split with': 'Partager avec',
+  'Your partner': 'Votre partenaire',
+  'Partner time': 'Temps du partenaire',
+  'Failed to cancel split request': 'Échec de l\'annulation de la demande de partage',
+  'Failed to load split requests': 'Échec du chargement des demandes de partage',
+  'Incoming Requests': 'Demandes reçues',
+  'My Outgoing Requests': 'Mes demandes envoyées',
+  'No incoming split requests': 'Aucune demande de partage reçue',
+  'No outgoing split requests': 'Aucune demande de partage envoyée',
+
+  // -- Earnings --
+  'Earnings': 'Gains',
+  'Weekly Breakdown': 'Répartition hebdomadaire',
+  'Failed to load earnings': 'Échec du chargement des gains',
+
+  // -- Training --
+  'Jobs Trained': 'Emplois formés',
+  'Not Trained': 'Non formé',
+  'Untrained': 'Non formé',
+  'No training records yet. Your employer will update your training status.': 'Aucun dossier de formation. Votre employeur mettra à jour votre statut de formation.',
+
+  // -- Messages/Chat (Employee) --
+  'View Full Chat': 'Voir la conversation complète',
+  'Your employer will send you important job updates here': 'Votre employeur vous enverra ici les mises à jour importantes',
+  'Use "Push to Messages" in Schedule to send messages about jobs': 'Utilisez « Envoyer aux messages » dans Horaire pour envoyer des messages sur les emplois',
+  'Job Notifications': 'Notifications d\'emploi',
+  'NEWS': 'NOUVELLES',
+  'NEW': 'NOUVEAU',
+
+  // -- Shift Exchange --
+  'Shift exchange board': 'Babillard d\'échange de quarts',
+
+  // -- Schedule --
+  'Last synced': 'Dernière synchronisation',
+  'Saved locally, will sync when online': 'Sauvegardé localement, sera synchronisé en ligne',
+  'Not Yet': 'Pas encore',
+  'Please select a date': 'Veuillez sélectionner une date',
+  'Please select a new date': 'Veuillez sélectionner une nouvelle date',
+  'Please select an employee': 'Veuillez sélectionner un employé',
+  'Please select at least one employee': 'Veuillez sélectionner au moins un employé',
+  'This will cancel the current session and create a new OFFERED session with the selected date.': 'Ceci annulera la session actuelle et créera une nouvelle session OFFERTE avec la date sélectionnée.',
+  'teammate': 'coéquipier',
+
+  // -- Review (Public Customer Page) --
+  'Thank You!': 'Merci !',
+  'Your review has been submitted. We appreciate your feedback!': 'Votre avis a été soumis. Nous apprécions vos commentaires !',
+  'How was your cleaning?': 'Comment était votre ménage ?',
+  'Your feedback helps us improve': 'Vos commentaires nous aident à nous améliorer',
+  'Service completed': 'Service complété',
+  'Tap a star to rate': 'Appuyez sur une étoile pour noter',
+  'Poor': 'Mauvais',
+  'Comment': 'Commentaire',
+  '(optional)': '(optionnel)',
+  'Tell us about your experience...': 'Parlez-nous de votre expérience...',
+  'Please select a rating': 'Veuillez sélectionner une note',
+  'Failed to submit review': 'Échec de la soumission de l\'avis',
+  'Something went wrong. Please try again.': 'Quelque chose a mal tourné. Veuillez réessayer.',
+  'Review Unavailable': 'Avis non disponible',
+  'This review link is not valid.': 'Ce lien d\'avis n\'est pas valide.',
+  'This review has already been submitted. Thank you!': 'Cet avis a déjà été soumis. Merci !',
+  'This review link has expired.': 'Ce lien d\'avis a expiré.',
+  'Server configuration error': 'Erreur de configuration du serveur',
+  'Cleaning Service': 'Service de nettoyage',
+  'Your cleaner': 'Votre préposé(e)',
+
+  // -- Date Range Filters --
+  'Until': 'Jusqu\'au',
 }

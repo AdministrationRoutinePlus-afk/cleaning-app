@@ -26,7 +26,7 @@ export function JobSessionCard({ session }: JobSessionCardProps) {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return t('Not scheduled')
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

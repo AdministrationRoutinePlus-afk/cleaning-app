@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { JobExchange, JobSession, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,7 +35,8 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
   const [myRequests, setMyRequests] = useState<JobExchangeWithDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'post' | 'available' | 'my-requests'>('post')
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     loadData()
@@ -183,7 +184,7 @@ export function ExchangeBoard({ employeeId }: ExchangeBoardProps) {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return t('Not scheduled')
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return new Date(dateStr).toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',

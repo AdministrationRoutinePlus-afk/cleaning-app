@@ -106,7 +106,7 @@ export function ExchangeRequestCard({ exchange, onUpdate }: ExchangeRequestCardP
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return t('Not scheduled')
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

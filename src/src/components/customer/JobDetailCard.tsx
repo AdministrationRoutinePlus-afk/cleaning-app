@@ -38,13 +38,13 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
   }
 
   const dayLabels: Record<string, string> = {
-    MON: 'Mon',
-    TUE: 'Tue',
-    WED: 'Wed',
-    THU: 'Thu',
-    FRI: 'Fri',
-    SAT: 'Sat',
-    SUN: 'Sun'
+    MON: t('Monday').slice(0, 3),
+    TUE: t('Tuesday').slice(0, 3),
+    WED: t('Wednesday').slice(0, 3),
+    THU: t('Thursday').slice(0, 3),
+    FRI: t('Friday').slice(0, 3),
+    SAT: t('Saturday').slice(0, 3),
+    SUN: t('Sunday').slice(0, 3)
   }
 
   const getStatusBadge = () => {
@@ -156,7 +156,7 @@ export function JobDetailCard({ jobTemplate, upcomingSessions = 0, completedSess
             <div className="flex flex-wrap gap-2">
               {upcomingSessionDates.map((session, idx) => {
                 const date = new Date(session.scheduled_date + 'T00:00:00')
-                const formatted = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                const formatted = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
                 return (
                   <span
                     key={idx}

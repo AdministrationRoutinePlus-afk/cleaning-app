@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, Users, Check } from 'lucide-react'
+import { AlertTriangle, Users, Check, Clock, Star, CheckCircle } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -22,6 +22,7 @@ interface SplitJobDialogProps {
   onOpenChange: (open: boolean) => void
   jobSessionId: string
   currentEmployeeId: string
+  totalDurationMinutes: number | null
   onSuccess?: () => void
 }
 
@@ -30,25 +31,46 @@ export function SplitJobDialog({
   onOpenChange,
   jobSessionId,
   currentEmployeeId,
+  totalDurationMinutes,
   onSuccess,
 }: SplitJobDialogProps) {
   const { t } = useTranslation()
   const [teammates, setTeammates] = useState<Employee[]>([])
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null)
+  const [partnerMinutes, setPartnerMinutes] = useState(0)
   const [loading, setLoading] = useState(false)
   const [loadingTeammates, setLoadingTeammates] = useState(false)
+  const [trainingMap, setTrainingMap] = useState<Record<string, { is_trained: boolean; can_coach: boolean }>>({})
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+
+  const totalMins = totalDurationMinutes || 60
+
+  const formatMinutes = (mins: number) => {
+    const h = Math.floor(mins / 60)
+    const m = mins % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h${m}m`
+  }
 
   useEffect(() => {
     if (open) {
       loadTeammates()
+      setPartnerMinutes(Math.round(totalMins / 2))
     }
   }, [open])
 
   const loadTeammates = async () => {
     setLoadingTeammates(true)
     try {
+      // Get job_template_id from this session
+      const { data: session } = await supabase
+        .from('job_sessions')
+        .select('job_template_id')
+        .eq('id', jobSessionId)
+        .single()
+
       const { data, error } = await supabase
         .from('employees')
         .select('*')
@@ -57,7 +79,33 @@ export function SplitJobDialog({
         .order('full_name')
 
       if (error) throw error
-      setTeammates(data || [])
+
+      // Fetch training data for this job template
+      let tMap: Record<string, { is_trained: boolean; can_coach: boolean }> = {}
+      if (session?.job_template_id) {
+        const { data: trainingData } = await supabase
+          .from('employee_job_training')
+          .select('employee_id, is_trained, can_coach')
+          .eq('job_template_id', session.job_template_id)
+
+        if (trainingData) {
+          for (const rec of trainingData) {
+            tMap[rec.employee_id] = { is_trained: rec.is_trained, can_coach: rec.can_coach }
+          }
+        }
+      }
+      setTrainingMap(tMap)
+
+      // Sort: coaches first, then trained, then untrained
+      const sorted = [...(data || [])].sort((a, b) => {
+        const aT = tMap[a.id]
+        const bT = tMap[b.id]
+        const aScore = aT?.can_coach ? 2 : aT?.is_trained ? 1 : 0
+        const bScore = bT?.can_coach ? 2 : bT?.is_trained ? 1 : 0
+        return bScore - aScore
+      })
+
+      setTeammates(sorted)
     } catch (error) {
       console.error('Error loading teammates:', error)
       toast.error(t('Failed to load teammates'))
@@ -80,6 +128,7 @@ export function SplitJobDialog({
           job_session_id: jobSessionId,
           requested_by: currentEmployeeId,
           partner_id: selectedPartnerId,
+          partner_minutes: partnerMinutes,
           status: 'PENDING_PARTNER',
         })
 
@@ -127,6 +176,39 @@ export function SplitJobDialog({
           </div>
         </div>
 
+        {/* Hours split */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="w-4 h-4 text-blue-400" />
+            <p className="text-sm text-gray-400">{t('Hours to give')}</p>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-3">
+            <input
+              type="range"
+              min={15}
+              max={totalMins - 15}
+              step={15}
+              value={partnerMinutes}
+              onChange={(e) => setPartnerMinutes(Number(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+            <div className="flex justify-between text-xs">
+              <div className="text-center">
+                <p className="text-gray-500">{t('You')}</p>
+                <p className="text-white font-semibold">{formatMinutes(totalMins - partnerMinutes)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-500">{t('Total')}</p>
+                <p className="text-gray-400 font-semibold">{formatMinutes(totalMins)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-500">{t('Teammate')}</p>
+                <p className="text-blue-400 font-semibold">{formatMinutes(partnerMinutes)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Teammate picker */}
         <div className="space-y-2">
           <p className="text-sm text-gray-400">{t('Select teammate')}</p>
@@ -138,6 +220,7 @@ export function SplitJobDialog({
             ) : (
               teammates.map((emp) => {
                 const isSelected = selectedPartnerId === emp.id
+                const training = trainingMap[emp.id]
                 return (
                   <button
                     key={emp.id}
@@ -150,6 +233,18 @@ export function SplitJobDialog({
                     }`}
                   >
                     <span className="flex-1">{emp.full_name}</span>
+                    {training?.can_coach && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        <Star className="w-2.5 h-2.5" />
+                        {t('Coach')}
+                      </span>
+                    )}
+                    {training?.is_trained && !training?.can_coach && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">
+                        <CheckCircle className="w-2.5 h-2.5" />
+                        {t('Trained')}
+                      </span>
+                    )}
                     {isSelected && <Check className="w-4 h-4 text-blue-400" />}
                   </button>
                 )

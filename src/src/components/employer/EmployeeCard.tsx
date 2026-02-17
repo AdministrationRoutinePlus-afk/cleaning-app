@@ -8,9 +8,9 @@ import { useState } from 'react'
 import type { Employee } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { format } from 'date-fns'
 import { User, ShieldOff, Eye, CheckCircle, Calendar, MapPin, User as UserIcon } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 export interface EmployeeJob {
   id: string
@@ -58,6 +58,7 @@ export function EmployeeCard({
   onViewProfile
 }: EmployeeCardProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const [activeTab, setActiveTab] = useState<string | null>(null)
 
   const getStatusBadge = (status: Employee['status']) => {
@@ -161,7 +162,7 @@ export function EmployeeCard({
                         <div className="flex items-center gap-1.5 text-xs text-gray-400">
                           <Calendar className="w-3 h-3 shrink-0" />
                           <span>
-                            {format(new Date(job.scheduled_date + 'T00:00:00'), 'MMM d, yyyy')}
+                            {formatDateLocale(new Date(job.scheduled_date + 'T00:00:00'), 'MMM d, yyyy')}
                             {job.scheduled_time && `  at ${job.scheduled_time.slice(0, 5)}`}
                           </span>
                         </div>

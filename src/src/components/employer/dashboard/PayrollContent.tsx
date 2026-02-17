@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { DollarSign, Clock, Briefcase, User, ChevronDown, ChevronUp } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, parseISO, isWithinInterval } from 'date-fns'
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 interface JobSessionWithDetails extends JobSession {
   job_template: JobTemplate
@@ -30,6 +31,7 @@ interface PayrollContentProps {
 
 export function PayrollContent({ employerId }: PayrollContentProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const [sessions, setSessions] = useState<JobSessionWithDetails[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,13 +81,13 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
       return {
         periodStart: startOfWeek(now, { weekStartsOn: 1 }),
         periodEnd: endOfWeek(now, { weekStartsOn: 1 }),
-        periodLabel: `${t('Week of')} ${format(startOfWeek(now, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
+        periodLabel: `${t('Week of')} ${formatDateLocale(startOfWeek(now, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
       }
     } else {
       return {
         periodStart: startOfMonth(now),
         periodEnd: endOfMonth(now),
-        periodLabel: format(now, 'MMMM yyyy')
+        periodLabel: formatDateLocale(now, 'MMMM yyyy')
       }
     }
   }, [period])
@@ -263,7 +265,7 @@ export function PayrollContent({ employerId }: PayrollContentProps) {
                             {session.job_template?.job_code}
                           </span>
                           <span className="text-gray-500 ml-2">
-                            {session.completed_at && format(parseISO(session.completed_at), 'MMM d')}
+                            {session.completed_at && formatDateLocale(parseISO(session.completed_at), 'MMM d')}
                           </span>
                         </div>
                         <div className="text-right">

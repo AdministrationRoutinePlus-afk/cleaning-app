@@ -1,52 +1,126 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import type { JobSessionFull } from '@/types/database'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import type { JobSessionFull, JobSession, JobTemplate, Customer, JobSplit, Employee, JobSplitStatus } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { MyJobCard } from '@/components/employee/MyJobCard'
+import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
+import { SplitRequestCard } from '@/components/employee/SplitRequestCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import { MarketplacePageSkeleton } from '@/components/skeletons/MarketplaceCardSkeleton'
+import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle, ShoppingBag, Calendar, DollarSign, FileText, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { parseISO, startOfDay } from 'date-fns'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
-type MainTab = 'current' | 'history'
+type JobSessionWithDetails = JobSession & {
+  job_template: JobTemplate & {
+    customer: Customer | null
+  }
+}
+
+type TopTab = 'find' | 'myjobs' | 'history' | 'splits'
+
+interface SplitRequestWithDetails extends JobSplit {
+  requested_by_employee: Employee
+  partner_employee: Employee
+  job_session: JobSession & {
+    job_template: JobTemplate & {
+      customer: Customer | null
+    }
+  }
+}
 type SubTab = 'active' | 'upcoming' | 'pending' | 'completed' | 'refused' | 'issues'
+
+type SwipeAction = {
+  jobSessionId: string
+  action: 'interested' | 'skipped'
+  timestamp: string
+}
 
 export default function EmployeeJobsPage() {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<JobSessionFull[]>([])
-  const [mainTab, setMainTab] = useState<MainTab>('current')
+  const [topTab, setTopTab] = useState<TopTab>('myjobs')
   const [subTab, setSubTab] = useState<SubTab>('active')
   const contentRef = useRef<HTMLDivElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const isMountedRef = useRef(true)
 
-  // Fetch jobs for the current employee
+  // Find Jobs state
+  const [marketplaceJobs, setMarketplaceJobs] = useState<JobSessionWithDetails[]>([])
+  const [marketplaceLoading, setMarketplaceLoading] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [employeeId, setEmployeeId] = useState<string | null>(null)
+  const [employeeStatus, setEmployeeStatus] = useState<string | null>(null)
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
+  const [claimingJobId, setClaimingJobId] = useState<string | null>(null)
+  const [skippedJobIds, setSkippedJobIds] = useState<Set<string>>(new Set())
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null)
+
+  // Splits tab state
+  const [incomingSplits, setIncomingSplits] = useState<SplitRequestWithDetails[]>([])
+  const [outgoingSplits, setOutgoingSplits] = useState<SplitRequestWithDetails[]>([])
+  const [splitsLoading, setSplitsLoading] = useState(false)
+  const [cancelingSplitId, setCancelingSplitId] = useState<string | null>(null)
+
+  // Claim confirmation dialog state
+  const [confirmJob, setConfirmJob] = useState<JobSessionWithDetails | null>(null)
+
+  // Load user on mount
+  useEffect(() => {
+    isMountedRef.current = true
+    loadUser()
+    return () => { isMountedRef.current = false }
+  }, [])
+
+  const loadUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!isMountedRef.current) return
+    if (user) {
+      setUserId(user.id)
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!isMountedRef.current) return
+      if (employee) {
+        setEmployeeStatus(employee.status)
+        setEmployeeId(employee.id)
+      }
+    }
+  }
+
+  // Fetch My Jobs
   const fetchJobs = async () => {
     setLoading(true)
     try {
-      // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError || !user) {
-        console.error('Error getting user:', userError)
-        return
-      }
+      if (userError || !user) return
 
-      // Get employee record for current user
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
         .select('id')
         .eq('user_id', user.id)
         .single()
 
-      if (employeeError || !employeeData) {
-        console.error('Error getting employee:', employeeError)
-        return
-      }
+      if (employeeError || !employeeData) return
 
-      // Fetch job sessions with related data (include split_with jobs)
       let { data, error } = await supabase
         .from('job_sessions')
         .select(`
@@ -59,7 +133,6 @@ export default function EmployeeJobsPage() {
         .or(`assigned_to.eq.${employeeData.id},split_with.eq.${employeeData.id}`)
         .order('scheduled_date', { ascending: true })
 
-      // Fallback if split_with column doesn't exist yet
       if (error) {
         const fallback = await supabase
           .from('job_sessions')
@@ -77,110 +150,400 @@ export default function EmployeeJobsPage() {
         error = fallback.error
       }
 
-      if (error) {
-        console.error('Error fetching jobs:', error)
-        return
-      }
-
+      if (error) return
       if (!isMountedRef.current) return
 
-      // Type assertion to ensure proper typing
       const typedData = data as unknown as JobSessionFull[]
       setJobs(typedData || [])
     } catch (error) {
       console.error('Error in fetchJobs:', error)
       toast.error(t('Failed to load your jobs'))
     } finally {
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
+      if (isMountedRef.current) setLoading(false)
     }
   }
 
-  // Load jobs on mount
-  useEffect(() => {
-    isMountedRef.current = true
-    fetchJobs()
-    return () => { isMountedRef.current = false }
-  }, [])
+  // Load marketplace (Find Jobs) data
+  const loadMarketplaceData = useCallback(async () => {
+    if (!userId) return
+    setMarketplaceLoading(true)
+    try {
+      const { data: offeredJobs, error: offeredError } = await supabase
+        .from('job_sessions')
+        .select(`
+          *,
+          job_template:job_templates(
+            *,
+            customer:customers(*)
+          )
+        `)
+        .eq('status', 'OFFERED')
+        .not('scheduled_date', 'is', null)
+        .gte('scheduled_date', new Date().toISOString().split('T')[0])
+        .order('scheduled_date', { ascending: true })
 
-  // Scroll to top when tabs change
+      if (offeredError) throw offeredError
+
+      const swipeHistory = getSwipeHistory()
+      const swipedIds = new Set(swipeHistory.map(s => s.jobSessionId))
+      setSkippedJobIds(new Set(swipeHistory.filter(s => s.action === 'skipped').map(s => s.jobSessionId)))
+
+      const availableJobs = (offeredJobs || [])
+        .filter(job => job.job_template !== null)
+        .filter(job => !swipedIds.has(job.id))
+        .filter((job, index, self) => index === self.findIndex(j => j.id === job.id)) as JobSessionWithDetails[]
+
+      setMarketplaceJobs(availableJobs)
+    } catch (error) {
+      console.error('Error loading marketplace jobs:', error)
+      toast.error(t('Failed to load marketplace jobs'))
+    } finally {
+      setMarketplaceLoading(false)
+    }
+  }, [userId, supabase])
+
+  // Load splits data
+  const loadSplitsData = useCallback(async () => {
+    if (!employeeId) return
+    setSplitsLoading(true)
+    try {
+      // Incoming: where I'm the partner and status is PENDING_PARTNER
+      const { data: incoming, error: inErr } = await supabase
+        .from('job_splits')
+        .select(`
+          *,
+          requested_by_employee:employees!job_splits_requested_by_fkey(*),
+          partner_employee:employees!job_splits_partner_id_fkey(*),
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          )
+        `)
+        .eq('partner_id', employeeId)
+        .eq('status', 'PENDING_PARTNER')
+        .order('created_at', { ascending: false })
+
+      if (inErr) throw inErr
+
+      // Outgoing: where I'm the requester
+      const { data: outgoing, error: outErr } = await supabase
+        .from('job_splits')
+        .select(`
+          *,
+          requested_by_employee:employees!job_splits_requested_by_fkey(*),
+          partner_employee:employees!job_splits_partner_id_fkey(*),
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(
+              *,
+              customer:customers(*)
+            )
+          )
+        `)
+        .eq('requested_by', employeeId)
+        .order('created_at', { ascending: false })
+
+      if (outErr) throw outErr
+
+      if (isMountedRef.current) {
+        setIncomingSplits((incoming || []) as unknown as SplitRequestWithDetails[])
+        setOutgoingSplits((outgoing || []) as unknown as SplitRequestWithDetails[])
+      }
+    } catch (error) {
+      console.error('Error loading splits:', error)
+      toast.error(t('Failed to load split requests'))
+    } finally {
+      if (isMountedRef.current) setSplitsLoading(false)
+    }
+  }, [employeeId, supabase])
+
+  const handleCancelSplit = async (splitId: string) => {
+    if (!confirm(t('Cancel this split request?'))) return
+    setCancelingSplitId(splitId)
+    try {
+      const { error } = await supabase
+        .from('job_splits')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('id', splitId)
+
+      if (error) throw error
+      toast.success(t('Split request cancelled'))
+      loadSplitsData()
+    } catch (error) {
+      console.error('Error canceling split:', error)
+      toast.error(t('Failed to cancel split request'))
+    } finally {
+      setCancelingSplitId(null)
+    }
+  }
+
+  // Load jobs on mount + when userId changes
+  useEffect(() => {
+    if (userId) {
+      fetchJobs()
+    }
+  }, [userId])
+
+  // Load marketplace data when Find Jobs tab is active
+  useEffect(() => {
+    if (topTab === 'find' && userId) {
+      loadMarketplaceData()
+    }
+  }, [topTab, userId, loadMarketplaceData])
+
+  // Load splits data when Splits tab is active
+  useEffect(() => {
+    if (topTab === 'splits' && employeeId) {
+      loadSplitsData()
+    }
+  }, [topTab, employeeId, loadSplitsData])
+
+  // Cross-tab synchronization
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('swipe-history-sync')
+      broadcastChannelRef.current = channel
+      channel.onmessage = () => {
+        if (userId && topTab === 'find') loadMarketplaceData()
+      }
+      return () => { channel.close(); broadcastChannelRef.current = null }
+    }
+  }, [userId, topTab, loadMarketplaceData])
+
+  // Realtime for marketplace
+  useEffect(() => {
+    const channel = supabase
+      .channel('jobs-marketplace-updates')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'job_sessions',
+        filter: 'status=neq.OFFERED'
+      }, (payload) => {
+        if (!isMountedRef.current) return
+        setMarketplaceJobs(prev => {
+          const existed = prev.some(j => j.id === payload.old?.id)
+          if (existed) {
+            toast(t('A job was just claimed by another employee'), { duration: 3000 })
+          }
+          return prev.filter(j => j.id !== payload.old?.id)
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase, t])
+
+  // Scroll to top on tab change
   useEffect(() => {
     const scrollContainer = document.getElementById('main-scroll-container')
-    if (scrollContainer) {
-      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }, [mainTab, subTab])
+    if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [topTab, subTab])
 
-  // Helper to check if job is missed or overdue (for backwards compatibility)
+  // --- LocalStorage swipe history ---
+  const getSwipeHistory = (): SwipeAction[] => {
+    if (typeof window === 'undefined') return []
+    const history = localStorage.getItem('swipeHistory')
+    if (!history) return []
+    try {
+      const parsed = JSON.parse(history) as SwipeAction[]
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+      const valid = parsed.filter(entry => entry.timestamp && new Date(entry.timestamp).getTime() > sevenDaysAgo)
+      if (valid.length !== parsed.length) localStorage.setItem('swipeHistory', JSON.stringify(valid))
+      return valid
+    } catch {
+      localStorage.removeItem('swipeHistory')
+      return []
+    }
+  }
+
+  const saveSwipeAction = (jobSessionId: string, action: 'interested' | 'skipped') => {
+    const history = getSwipeHistory()
+    history.push({ jobSessionId, action, timestamp: new Date().toISOString() })
+    localStorage.setItem('swipeHistory', JSON.stringify(history))
+    broadcastChannelRef.current?.postMessage({ type: 'swipe-update' })
+  }
+
+  const removeFromSwipeHistory = (jobSessionId: string) => {
+    const history = getSwipeHistory()
+    const updated = history.filter(h => h.jobSessionId !== jobSessionId)
+    localStorage.setItem('swipeHistory', JSON.stringify(updated))
+    broadcastChannelRef.current?.postMessage({ type: 'swipe-update' })
+  }
+
+  // --- Marketplace actions ---
+  const toggleExpand = (jobId: string) => {
+    setExpandedJobId(prev => prev === jobId ? null : jobId)
+  }
+
+  // Open claim confirmation dialog (#9)
+  const handleClaimRequest = (job: JobSessionWithDetails) => {
+    setConfirmJob(job)
+  }
+
+  // Actual claim logic
+  const handleClaimJob = async (job: JobSessionWithDetails) => {
+    setConfirmJob(null)
+    try {
+      if (employeeStatus !== 'ACTIVE') {
+        toast.error(t('Your account must be active to claim jobs.'))
+        return
+      }
+
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id, status')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (!employee) {
+        toast.error(t('Employee record not found.'))
+        return
+      }
+
+      if (employee.status !== 'ACTIVE') {
+        toast.error(t('Your account must be active to claim jobs.'))
+        return
+      }
+
+      const { data: updated, error } = await supabase
+        .from('job_sessions')
+        .update({
+          status: 'CLAIMED',
+          assigned_to: employee.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', job.id)
+        .eq('status', 'OFFERED')
+        .select()
+
+      if (error) throw error
+
+      if (!updated || updated.length === 0) {
+        toast.error(t('This job has already been claimed by another employee.'))
+        setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+        return
+      }
+
+      saveSwipeAction(job.id, 'interested')
+      setClaimingJobId(job.id)
+
+      setTimeout(() => {
+        setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+        setExpandedJobId(null)
+        setClaimingJobId(null)
+        // Refresh My Jobs to include the newly claimed job
+        fetchJobs()
+      }, 1800)
+
+    } catch (error) {
+      console.error('Error claiming job:', error)
+      toast.error(t('Failed to claim job. Please try again.'))
+    }
+  }
+
+  // Skip job with undo toast (#10)
+  const handleSkipJob = (job: JobSessionWithDetails) => {
+    saveSwipeAction(job.id, 'skipped')
+    setSkippedJobIds(prev => new Set([...prev, job.id]))
+    setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+    setExpandedJobId(null)
+
+    toast(t('Job skipped'), {
+      action: {
+        label: t('Undo'),
+        onClick: () => {
+          removeFromSwipeHistory(job.id)
+          setSkippedJobIds(prev => {
+            const next = new Set(prev)
+            next.delete(job.id)
+            return next
+          })
+          setMarketplaceJobs(prev => {
+            const updated = [...prev, job]
+            return updated.sort((a, b) => {
+              if (!a.scheduled_date) return 1
+              if (!b.scheduled_date) return -1
+              return a.scheduled_date.localeCompare(b.scheduled_date)
+            })
+          })
+        },
+      },
+      duration: 5000,
+    })
+  }
+
+  // Group marketplace jobs by date
+  const groupedMarketplaceJobs = useMemo(() => {
+    const grouped: Record<string, JobSessionWithDetails[]> = {}
+    marketplaceJobs.forEach(job => {
+      if (!job.scheduled_date) return
+      const dateKey = job.scheduled_date
+      if (!grouped[dateKey]) grouped[dateKey] = []
+      grouped[dateKey].push(job)
+    })
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
+  }, [marketplaceJobs])
+
+  const formatDateHeader = (dateStr: string) => {
+    const date = startOfDay(parseISO(dateStr))
+    const today = startOfDay(new Date())
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    if (date.getTime() === today.getTime()) return t('Today')
+    if (date.getTime() === tomorrow.getTime()) return t('Tomorrow')
+    return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+  }
+
+  // --- My Jobs logic ---
   const isJobMissedOrOverdue = (session: JobSessionFull) => {
     if (session.status === 'MISSED' || session.status === 'OVERDUE') return true
     if (!session.scheduled_date) return false
-
     const now = new Date()
     const jobTemplate = session.job_template
-
     if (jobTemplate?.time_window_end) {
       const [endH, endM] = jobTemplate.time_window_end.split(':').map(Number)
       const endDate = new Date(session.scheduled_end_date || session.scheduled_date)
       endDate.setHours(endH, endM, 0, 0)
-
-      if (now > endDate) {
-        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
-      }
+      if (now > endDate) return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
     } else {
       const endOfDay = new Date(session.scheduled_end_date || session.scheduled_date)
       endOfDay.setHours(23, 59, 59, 999)
-      if (now > endOfDay) {
-        return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
-      }
+      if (now > endOfDay) return session.status === 'APPROVED' || session.status === 'IN_PROGRESS'
     }
     return false
   }
 
-  // Filter jobs by status for each tab
-  const pendingJobs = jobs.filter(job => job.status === 'CLAIMED') // Waiting for employer approval
+  const pendingJobs = jobs.filter(job => job.status === 'CLAIMED')
   const approvedJobs = jobs.filter(job => job.status === 'APPROVED' && !isJobMissedOrOverdue(job))
   const inProgressJobs = jobs.filter(job => job.status === 'IN_PROGRESS' && !isJobMissedOrOverdue(job))
-  const completedJobs = jobs.filter(job =>
-    job.status === 'COMPLETED' || job.status === 'EVALUATED'
-  )
+  const completedJobs = jobs.filter(job => job.status === 'COMPLETED' || job.status === 'EVALUATED')
   const refusedJobs = jobs.filter(job => job.status === 'REFUSED')
-  const issueJobs = jobs.filter(job =>
-    job.status === 'MISSED' || job.status === 'OVERDUE' || isJobMissedOrOverdue(job)
-  )
+  const issueJobs = jobs.filter(job => job.status === 'MISSED' || job.status === 'OVERDUE' || isJobMissedOrOverdue(job))
 
-  // Get job count for each tab
-  const getCounts = () => ({
+  const counts = {
     pending: pendingJobs.length,
     approved: approvedJobs.length,
     inProgress: inProgressJobs.length,
     completed: completedJobs.length,
     refused: refusedJobs.length,
     issues: issueJobs.length
-  })
+  }
 
-  const counts = getCounts()
-
-  // Count totals for main tabs
   const currentCount = counts.inProgress + counts.approved + counts.pending
   const historyCount = counts.completed + counts.refused + counts.issues
 
-  const handleMainTabChange = (tab: MainTab) => {
-    setMainTab(tab)
-    // Set default sub-tab for each main tab
-    if (tab === 'current') {
-      setSubTab('active')
-    } else {
-      setSubTab('completed')
-    }
+  const pendingSplitsCount = incomingSplits.length + outgoingSplits.filter(s => s.status === 'PENDING_PARTNER' || s.status === 'PENDING_EMPLOYER').length
+
+  const handleTopTabChange = (tab: TopTab) => {
+    setTopTab(tab)
+    if (tab === 'myjobs') setSubTab('active')
+    else if (tab === 'history') setSubTab('completed')
   }
 
-  const handleSubTabChange = (tab: SubTab) => {
-    setSubTab(tab)
-  }
-
-  // Get jobs for current sub-tab
   const getJobsForSubTab = () => {
     switch (subTab) {
       case 'active': return inProgressJobs
@@ -230,93 +593,362 @@ export default function EmployeeJobsPage() {
     }
   }
 
-  const activeSubTabs = mainTab === 'current' ? currentSubTabs : historySubTabs
+  const activeSubTabs = topTab === 'myjobs' ? currentSubTabs : historySubTabs
   const currentJobs = getJobsForSubTab()
+
+  // Helper for confirmation dialog
+  const formatDuration = (minutes: number | null) => {
+    if (!minutes) return '\u2014'
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    if (hours === 0) return `${mins}m`
+    if (mins === 0) return `${hours}h`
+    return `${hours}h ${mins}m`
+  }
+
+  const formatPrice = (price: number | null) => {
+    if (!price) return '\u2014'
+    return `$${price.toFixed(0)}/hr`
+  }
 
   return (
     <div className="min-h-screen pb-20">
       <div className="max-w-lg mx-auto p-4">
-        {/* Main Tab Selector - 2 Square Buttons */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            onClick={() => handleMainTabChange('current')}
-            className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
-              mainTab === 'current'
-                ? 'bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-500/30 border-2 border-blue-400'
-                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-            }`}
-          >
-            <Briefcase className={`w-10 h-10 mb-2 ${mainTab === 'current' ? 'text-white' : 'text-gray-400'}`} />
-            <span>{t('My Jobs')}</span>
-          </button>
-
-          <button
-            onClick={() => handleMainTabChange('history')}
-            className={`aspect-square flex flex-col items-center justify-center rounded-2xl font-bold text-base transition-all ${
-              mainTab === 'history'
-                ? 'bg-gradient-to-br from-purple-600 to-purple-800 text-white shadow-lg shadow-purple-500/30 border-2 border-purple-400'
-                : 'bg-white/5 text-gray-300 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
-            }`}
-          >
-            <History className={`w-10 h-10 mb-2 ${mainTab === 'history' ? 'text-white' : 'text-gray-400'}`} />
-            <span>{t('History')}</span>
-          </button>
-        </div>
-
-        {/* Sub-tabs - Same style as Fixed Weekly / Custom Dates (inside container) */}
+        {/* Top Tabs: 2x2 colored grid */}
         <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
-          <div className="flex justify-center">
-            <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
-              {activeSubTabs.map((tab) => {
-                const isActive = subTab === tab.id
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => handleSubTabChange(tab.id)}
-                    className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold transition-all ${
-                      isActive
-                        ? getSubTabStyle(tab.color, true)
-                        : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20 hover:bg-white/10'
-                    }`}
-                  >
-                    <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-500'}`} />
-                    <span className="text-center px-2 text-sm">{t(tab.label)}</span>
-                    {tab.count > 0 && (
-                      <span className={`text-xs rounded-full px-2 py-0.5 ${
-                        isActive ? 'bg-white/20' : 'bg-white/10'
-                      }`}>
-                        {tab.count}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { key: 'find' as TopTab, label: 'Find Jobs', icon: ShoppingBag, color: 'green', badge: marketplaceJobs.length > 0 ? marketplaceJobs.length : undefined },
+              { key: 'myjobs' as TopTab, label: 'My Jobs', icon: Briefcase, color: 'blue', badge: currentCount > 0 ? currentCount : undefined },
+              { key: 'history' as TopTab, label: 'History', icon: History, color: 'purple', badge: historyCount > 0 ? historyCount : undefined },
+              { key: 'splits' as TopTab, label: 'Splits', icon: Users, color: 'orange', badge: pendingSplitsCount > 0 ? pendingSplitsCount : undefined },
+            ]).map((tab) => {
+              const isActive = topTab === tab.key
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => handleTopTabChange(tab.key)}
+                  className={`aspect-[2/1] flex flex-col items-center justify-center gap-1.5 rounded-2xl font-bold transition-all ${
+                    isActive
+                      ? getSubTabStyle(tab.color, true)
+                      : 'bg-white/5 text-gray-400 border-2 border-white/10 hover:border-white/20 hover:bg-white/10'
+                  }`}
+                >
+                  <Icon className={`w-6 h-6 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                  <span className="text-center text-sm">{t(tab.label)}</span>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <span className={`text-xs rounded-full px-2 py-0.5 ${
+                      isActive ? 'bg-white/20' : 'bg-white/10'
+                    }`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* Content Section */}
-        <div ref={contentRef} className="bg-white/10 rounded-2xl border border-white/20 p-4 scroll-mt-4">
-          {loading ? (
-            <LoadingSpinner size="md" />
-          ) : currentJobs.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400">{getEmptyMessage()}</p>
+        {/* FIND JOBS TAB */}
+        {topTab === 'find' && (
+          <div className="w-full">
+            {marketplaceLoading ? (
+              <MarketplacePageSkeleton />
+            ) : employeeStatus === 'PENDING' ? (
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-8 text-center">
+                <h3 className="text-lg font-semibold text-yellow-300 mb-2">
+                  {t('Account Pending Activation')}
+                </h3>
+                <p className="text-yellow-200/80">
+                  {t('Your account is waiting for employer approval.')}
+                </p>
+              </div>
+            ) : employeeStatus === 'INACTIVE' || employeeStatus === 'BLOCKED' ? (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 text-center">
+                <h3 className="text-lg font-semibold text-red-300 mb-2">
+                  {t('Account')} {employeeStatus === 'BLOCKED' ? t('Blocked') : t('Inactive')}
+                </h3>
+                <p className="text-red-200/80">
+                  {t('Please contact your employer to restore access.')}
+                </p>
+              </div>
+            ) : groupedMarketplaceJobs.length > 0 ? (
+              <div className="space-y-6">
+                <p className="text-center text-gray-400 text-sm">
+                  {t('Tap a job to view details and claim')}
+                </p>
+
+                {groupedMarketplaceJobs.map(([dateKey, dateJobs]) => (
+                  <div key={dateKey}>
+                    <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10">
+                      {formatDateHeader(dateKey)}
+                      <span className="text-gray-500 font-normal ml-2">
+                        ({dateJobs.length} {dateJobs.length !== 1 ? t('jobs') : t('job')})
+                      </span>
+                    </h3>
+
+                    <div className="space-y-3">
+                      {dateJobs.map(job => (
+                        <div key={job.id} className="relative">
+                          <MarketplaceJobCard
+                            jobSession={job}
+                            onClaim={() => handleClaimRequest(job)}
+                            onSkip={() => handleSkipJob(job)}
+                            isExpanded={expandedJobId === job.id}
+                            onToggleExpand={() => toggleExpand(job.id)}
+                          />
+                          {claimingJobId === job.id && (
+                            <div className="absolute inset-0 bg-green-600/90 rounded-2xl flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 z-20">
+                              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3 animate-bounce">
+                                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                              <p className="text-white font-bold text-lg">{t('Job Claimed!')}</p>
+                              <p className="text-green-100 text-sm mt-1">{t('Waiting for approval')}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
+                <ShoppingBag className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  {t('All caught up!')}
+                </h3>
+                <p className="text-gray-300 mb-4">
+                  {t('No jobs available right now. Check back later!')}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SPLITS TAB */}
+        {topTab === 'splits' && (
+          <div className="w-full space-y-6">
+            {splitsLoading ? (
+              <LoadingSpinner size="md" />
+            ) : (
+              <>
+                {/* Incoming Split Requests */}
+                <div>
+                  <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
+                    {t('Incoming Requests')}
+                    {incomingSplits.length > 0 && (
+                      <span className="text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full px-2 py-0.5">
+                        {incomingSplits.length}
+                      </span>
+                    )}
+                  </h3>
+                  {incomingSplits.length === 0 ? (
+                    <div className="text-center py-8 bg-white/5 rounded-xl border border-white/10">
+                      <p className="text-gray-400">{t('No incoming split requests')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {incomingSplits.map(split => (
+                        <SplitRequestCard
+                          key={split.id}
+                          split={split}
+                          onUpdate={loadSplitsData}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Outgoing Split Requests */}
+                <div>
+                  <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
+                    {t('My Outgoing Requests')}
+                    {outgoingSplits.length > 0 && (
+                      <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5">
+                        {outgoingSplits.length}
+                      </span>
+                    )}
+                  </h3>
+                  {outgoingSplits.length === 0 ? (
+                    <div className="text-center py-8 bg-white/5 rounded-xl border border-white/10">
+                      <p className="text-gray-400">{t('No outgoing split requests')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {outgoingSplits.map(split => {
+                        const session = split.job_session
+                        const template = session?.job_template
+                        const partnerName = split.partner_employee?.full_name || t('Unknown')
+                        const statusColors: Record<string, string> = {
+                          PENDING_PARTNER: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
+                          PENDING_EMPLOYER: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+                          APPROVED: 'bg-green-500/20 text-green-300 border border-green-500/30',
+                          DENIED_PARTNER: 'bg-red-500/20 text-red-300 border border-red-500/30',
+                          DENIED_EMPLOYER: 'bg-red-500/20 text-red-300 border border-red-500/30',
+                          CANCELLED: 'bg-gray-500/20 text-gray-300 border border-gray-500/30',
+                        }
+                        const canCancel = split.status === 'PENDING_PARTNER' || split.status === 'PENDING_EMPLOYER'
+
+                        return (
+                          <div key={split.id} className="bg-white/10 rounded-2xl border border-white/20 p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-white font-semibold text-sm truncate flex-1">
+                                {template?.title || t('Unknown Job')}
+                              </p>
+                              <Badge className={statusColors[split.status] || statusColors.CANCELLED}>
+                                {split.status.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <Users className="w-3 h-3" />
+                              <span>{t('Partner')}: {partnerName}</span>
+                            </div>
+                            {split.partner_minutes && (
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <Clock className="w-3 h-3" />
+                                <span>{t('Partner time')}: {Math.floor(split.partner_minutes / 60)}h{split.partner_minutes % 60 > 0 ? `${split.partner_minutes % 60}m` : ''}</span>
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              {t('Requested')}: {new Date(split.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </div>
+                            {canCancel && (
+                              <Button
+                                onClick={() => handleCancelSplit(split.id)}
+                                disabled={cancelingSplitId === split.id}
+                                className="w-full mt-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                                size="sm"
+                              >
+                                {cancelingSplitId === split.id ? '...' : t('Cancel Split')}
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* MY JOBS / HISTORY TAB */}
+        {(topTab === 'myjobs' || topTab === 'history') && (
+          <>
+            {/* Sub-tabs */}
+            <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
+              <div className="flex justify-center">
+                <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
+                  {activeSubTabs.map((tab) => {
+                    const isActive = subTab === tab.id
+                    const Icon = tab.icon
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setSubTab(tab.id)}
+                        className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl font-bold transition-all ${
+                          isActive
+                            ? getSubTabStyle(tab.color, true)
+                            : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20 hover:bg-white/10'
+                        }`}
+                      >
+                        <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                        <span className="text-center px-2 text-sm">{t(tab.label)}</span>
+                        {tab.count > 0 && (
+                          <span className={`text-xs rounded-full px-2 py-0.5 ${
+                            isActive ? 'bg-white/20' : 'bg-white/10'
+                          }`}>
+                            {tab.count}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {currentJobs.map(job => (
-                <MyJobCard
-                  key={job.id}
-                  jobSession={job}
-                  onStatusChange={fetchJobs}
-                />
-              ))}
+
+            {/* Content Section */}
+            <div ref={contentRef} className="bg-white/10 rounded-2xl border border-white/20 p-4 scroll-mt-4">
+              {loading ? (
+                <LoadingSpinner size="md" />
+              ) : currentJobs.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-400">{getEmptyMessage()}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {currentJobs.map(job => (
+                    <MyJobCard
+                      key={job.id}
+                      jobSession={job}
+                      onStatusChange={fetchJobs}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
+
+      {/* Claim Confirmation Dialog (#9) */}
+      <AlertDialog open={!!confirmJob} onOpenChange={(open) => { if (!open) setConfirmJob(null) }}>
+        <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border border-white/20 text-white max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">{t('Claim This Job?')}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                {confirmJob && (
+                  <>
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <FileText className="w-4 h-4 text-purple-400" />
+                      <span className="font-semibold">{confirmJob.job_template.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <span className="text-sm">{confirmJob.job_template.customer?.full_name || confirmJob.job_template.customer?.customer_code || ''}</span>
+                    </div>
+                    {confirmJob.scheduled_date && (
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <Calendar className="w-4 h-4 text-green-400" />
+                        <span className="text-sm">
+                          {parseISO(confirmJob.scheduled_date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-4 text-gray-300">
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-yellow-400" />
+                        <span className="text-sm font-semibold text-yellow-300">{formatPrice(confirmJob.job_template.price_per_hour)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-blue-400" />
+                        <span className="text-sm">{formatDuration(confirmJob.job_template.duration_minutes)}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/10 text-white border-white/20 hover:bg-white/20">
+              {t('Cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => confirmJob && handleClaimJob(confirmJob)}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              {t('Claim This Job')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

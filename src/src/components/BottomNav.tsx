@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 import {
@@ -41,10 +41,10 @@ const navigationConfig: Record<UserProfile, NavItem[]> = {
   ],
   EMPLOYEE: [
     { label: 'Dashboard', href: '/employee/dashboard', icon: LayoutDashboard },
-    { label: 'Marketplace', href: '/employee/marketplace', icon: ShoppingBag },
-    { label: 'My Jobs', href: '/employee/jobs', icon: Briefcase },
+    { label: 'Jobs', href: '/employee/jobs', icon: Briefcase },
     { label: 'Schedule', href: '/employee/schedule', icon: Calendar },
     { label: 'Messages', href: '/employee/messages', icon: MessageSquare },
+    { label: 'Profile', href: '/employee/profile', icon: User },
   ],
   CUSTOMER: [
     { label: 'Dashboard', href: '/customer/dashboard', icon: LayoutDashboard },
@@ -59,30 +59,20 @@ export function BottomNav({ profile }: BottomNavProps) {
   const { t } = useTranslation()
   const navItems = navigationConfig[profile]
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   // Use dark theme styling for EMPLOYEE and EMPLOYER profiles
   const isDarkTheme = profile === 'EMPLOYEE' || profile === 'EMPLOYER' || profile === 'CUSTOMER'
 
-  // Check for unread messages for employee profile
+  // Check for unread messages for all profiles
   useEffect(() => {
-    if (profile !== 'EMPLOYEE') return
-
     const checkUnreadMessages = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // Get employee ID
-        const { data: employee } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
-
-        if (!employee) return
-
-        // Check for unread messages in conversations
+        // Check for unread messages in conversations the user participates in
         const { data: conversations } = await supabase
           .from('conversations')
           .select(`
@@ -93,14 +83,29 @@ export function BottomNav({ profile }: BottomNavProps) {
           .eq('conversation_participants.user_id', user.id)
           .is('messages.read_at', null)
 
-        // Check for unread job messages
-        const { data: jobMessages } = await supabase
-          .from('schedule_messages')
-          .select('id')
-          .eq('employee_id', employee.id)
-          .is('read_at', null)
+        let hasUnread = !!(conversations && conversations.length > 0)
 
-        const hasUnread = !!(conversations && conversations.length > 0) || !!(jobMessages && jobMessages.length > 0)
+        // For employees, also check schedule_messages
+        if (profile === 'EMPLOYEE') {
+          const { data: employee } = await supabase
+            .from('employees')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+
+          if (employee) {
+            const { data: jobMessages } = await supabase
+              .from('schedule_messages')
+              .select('id')
+              .eq('employee_id', employee.id)
+              .is('read_at', null)
+
+            if (jobMessages && jobMessages.length > 0) {
+              hasUnread = true
+            }
+          }
+        }
+
         setHasUnreadMessages(hasUnread)
       } catch (error) {
         console.error('Error checking unread messages:', error)

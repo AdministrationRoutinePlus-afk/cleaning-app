@@ -276,6 +276,7 @@ export interface JobSplit extends BaseTable {
   job_session_id: string // FK to job_sessions
   requested_by: string // FK to employees (initiator)
   partner_id: string // FK to employees (target)
+  partner_minutes: number | null
   status: JobSplitStatus
   updated_at: string
   decided_at: string | null
@@ -298,6 +299,14 @@ export interface Notification extends BaseTable {
   is_read: boolean
 }
 
+export interface ReviewToken extends BaseTable {
+  job_session_id: string // FK to job_sessions
+  customer_id: string // FK to customers
+  token: string // UUID, unique
+  used_at: string | null
+  expires_at: string
+}
+
 // --- SETTINGS TABLES ---
 
 export interface EmployerSettings extends BaseTable {
@@ -314,6 +323,7 @@ export interface EmployerSettings extends BaseTable {
   reminder_1_day: boolean
   reminder_6_hours: boolean
   sound_enabled: boolean
+  email_review_enabled: boolean
   updated_at: string
 }
 
@@ -400,6 +410,9 @@ export const NOTIFICATION_TYPES = {
   NEW_REGISTRATION: 'NEW_REGISTRATION',
   NEW_MESSAGE: 'NEW_MESSAGE',
   EVALUATION_SUBMITTED: 'EVALUATION_SUBMITTED',
+
+  // Customer notifications
+  REVIEW_REQUEST: 'REVIEW_REQUEST',
 
   // Employee notifications
   JOB_APPROVED: 'JOB_APPROVED',

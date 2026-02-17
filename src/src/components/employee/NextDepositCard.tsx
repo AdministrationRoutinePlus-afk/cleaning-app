@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { JobSession, JobTemplate } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Clock, Briefcase, CalendarDays } from 'lucide-react'
-import { format, startOfWeek, endOfWeek, addDays } from 'date-fns'
+import { startOfWeek, endOfWeek, addDays } from 'date-fns'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 interface NextDepositCardProps {
   employeeId: string
@@ -26,9 +27,11 @@ interface WeeklyEarnings {
 
 export function NextDepositCard({ employeeId }: NextDepositCardProps) {
   const { t } = useTranslation()
+  const { formatDate } = useDateFormat()
   const [earnings, setEarnings] = useState<WeeklyEarnings | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     loadWeeklyEarnings()
@@ -41,7 +44,7 @@ export function NextDepositCard({ employeeId }: NextDepositCardProps) {
       const weekStart = startOfWeek(today, { weekStartsOn: 1 })
       const weekEnd = endOfWeek(today, { weekStartsOn: 1 })
 
-      // Get completed jobs for this week
+      // Get completed and evaluated jobs for this week
       const { data, error } = await supabase
         .from('job_sessions')
         .select(`
@@ -49,7 +52,7 @@ export function NextDepositCard({ employeeId }: NextDepositCardProps) {
           job_template:job_templates(*)
         `)
         .eq('assigned_to', employeeId)
-        .eq('status', 'COMPLETED')
+        .in('status', ['COMPLETED', 'EVALUATED'])
         .gte('completed_at', weekStart.toISOString())
         .lte('completed_at', weekEnd.toISOString())
 
@@ -138,7 +141,7 @@ export function NextDepositCard({ employeeId }: NextDepositCardProps) {
       {/* Deposit Date */}
       <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-center">
         <p className="text-amber-400 font-semibold">
-          {t('Deposit on')} {format(earnings.depositDate, 'EEEE, MMM d')}
+          {t('Deposit on')} {formatDate(earnings.depositDate, 'EEEE, MMM d')}
         </p>
       </div>
 
@@ -146,7 +149,7 @@ export function NextDepositCard({ employeeId }: NextDepositCardProps) {
       <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
         <CalendarDays className="w-4 h-4" />
         <span>
-          {t('Week:')} {format(earnings.weekStart, 'MMM d')} - {format(earnings.weekEnd, 'MMM d')}
+          {t('Week:')} {formatDate(earnings.weekStart, 'MMM d')} - {formatDate(earnings.weekEnd, 'MMM d')}
         </span>
       </div>
 

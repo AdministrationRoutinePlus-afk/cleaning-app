@@ -5,6 +5,7 @@ import { Calendar, User, CheckCircle, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 interface HistorySession {
   id: string
@@ -38,6 +39,7 @@ interface DashboardHistoryContentProps {
 
 export function DashboardHistoryContent({ customerId, onWriteReview, onContactUs }: DashboardHistoryContentProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const [sessions, setSessions] = useState<HistorySession[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set())
@@ -135,19 +137,15 @@ export function DashboardHistoryContent({ customerId, onWriteReview, onContactUs
       .map(([key, sessions]) => {
         const [year, month] = key.split('-')
         const date = new Date(parseInt(year), parseInt(month) - 1, 1)
-        const label = date.toLocaleDateString('fr-CA', { month: 'long', year: 'numeric' })
+        const label = date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
         return { key, label: label.charAt(0).toUpperCase() + label.slice(1), sessions }
       })
   }
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'N/A'
+    if (!dateStr) return t('N/A')
     const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00')
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    })
+    return formatDateLocale(date, 'EEE, MMM d')
   }
 
   const getStatusBadge = (status: string) => {

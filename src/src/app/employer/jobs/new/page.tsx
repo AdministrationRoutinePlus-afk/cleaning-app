@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Customer, DayOfWeek, Employee } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { addDays, nextDay, format, parseISO, isValid } from 'date-fns'
+import { format, parseISO, eachDayOfInterval } from 'date-fns'
 import { createJobSessions as createJobSessionsShared } from '@/lib/jobs/sessionGenerator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { StepBuilder, Step } from '@/components/employer/StepBuilder'
+import { parsePptxToSteps } from '@/lib/pptx/parsePptx'
 import { X, Plus, Calendar, Upload, ImageIcon, ArrowLeft, Video, FileSpreadsheet } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -42,6 +43,7 @@ export default function NewJobPage() {
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const [pptxFile, setPptxFile] = useState<File | null>(null)
   const [pptxFileName, setPptxFileName] = useState<string | null>(null)
+  const [importingPptx, setImportingPptx] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -69,7 +71,8 @@ export default function NewJobPage() {
   })
 
   // Temp state for adding dates
-  const [newSpecificDate, setNewSpecificDate] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [newExcludeDate, setNewExcludeDate] = useState('')
 
   const DAYS_OF_WEEK = [
@@ -138,6 +141,7 @@ export default function NewJobPage() {
       const { data: employeesData } = await supabase
         .from('employees')
         .select('*')
+        .eq('created_by', employer.id)
         .eq('status', 'ACTIVE')
         .order('full_name', { ascending: true })
 
@@ -234,15 +238,61 @@ export default function NewJobPage() {
     }
   }
 
-  const handlePptxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error(t('File must be less than 50MB'))
-        return
+  const handlePptxImport = async (file: File) => {
+    setImportingPptx(true)
+    try {
+      const parsedSlides = await parsePptxToSteps(file)
+
+      const importedSteps: Step[] = []
+
+      for (let i = 0; i < parsedSlides.length; i++) {
+        const slide = parsedSlides[i]
+        const stepImages: { url: string; caption: string }[] = []
+
+        // Upload each image from the slide to Supabase storage
+        for (const img of slide.images) {
+          const fileExt = img.filename.split('.').pop() || 'png'
+          const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+          const filePath = `step-images/${fileName}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('job-images')
+            .upload(filePath, img.blob)
+
+          if (uploadError) {
+            console.error('Error uploading PPTX image:', uploadError)
+            continue
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('job-images')
+            .getPublicUrl(filePath)
+
+          stepImages.push({ url: publicUrl, caption: '' })
+        }
+
+        importedSteps.push({
+          step_order: i + 1,
+          title: slide.title,
+          description: slide.description,
+          products_needed: '',
+          checklist_items: [],
+          images: stepImages,
+        })
       }
+
+      setSteps(importedSteps)
+
+      // Also set the file for upload as pptx_url reference
       setPptxFile(file)
       setPptxFileName(file.name)
+
+      toast.success(`${importedSteps.length} ${t('steps imported from PPTX')}`)
+    } catch (error) {
+      console.error('Error parsing PPTX:', error)
+      toast.error(t('Failed to parse PPTX file'))
+    } finally {
+      setImportingPptx(false)
     }
   }
 
@@ -329,6 +379,17 @@ export default function NewJobPage() {
     try {
       setLoading(true)
 
+      // Auto-include any pending From/To dates that haven't been added yet
+      if (dateFrom) {
+        const end = dateTo || dateFrom
+        const days = eachDayOfInterval({ start: parseISO(dateFrom), end: parseISO(end) })
+        const newDates = days.map(d => format(d, 'yyyy-MM-dd'))
+        const merged = [...new Set([...formData.specific_dates, ...newDates])].sort()
+        formData.specific_dates = merged
+        setDateFrom('')
+        setDateTo('')
+      }
+
       // Validate employer ID is set
       if (!employerId) {
         toast.error(t('Session error. Please refresh the page.'))
@@ -343,6 +404,12 @@ export default function NewJobPage() {
 
       if (formData.client_code.length !== 3) {
         toast.error(t('Client code must be exactly 3 letters'))
+        return
+      }
+
+      // Validate dates when activating a non-recurring job
+      if (status === 'ACTIVE' && !formData.is_recurring && formData.specific_dates.length === 0) {
+        toast.error(t('Please add at least one date before activating'))
         return
       }
 
@@ -715,7 +782,7 @@ export default function NewJobPage() {
             </div>
           </div>
 
-          {/* Procedures File (PPTX) */}
+          {/* Import PPTX as Steps */}
           <div className="space-y-2">
             <Label className="text-gray-300 text-sm">{t('Procedures File')}</Label>
             <div className="flex gap-4 items-start">
@@ -723,16 +790,29 @@ export default function NewJobPage() {
                 <FileSpreadsheet className={`h-8 w-8 ${pptxFileName ? 'text-orange-400' : 'text-gray-500'}`} />
               </div>
               <div className="flex-1 space-y-2">
-                <label className="cursor-pointer">
+                <label className={`${importingPptx ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
                   <input
                     type="file"
-                    accept=".pptx,.ppt"
-                    onChange={handlePptxChange}
+                    accept=".pptx"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        if (file.size > 50 * 1024 * 1024) {
+                          toast.error(t('File must be less than 50MB'))
+                          return
+                        }
+                        handlePptxImport(file)
+                      }
+                      e.target.value = ''
+                    }}
                     className="hidden"
+                    disabled={importingPptx}
                   />
-                  <div className="flex items-center gap-2 px-4 py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-colors w-fit text-gray-300">
-                    <Upload className="h-4 w-4" />
-                    <span className="text-sm">{pptxFile ? t('Change file') : t('Upload PPTX')}</span>
+                  <div className="flex items-center gap-2 px-4 py-2 border border-orange-500/30 rounded-lg hover:bg-orange-500/10 transition-colors w-fit text-orange-300">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    <span className="text-sm">
+                      {importingPptx ? t('Parsing PPTX...') : t('Import PPTX as Steps')}
+                    </span>
                   </div>
                 </label>
                 <p className="text-xs text-gray-500">
@@ -1045,33 +1125,53 @@ export default function NewJobPage() {
                 {t('Pick the specific date(s) when this job should be done.')}
               </p>
 
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={newSpecificDate}
-                  onChange={(e) => setNewSpecificDate(e.target.value)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  className="flex-1 bg-white/5 border-white/20 text-white"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    if (newSpecificDate && !formData.specific_dates.includes(newSpecificDate)) {
-                      setFormData({
-                        ...formData,
-                        specific_dates: [...formData.specific_dates, newSpecificDate].sort()
-                      })
-                      setNewSpecificDate('')
-                    }
-                  }}
-                  disabled={!newSpecificDate}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  {t('Add')}
-                </Button>
+              {/* Date range: From / To */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">{t('From')}</label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    min={format(new Date(), 'yyyy-MM-dd')}
+                    className="bg-white/5 border-white/20 text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">{t('To')}</label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    min={dateFrom || format(new Date(), 'yyyy-MM-dd')}
+                    className="bg-white/5 border-white/20 text-white"
+                  />
+                </div>
               </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  if (dateFrom) {
+                    const end = dateTo || dateFrom
+                    const days = eachDayOfInterval({
+                      start: parseISO(dateFrom),
+                      end: parseISO(end),
+                    })
+                    const newDates = days.map(d => format(d, 'yyyy-MM-dd'))
+                    const merged = [...new Set([...formData.specific_dates, ...newDates])].sort()
+                    setFormData({ ...formData, specific_dates: merged })
+                    setDateFrom('')
+                    setDateTo('')
+                  }
+                }}
+                disabled={!dateFrom}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {t('Add')}
+              </Button>
+
               {formData.specific_dates.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {formData.specific_dates.map(date => (

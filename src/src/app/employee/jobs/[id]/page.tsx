@@ -17,14 +17,14 @@ import type {
 } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { StepCard } from '@/components/employee/StepCard'
+import { StepChecklist } from '@/components/employee/StepChecklist'
 import { ProgressBar } from '@/components/employee/ProgressBar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   ChevronLeft,
   ChevronRight,
-  List,
-  ClipboardList,
+  ChevronDown,
   Check,
   CheckCircle2,
   AlertCircle,
@@ -41,7 +41,9 @@ import {
   Users,
   FileSpreadsheet,
   ExternalLink,
-  Download
+  Download,
+  Camera,
+  X
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -93,8 +95,7 @@ export default function JobExecutionPage() {
 
   const [jobData, setJobData] = useState<JobData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'checklist' | 'detailed'>('checklist')
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null)
   const [showCompleteDialog, setShowCompleteDialog] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [showStartDialog, setShowStartDialog] = useState(false)
@@ -108,6 +109,34 @@ export default function JobExecutionPage() {
   const [splitConfirmations, setSplitConfirmations] = useState<JobSplitConfirmation[]>([])
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null)
   const [confirmingSplit, setConfirmingSplit] = useState(false)
+  const [pendingSplitId, setPendingSplitId] = useState<string | null>(null)
+  const [pendingSplitStatus, setPendingSplitStatus] = useState<string | null>(null)
+  const [pendingSplitRequestedBy, setPendingSplitRequestedBy] = useState<string | null>(null)
+  const [cancelingSplit, setCancelingSplit] = useState(false)
+  const [showVideoModal, setShowVideoModal] = useState(false)
+  // #11 - Step-by-step wizard mode
+  const [wizardMode, setWizardMode] = useState<'all' | 'wizard'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('job-view-mode') as 'all' | 'wizard') || 'all'
+    }
+    return 'all'
+  })
+  const [wizardStepIndex, setWizardStepIndex] = useState(0)
+  const [showWizardSummary, setShowWizardSummary] = useState(false)
+  // #13 - Offline checklist caching
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
+  // #14 - Before/after photo capture per step
+  const [stepPhotos, setStepPhotos] = useState<Record<number, string[]>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`job-photos-${sessionId}`)
+        return cached ? JSON.parse(cached) : {}
+      } catch { return {} }
+    }
+    return {}
+  })
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null)
+  const photoInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -183,6 +212,25 @@ export default function JobExecutionPage() {
       supabase.removeChannel(channel)
     }
   }, [sessionId, jobData?.session.split_with])
+
+  // #11 - Persist wizard mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('job-view-mode', wizardMode)
+  }, [wizardMode])
+
+  // #13 - Apply cached checklist state on load and clear on COMPLETED
+  useEffect(() => {
+    if (!jobData) return
+    if (jobData.session.status === 'COMPLETED' || jobData.session.status === 'EVALUATED') {
+      localStorage.removeItem(`job-checklist-${sessionId}`)
+      localStorage.removeItem(`job-photos-${sessionId}`)
+    }
+  }, [jobData?.session.status, sessionId])
+
+  // #14 - Persist step photos to localStorage
+  useEffect(() => {
+    localStorage.setItem(`job-photos-${sessionId}`, JSON.stringify(stepPhotos))
+  }, [stepPhotos, sessionId])
 
   const loadJobData = async () => {
     setLoading(true)
@@ -319,6 +367,33 @@ export default function JobExecutionPage() {
           setSplitConfirmations(confirmations || [])
         }
       }
+
+      // Check for pending split requests on this session (for cancel action)
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (currentUser) {
+        const { data: empData } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .single()
+
+        if (empData && isMountedRef.current) {
+          setCurrentEmployeeId(empData.id)
+
+          const { data: pendingSplit } = await supabase
+            .from('job_splits')
+            .select('id, status, requested_by')
+            .eq('job_session_id', sessionId)
+            .in('status', ['PENDING_PARTNER', 'PENDING_EMPLOYER'])
+            .maybeSingle()
+
+          if (pendingSplit && isMountedRef.current) {
+            setPendingSplitId(pendingSplit.id)
+            setPendingSplitStatus(pendingSplit.status)
+            setPendingSplitRequestedBy(pendingSplit.requested_by)
+          }
+        }
+      }
     } catch (error) {
       console.error('Error loading job data:', error)
       toast.error(t('Failed to load job details'))
@@ -393,22 +468,29 @@ export default function JobExecutionPage() {
   const handleToggleChecklistItem = async (itemId: string, currentState: boolean) => {
     if (!jobData) return
 
+    // #13 - Save to localStorage immediately
+    const cacheKey = `job-checklist-${sessionId}`
+    const newState = !currentState
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}')
+      cached[itemId] = newState
+      localStorage.setItem(cacheKey, JSON.stringify(cached))
+    } catch { /* ignore localStorage errors */ }
+
     try {
       const existingProgress = jobData.checklistProgress.find(p => p.checklist_item_id === itemId)
 
       if (existingProgress) {
-        // Update existing progress
         const { error } = await supabase
           .from('job_session_checklist_progress')
           .update({
-            is_checked: !currentState,
-            checked_at: !currentState ? new Date().toISOString() : null
+            is_checked: newState,
+            checked_at: newState ? new Date().toISOString() : null
           })
           .eq('id', existingProgress.id)
 
         if (error) throw error
       } else {
-        // Create new progress record
         const { error } = await supabase
           .from('job_session_checklist_progress')
           .insert({
@@ -421,11 +503,12 @@ export default function JobExecutionPage() {
         if (error) throw error
       }
 
-      // Reload data
+      // Sync succeeded
+      setLastSyncedAt(new Date())
       await loadJobData()
     } catch (error) {
       console.error('Error toggling checklist item:', error)
-      toast.error(t('Failed to update checklist'))
+      toast.error(t('Saved locally, will sync when online'))
     }
   }
 
@@ -458,6 +541,17 @@ export default function JobExecutionPage() {
         .eq('id', sessionId)
 
       if (error) throw error
+
+      // Send review request email to customer (fire-and-forget)
+      fetch('/api/notify/review-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_session_id: sessionId }),
+      }).then(res => {
+        if (res.ok) toast.success(t('Review request sent to customer'))
+      }).catch(() => {
+        // Job is still completed even if email fails
+      })
 
       // Navigate back to jobs page
       router.push('/employee/jobs')
@@ -515,6 +609,13 @@ export default function JobExecutionPage() {
           })
           .eq('id', sessionId)
 
+        // Send review request email to customer (fire-and-forget)
+        fetch('/api/notify/review-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_session_id: sessionId }),
+        }).catch(() => {})
+
         toast.success(t('Both confirmed! Job completed.'))
         router.push('/employee/jobs')
       } else {
@@ -527,6 +628,29 @@ export default function JobExecutionPage() {
     } finally {
       setConfirmingSplit(false)
       setCompleting(false)
+    }
+  }
+
+  const handleCancelSplitRequest = async () => {
+    if (!pendingSplitId) return
+    setCancelingSplit(true)
+    try {
+      const { error } = await supabase
+        .from('job_splits')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('id', pendingSplitId)
+
+      if (error) throw error
+
+      toast.success(t('Split request cancelled'))
+      setPendingSplitId(null)
+      setPendingSplitStatus(null)
+      setPendingSplitRequestedBy(null)
+    } catch (error) {
+      console.error('Error canceling split request:', error)
+      toast.error(t('Failed to cancel split request'))
+    } finally {
+      setCancelingSplit(false)
     }
   }
 
@@ -557,6 +681,78 @@ export default function JobExecutionPage() {
   const totalSteps = jobData?.steps.length || 0
   const allStepsComplete = completedStepsCount === totalSteps && totalSteps > 0
 
+  // #4 - Check if all checklist items across all steps are checked
+  const allChecklistItemsChecked = useMemo(() => {
+    if (!jobData) return false
+    const allItems = jobData.steps.flatMap(s => s.job_step_checklist)
+    if (allItems.length === 0) return allStepsComplete
+    return allItems.every(item =>
+      jobData.checklistProgress.some(cp => cp.checklist_item_id === item.id && cp.is_checked)
+    )
+  }, [jobData, allStepsComplete])
+
+  // #11 - Check if current wizard step's checklist is complete
+  const isWizardStepComplete = useMemo(() => {
+    if (!jobData) return false
+    const step = jobData.steps[wizardStepIndex]
+    if (!step) return false
+    const items = step.job_step_checklist
+    if (items.length === 0) return true
+    return items.every(item =>
+      jobData.checklistProgress.some(cp => cp.checklist_item_id === item.id && cp.is_checked)
+    )
+  }, [jobData, wizardStepIndex])
+
+  // #14 - Photo upload handler
+  const handlePhotoUpload = async (stepOrder: number, file: File) => {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('Photo must be under 5MB'))
+      return
+    }
+    const existing = stepPhotos[stepOrder] || []
+    if (existing.length >= 3) {
+      toast.error(t('Maximum 3 photos per step'))
+      return
+    }
+
+    setUploadingPhoto(stepOrder)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const timestamp = Date.now()
+      const path = `execution-photos/${sessionId}/${stepOrder}-${timestamp}.${ext}`
+
+      const { error } = await supabase.storage
+        .from('job-images')
+        .upload(path, file)
+
+      if (error) throw error
+
+      const { data: urlData } = supabase.storage
+        .from('job-images')
+        .getPublicUrl(path)
+
+      const photoUrl = urlData.publicUrl
+      setStepPhotos(prev => ({
+        ...prev,
+        [stepOrder]: [...(prev[stepOrder] || []), photoUrl]
+      }))
+      toast.success(t('Photo uploaded'))
+    } catch (error) {
+      console.error('Error uploading photo:', error)
+      toast.error(t('Failed to upload photo'))
+    } finally {
+      setUploadingPhoto(null)
+    }
+  }
+
+  const handleRemovePhoto = (stepOrder: number, photoIndex: number) => {
+    setStepPhotos(prev => ({
+      ...prev,
+      [stepOrder]: (prev[stepOrder] || []).filter((_, i) => i !== photoIndex)
+    }))
+  }
+
   // Aggregate all supplies needed from all steps (#14)
   const suppliesNeeded = useMemo(() => {
     if (!jobData) return []
@@ -574,18 +770,6 @@ export default function JobExecutionPage() {
     })
     return supplies
   }, [jobData])
-
-  const handleNextStep = () => {
-    if (currentStepIndex < totalSteps - 1) {
-      setCurrentStepIndex(currentStepIndex + 1)
-    }
-  }
-
-  const handlePreviousStep = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex(currentStepIndex - 1)
-    }
-  }
 
   if (loading) {
     return <LoadingSpinner fullScreen />
@@ -609,17 +793,16 @@ export default function JobExecutionPage() {
     )
   }
 
-  const currentStep = jobData.steps[currentStepIndex]
   const isApproved = jobData.session.status === 'APPROVED'
   const isInProgress = jobData.session.status === 'IN_PROGRESS'
   const isCompleted = jobData.session.status === 'COMPLETED' || jobData.session.status === 'EVALUATED'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pb-20">
-      {/* Header */}
-      <div className="bg-white/5  border-b border-white/10 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto p-4">
-          <div className="flex items-center justify-between mb-3">
+      {/* Sticky Nav Bar */}
+      <div className="bg-gray-900/95 backdrop-blur-sm border-b border-white/10 sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               size="sm"
@@ -631,7 +814,7 @@ export default function JobExecutionPage() {
             </Button>
 
             <div className="flex items-center gap-2">
-              {/* Elapsed Timer - shown when IN_PROGRESS (#9) */}
+              {/* Elapsed Timer - shown when IN_PROGRESS */}
               {isInProgress && (
                 <div className="flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-sm font-mono">
                   <Timer className="w-3.5 h-3.5" />
@@ -655,86 +838,104 @@ export default function JobExecutionPage() {
               </Badge>
             </div>
           </div>
+        </div>
+      </div>
 
-          <h1 className="text-xl font-bold text-white mb-2">
-            {jobData.session.job_template.title}
-          </h1>
+      {/* Job Info Section (scrolls normally) */}
+      <div className="max-w-6xl mx-auto p-4 space-y-3">
+        <h1 className="text-lg font-bold text-white">
+          {jobData.session.job_template.title}
+        </h1>
 
-          {/* Video Player */}
-          {jobData.session.job_template.video_url && (
-            <div className="mb-4">
-              <video
-                controls
-                playsInline
-                className="w-full rounded-xl border border-white/20 max-h-64 bg-black"
-                preload="metadata"
-              >
-                <source src={jobData.session.job_template.video_url} type="video/mp4" />
-                <source src={jobData.session.job_template.video_url} type="video/webm" />
-              </video>
+        {/* Video Thumbnail - click to open modal */}
+        {jobData.session.job_template.video_url && (
+          <button
+            type="button"
+            onClick={() => setShowVideoModal(true)}
+            className="w-full relative rounded-lg border border-white/20 overflow-hidden bg-black cursor-pointer group max-h-36"
+          >
+            <video
+              src={jobData.session.job_template.video_url + '#t=0.1'}
+              className="w-full max-h-36 object-cover pointer-events-none"
+              preload="metadata"
+              muted
+              playsInline
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+              <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Play className="w-7 h-7 text-white ml-1" />
+              </div>
             </div>
-          )}
+          </button>
+        )}
 
-          {/* Procedures File (PPTX) */}
-          {jobData.session.job_template.pptx_url && (
-            <div className="mb-4 flex gap-2">
-              <a
-                href={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(jobData.session.job_template.pptx_url)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 transition-colors"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                {t('View Procedures')}
-                <ExternalLink className="w-3 h-3" />
-              </a>
-              <a
-                href={jobData.session.job_template.pptx_url}
-                download
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-              </a>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-3 text-sm text-gray-300 mb-4">
-            {jobData.session.job_template.customer && (
-              <div className="flex items-center gap-1">
-                <span className="font-medium">{t('Customer')}:</span>
-                <span>{jobData.session.job_template.customer.full_name}</span>
-              </div>
-            )}
-            {jobData.session.job_template.address && (
-              <div className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" />
-                <span>{jobData.session.job_template.address}</span>
-              </div>
-            )}
-            {jobData.session.job_template.duration_minutes && (
-              <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                <span>{jobData.session.job_template.duration_minutes} min</span>
-              </div>
-            )}
+        {/* Procedures File (PPTX) */}
+        {jobData.session.job_template.pptx_url && (
+          <div className="flex gap-2">
+            <a
+              href={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(jobData.session.job_template.pptx_url)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 transition-colors"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              {t('View Procedures')}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+            <a
+              href={jobData.session.job_template.pptx_url}
+              download
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-white/10 text-gray-300 border border-white/20 hover:bg-white/20 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </a>
           </div>
+        )}
 
-          {/* Completion duration summary */}
-          {isCompleted && completionDuration !== null && (
-            <div className="flex items-center gap-2 text-sm text-blue-300 mb-4">
-              <Timer className="w-4 h-4" />
-              <span>{t('Duration')}: {formatDuration(completionDuration)}</span>
+        <div className="flex flex-wrap gap-3 text-sm text-gray-300">
+          {jobData.session.job_template.customer && (
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{t('Customer')}:</span>
+              <span>{jobData.session.job_template.customer.full_name}</span>
             </div>
           )}
+          {jobData.session.job_template.address && (
+            <div className="flex items-center gap-1">
+              <MapPin className="w-4 h-4" />
+              <span>{jobData.session.job_template.address}</span>
+            </div>
+          )}
+          {jobData.session.job_template.duration_minutes && (
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              <span>{jobData.session.job_template.duration_minutes} min</span>
+            </div>
+          )}
+        </div>
 
-          {!isApproved && jobData.session.status !== 'REFUSED' && (
+        {/* Completion duration summary */}
+        {isCompleted && completionDuration !== null && (
+          <div className="flex items-center gap-2 text-sm text-blue-300">
+            <Timer className="w-4 h-4" />
+            <span>{t('Duration')}: {formatDuration(completionDuration)}</span>
+          </div>
+        )}
+
+        {!isApproved && jobData.session.status !== 'REFUSED' && (
+          <>
             <ProgressBar
               current={completedStepsCount}
               total={totalSteps}
               label={t('Overall Progress')}
             />
-          )}
-        </div>
+            {/* #13 - Last synced indicator */}
+            {isInProgress && lastSyncedAt && (
+              <p className="text-xs text-gray-500 mt-1">
+                {t('Last synced')}: {lastSyncedAt.toLocaleTimeString()}
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       {/* Refusal Reason Banner - shown when job is REFUSED */}
@@ -796,6 +997,38 @@ export default function JobExecutionPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Pending Split Request - Cancel Action */}
+      {pendingSplitId && pendingSplitRequestedBy === currentEmployeeId && (
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-purple-400" />
+                <div>
+                  <p className="text-sm font-medium text-purple-300">
+                    {pendingSplitStatus === 'PENDING_PARTNER'
+                      ? t('Split request pending partner approval')
+                      : t('Split request pending employer approval')}
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => {
+                  if (confirm(t('Cancel this split request?'))) {
+                    handleCancelSplitRequest()
+                  }
+                }}
+                disabled={cancelingSplit}
+                size="sm"
+                className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+              >
+                {cancelingSplit ? '...' : t('Cancel Split Request')}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -865,50 +1098,107 @@ export default function JobExecutionPage() {
       {/* View Mode Selector - hidden for REFUSED and APPROVED jobs */}
       {isInProgress && (
       <div className="max-w-6xl mx-auto p-4">
-        {/* View Mode Toggle Buttons */}
-        <div className="flex gap-2 max-w-md mx-auto mb-6">
+        {/* #11 - All Steps / Step by Step toggle */}
+        <div className="flex gap-1 max-w-xs mx-auto mb-6 bg-white/5 rounded-lg p-1">
           <button
-            onClick={() => setViewMode('checklist')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'checklist'
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+            onClick={() => { setWizardMode('all'); setShowWizardSummary(false) }}
+            className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              wizardMode === 'all'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-gray-300'
             }`}
           >
-            <ClipboardList className="w-4 h-4" />
-            {t('Checklist')}
+            {t('All Steps')}
           </button>
           <button
-            onClick={() => setViewMode('detailed')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'detailed'
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
+            onClick={() => { setWizardMode('wizard'); setShowWizardSummary(false) }}
+            className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              wizardMode === 'wizard'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-gray-300'
             }`}
           >
-            <List className="w-4 h-4" />
-            {t('Detailed')}
+            {t('Step by Step')}
           </button>
         </div>
 
-        {/* Checklist Mode */}
-        {viewMode === 'checklist' && (
+        {/* All Steps - Resume + Accordion View */}
+        {wizardMode === 'all' && (
           <div className="space-y-2">
+            {/* Progress header */}
+            <div className="bg-white/5 rounded-xl border border-white/10 p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-300">
+                  {completedStepsCount}/{totalSteps} {t('steps completed')}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {totalSteps > 0 ? Math.round((completedStepsCount / totalSteps) * 100) : 0}%
+                </span>
+              </div>
+              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all duration-300"
+                  style={{ width: `${totalSteps > 0 ? (completedStepsCount / totalSteps) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
             {jobData.steps.map((step, index) => {
-              const stepProgress = jobData.stepProgress.find(p => p.job_step_id === step.id)
-              const isStepCompleted = stepProgress?.is_completed ?? false
+              const stepProg = jobData.stepProgress.find(p => p.job_step_id === step.id)
+              const isStepCompleted = stepProg?.is_completed ?? false
               const checklistItems = step.job_step_checklist
+              const checkedCount = checklistItems.filter(item =>
+                jobData.checklistProgress.some(cp => cp.checklist_item_id === item.id && cp.is_checked)
+              ).length
+              const isExpanded = expandedStepId === step.id
+              const photos = stepPhotos[step.step_order] || []
+              const sortedImages = [...(step.job_step_images || [])].sort((a, b) => a.image_order - b.image_order)
 
               return (
                 <div
                   key={step.id}
-                  className="bg-white/5 rounded-xl border border-white/10 overflow-hidden"
+                  className={`bg-white/5 rounded-xl border overflow-hidden transition-colors ${
+                    isStepCompleted ? 'border-green-500/30' : 'border-white/10'
+                  }`}
                 >
-                  {/* Step header row */}
-                  <div className="p-3 flex items-center gap-3">
-                    {/* Completion toggle button */}
+                  {/* Step row */}
+                  <div className="flex items-center gap-3 p-3">
+                    {/* Step number badge */}
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center justify-center text-sm font-bold shrink-0">
+                      {index + 1}
+                    </div>
+
+                    {/* Title + checklist count - clickable to expand */}
                     <button
-                      onClick={() => handleToggleStep(step.id, isStepCompleted)}
+                      onClick={() => setExpandedStepId(isExpanded ? null : step.id)}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <span className={`text-sm font-medium block ${
+                        isStepCompleted ? 'text-gray-500 line-through' : 'text-white'
+                      }`}>
+                        {step.title}
+                      </span>
+                      {checklistItems.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                          {checkedCount}/{checklistItems.length} {t('items checked')}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Expand/collapse arrow */}
+                    <button
+                      onClick={() => setExpandedStepId(isExpanded ? null : step.id)}
+                      className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-300 shrink-0"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Checkmark toggle */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleToggleStep(step.id, isStepCompleted)
+                      }}
                       className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                         isStepCompleted
                           ? 'bg-green-500 border-green-500'
@@ -917,48 +1207,105 @@ export default function JobExecutionPage() {
                     >
                       {isStepCompleted && <Check className="w-4 h-4 text-white" />}
                     </button>
-
-                    {/* Step number + title */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">{t('Step')} {index + 1}</span>
-                        <span className={`text-sm font-medium ${
-                          isStepCompleted ? 'text-gray-500 line-through' : 'text-white'
-                        }`}>
-                          {step.title}
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
-                  {/* Inline checklist items (if any) */}
-                  {checklistItems.length > 0 && (
-                    <div className="px-3 pb-3 pl-14 space-y-1">
-                      {checklistItems.map((item) => {
-                        const itemProgress = jobData.checklistProgress.find(
-                          cp => cp.checklist_item_id === item.id
-                        )
-                        const isChecked = itemProgress?.is_checked ?? false
+                  {/* Expanded detail panel */}
+                  {isExpanded && (
+                    <div className="border-t border-white/10 p-4 space-y-4">
+                      {/* Description */}
+                      {step.description && (
+                        <p className="text-sm text-gray-400">{step.description}</p>
+                      )}
 
-                        return (
-                          <label
-                            key={item.id}
-                            className="flex items-center gap-2 text-xs cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleToggleChecklistItem(item.id, isChecked)}
-                              className="h-4 w-4 rounded border-white/30 bg-white/5 accent-green-500"
-                            />
-                            <span className={
-                              isChecked ? 'text-gray-500 line-through' : 'text-gray-300'
-                            }>
-                              {item.item_text}
-                            </span>
-                          </label>
-                        )
-                      })}
+                      {/* Products needed */}
+                      {step.products_needed && (
+                        <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                          <p className="text-xs font-semibold text-blue-300 mb-1">{t('Products Needed:')}</p>
+                          <p className="text-sm text-blue-200">{step.products_needed}</p>
+                        </div>
+                      )}
+
+                      {/* Step images */}
+                      {sortedImages.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {sortedImages.map((image) => (
+                            <div key={image.id} className="relative aspect-video rounded-lg overflow-hidden bg-white/5">
+                              <img
+                                src={image.image_url}
+                                alt={image.caption || `Step ${index + 1} image`}
+                                className="w-full h-full object-cover"
+                              />
+                              {image.caption && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1">
+                                  <p className="text-xs text-white text-center">{image.caption}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Checklist */}
+                      {checklistItems.length > 0 && (
+                        <StepChecklist
+                          items={checklistItems}
+                          sessionId={sessionId}
+                          progress={jobData.checklistProgress.filter(
+                            cp => checklistItems.some(item => item.id === cp.checklist_item_id)
+                          )}
+                          onToggle={handleToggleChecklistItem}
+                          disabled={isStepCompleted}
+                        />
+                      )}
+
+                      {/* PPTX link */}
+                      {jobData.session.job_template.pptx_url && (
+                        <a
+                          href={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(jobData.session.job_template.pptx_url)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30 transition-colors"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
+                          {t('View Procedures')}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+
+                      {/* Photo capture + thumbnails */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <button
+                          onClick={() => photoInputRefs.current[step.step_order]?.click()}
+                          disabled={uploadingPhoto === step.step_order || photos.length >= 3}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-sm transition-colors disabled:opacity-30"
+                        >
+                          <Camera className="w-4 h-4" />
+                          {uploadingPhoto === step.step_order ? t('Uploading...') : t('Add Photo')}
+                        </button>
+                        <input
+                          ref={el => { photoInputRefs.current[step.step_order] = el }}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handlePhotoUpload(step.step_order, file)
+                            e.target.value = ''
+                          }}
+                        />
+                        {photos.map((url, i) => (
+                          <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden border border-white/20 group">
+                            <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => handleRemovePhoto(step.step_order, i)}
+                              className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-bl-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-2.5 h-2.5 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -967,48 +1314,137 @@ export default function JobExecutionPage() {
           </div>
         )}
 
-        {/* Detailed Mode */}
-        {viewMode === 'detailed' && currentStep && (
+        {/* #11 - Step by Step Wizard Mode */}
+        {wizardMode === 'wizard' && !showWizardSummary && (
           <div>
-            <div className="mb-4">
-              <StepCard
-                step={currentStep}
-                stepNumber={currentStepIndex + 1}
-                totalSteps={totalSteps}
-                images={currentStep.job_step_images}
-                checklistItems={currentStep.job_step_checklist}
-                sessionId={sessionId}
-                stepProgress={jobData.stepProgress.find(p => p.job_step_id === currentStep.id)}
-                checklistProgress={jobData.checklistProgress.filter(
-                  cp => currentStep.job_step_checklist.some(item => item.id === cp.checklist_item_id)
-                )}
-                onToggleStep={handleToggleStep}
-                onToggleChecklistItem={handleToggleChecklistItem}
-                isListMode={false}
-              />
-            </div>
+            {/* Progress indicator */}
+            <p className="text-center text-sm text-gray-400 mb-4">
+              {t('Step')} {wizardStepIndex + 1} {t('of')} {totalSteps}
+            </p>
 
-            {/* Navigation */}
-            <div className="flex justify-between items-center gap-4">
+            {/* Current step */}
+            {jobData.steps[wizardStepIndex] && (
+              <>
+                <div className="mb-4">
+                  <StepCard
+                    step={jobData.steps[wizardStepIndex]}
+                    stepNumber={wizardStepIndex + 1}
+                    totalSteps={totalSteps}
+                    images={jobData.steps[wizardStepIndex].job_step_images}
+                    checklistItems={jobData.steps[wizardStepIndex].job_step_checklist}
+                    sessionId={sessionId}
+                    stepProgress={jobData.stepProgress.find(p => p.job_step_id === jobData.steps[wizardStepIndex].id)}
+                    checklistProgress={jobData.checklistProgress.filter(
+                      cp => jobData.steps[wizardStepIndex].job_step_checklist.some(item => item.id === cp.checklist_item_id)
+                    )}
+                    onToggleStep={handleToggleStep}
+                    onToggleChecklistItem={handleToggleChecklistItem}
+                    isListMode={false}
+                  />
+                  {/* #14 - Photo capture in wizard */}
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      onClick={() => photoInputRefs.current[jobData.steps[wizardStepIndex].step_order]?.click()}
+                      disabled={uploadingPhoto === jobData.steps[wizardStepIndex].step_order || (stepPhotos[jobData.steps[wizardStepIndex].step_order]?.length || 0) >= 3}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white text-sm transition-colors disabled:opacity-30"
+                    >
+                      <Camera className="w-4 h-4" />
+                      {uploadingPhoto === jobData.steps[wizardStepIndex].step_order ? t('Uploading...') : t('Add Photo')}
+                    </button>
+                    <input
+                      ref={el => { photoInputRefs.current[jobData.steps[wizardStepIndex].step_order] = el }}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handlePhotoUpload(jobData.steps[wizardStepIndex].step_order, file)
+                        e.target.value = ''
+                      }}
+                    />
+                    {(stepPhotos[jobData.steps[wizardStepIndex].step_order] || []).map((url, i) => (
+                      <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden border border-white/20 group">
+                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => handleRemovePhoto(jobData.steps[wizardStepIndex].step_order, i)}
+                          className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-bl-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-2.5 h-2.5 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Wizard navigation */}
+                <div className="flex justify-between items-center gap-4">
+                  <Button
+                    onClick={() => setWizardStepIndex(i => i - 1)}
+                    disabled={wizardStepIndex === 0}
+                    className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    {t('Previous')}
+                  </Button>
+                  {wizardStepIndex === totalSteps - 1 ? (
+                    <Button
+                      onClick={() => setShowWizardSummary(true)}
+                      disabled={!isWizardStepComplete}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                    >
+                      {t('Review & Complete')}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => setWizardStepIndex(i => i + 1)}
+                      disabled={!isWizardStepComplete}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+                    >
+                      {t('Next')}
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* #11 - Wizard Summary */}
+        {wizardMode === 'wizard' && showWizardSummary && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-white text-center">{t('Review Summary')}</h3>
+            <div className="space-y-2">
+              {jobData.steps.map((step, index) => {
+                const stepProg = jobData.stepProgress.find(p => p.job_step_id === step.id)
+                const isStepDone = stepProg?.is_completed ?? false
+                return (
+                  <div key={step.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${isStepDone ? 'bg-green-500' : 'bg-gray-600'}`}>
+                      {isStepDone ? <Check className="w-3.5 h-3.5 text-white" /> : <span className="text-xs text-white">{index + 1}</span>}
+                    </div>
+                    <span className={`text-sm ${isStepDone ? 'text-green-300' : 'text-gray-400'}`}>{step.title}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex gap-3">
               <Button
-                onClick={handlePreviousStep}
-                disabled={currentStepIndex === 0}
+                onClick={() => setShowWizardSummary(false)}
                 className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
               >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                {t('Previous')}
+                {t('Back to Steps')}
               </Button>
-              <span className="text-sm text-gray-300 whitespace-nowrap">
-                {currentStepIndex + 1} of {totalSteps}
-              </span>
-              <Button
-                onClick={handleNextStep}
-                disabled={currentStepIndex === totalSteps - 1}
-                className="flex-1 bg-white/10 border border-white/20 text-white hover:bg-white/20"
-              >
-                {t('Next')}
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
+              {allStepsComplete && (
+                <Button
+                  onClick={() => setShowCompleteDialog(true)}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {t('Complete Job')}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -1160,7 +1596,7 @@ export default function JobExecutionPage() {
               {/* Submitted date */}
               {evaluation.submitted_at && (
                 <p className="text-xs text-gray-500 mt-3">
-                  {t('Submitted')} {new Date(evaluation.submitted_at).toLocaleDateString('en-US', {
+                  {t('Submitted')} {new Date(evaluation.submitted_at).toLocaleDateString(undefined, {
                     month: 'short', day: 'numeric', year: 'numeric'
                   })}
                 </p>
@@ -1191,27 +1627,75 @@ export default function JobExecutionPage() {
         </div>
       )}
 
-      {/* Start Job Confirmation Dialog (#7) */}
+      {/* Video Modal */}
+      {showVideoModal && jobData.session.job_template.video_url && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setShowVideoModal(false)}
+        >
+          <div
+            className="relative w-full max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowVideoModal(false)}
+              className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm flex items-center gap-1"
+            >
+              <XCircle className="w-5 h-5" />
+              {t('Close')}
+            </button>
+            <video
+              src={jobData.session.job_template.video_url}
+              controls
+              muted
+              playsInline
+              className="w-full rounded-xl border border-white/20 bg-black"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Start Job Confirmation Dialog (#12) */}
       <AlertDialog open={showStartDialog} onOpenChange={setShowStartDialog}>
         <AlertDialogContent className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-white/20">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">{t('Start Job?')}</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-300">
-              {t('Are you ready to start this job? The timer will begin tracking your work duration.')}
+            <AlertDialogTitle className="text-white">{t('Ready to start?')}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-gray-300">
+                <p>{t('The timer will begin immediately. Make sure you\'re at the job location.')}</p>
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10 space-y-1">
+                  <p className="text-white font-medium">{jobData.session.job_template.title}</p>
+                  {jobData.session.job_template.customer && (
+                    <p className="text-sm text-gray-400">{jobData.session.job_template.customer.full_name}</p>
+                  )}
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={starting} className="bg-white/10 text-white border border-white/20 hover:bg-white/20">{t('Cancel')}</AlertDialogCancel>
+            <AlertDialogCancel disabled={starting} className="bg-transparent text-white border-0 hover:bg-white/10">{t('Not Yet')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleStartJob}
               disabled={starting}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {starting ? t('Starting...') : t('Start Job')}
+              {starting ? t('Starting...') : t('Start Now')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* #4 - Floating Complete Job FAB */}
+      {isInProgress && allChecklistItemsChecked && allStepsComplete && (
+        <button
+          onClick={() => setShowCompleteDialog(true)}
+          className="fixed bottom-20 right-4 z-40 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-2xl px-6 py-3 font-bold flex items-center gap-2 animate-[slideUpFade_0.3s_ease-out]"
+        >
+          <CheckCircle2 className="w-5 h-5" />
+          {t('Complete Job')}
+        </button>
+      )}
 
       {/* Complete Job Confirmation Dialog */}
       <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>

@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { DocumentUpload } from '@/components/employee/DocumentUpload'
-import { AvailabilityEditor } from '@/components/employee/AvailabilityEditor'
-import { Bell, BellOff, CheckCircle, LogOut } from 'lucide-react'
+import { SpecificAvailabilityEditor } from '@/components/employee/SpecificAvailabilityEditor'
+import { Bell, BellOff, CheckCircle, LogOut, GraduationCap, Star, ChevronDown } from 'lucide-react'
 import {
   requestNotificationPermission,
   getNotificationPermissionStatus,
@@ -31,6 +31,18 @@ export default function EmployeeProfilePage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
+
+  // Training State
+  const [trainingRecords, setTrainingRecords] = useState<{
+    job_template_id: string
+    is_trained: boolean
+    can_coach: boolean
+    notes: string | null
+    trained_at: string | null
+    job_template: { title: string; job_code: string } | null
+  }[]>([])
+  const [trainingLoading, setTrainingLoading] = useState(false)
+  const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null)
 
   // Settings State
   const [pushEnabled, setPushEnabled] = useState(true)
@@ -51,6 +63,13 @@ export default function EmployeeProfilePage() {
     setPermissionStatus(status)
     return () => { isMountedRef.current = false }
   }, [])
+
+  // Lazy-load training data when tab is selected
+  useEffect(() => {
+    if (activeTab === 'training' && trainingRecords.length === 0 && !trainingLoading) {
+      loadTrainingData()
+    }
+  }, [activeTab])
 
   const loadEmployeeProfile = async () => {
     setLoading(true)
@@ -77,6 +96,34 @@ export default function EmployeeProfilePage() {
       toast.error(t('Failed to load your profile'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadTrainingData = async () => {
+    setTrainingLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!emp) return
+
+      const { data, error } = await supabase
+        .from('employee_job_training')
+        .select('job_template_id, is_trained, can_coach, notes, trained_at, job_template:job_templates(title, job_code)')
+        .eq('employee_id', emp.id)
+
+      if (error) throw error
+      setTrainingRecords((data as unknown as typeof trainingRecords) || [])
+    } catch (error) {
+      console.error('Error loading training data:', error)
+    } finally {
+      setTrainingLoading(false)
     }
   }
 
@@ -229,6 +276,7 @@ export default function EmployeeProfilePage() {
             { id: 'personal', label: 'Personal' },
             { id: 'documents', label: 'Documents' },
             { id: 'availability', label: 'Availability' },
+            { id: 'training', label: 'Training' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -459,9 +507,123 @@ export default function EmployeeProfilePage() {
 
           {/* Availability Tab */}
           {activeTab === 'availability' && (
-            <AvailabilityEditor employeeId={employee.id} />
+            <SpecificAvailabilityEditor employeeId={employee.id} />
+          )}
+
+          {/* Training Tab */}
+          {activeTab === 'training' && (
+            <TrainingTab
+              trainingRecords={trainingRecords}
+              trainingLoading={trainingLoading}
+              expandedNoteId={expandedNoteId}
+              setExpandedNoteId={setExpandedNoteId}
+              t={t}
+            />
           )}
       </div>
+    </div>
+  )
+}
+
+function TrainingTab({
+  trainingRecords,
+  trainingLoading,
+  expandedNoteId,
+  setExpandedNoteId,
+  t,
+}: {
+  trainingRecords: {
+    job_template_id: string
+    is_trained: boolean
+    can_coach: boolean
+    notes: string | null
+    trained_at: string | null
+    job_template: { title: string; job_code: string } | null
+  }[]
+  trainingLoading: boolean
+  expandedNoteId: string | null
+  setExpandedNoteId: (id: string | null) => void
+  t: (key: string) => string
+}) {
+  if (trainingLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="animate-pulse bg-white/5 rounded-xl border border-white/10 p-3 h-20" />
+        ))}
+      </div>
+    )
+  }
+
+  if (trainingRecords.length === 0) {
+    return (
+      <div className="bg-white/5 rounded-xl border border-white/10 p-6 text-center">
+        <GraduationCap className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+        <p className="text-gray-400 text-sm">
+          {t('No training records yet. Your employer will update your training status.')}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {trainingRecords.map((record) => (
+        <div key={record.job_template_id} className="bg-white/5 rounded-xl border border-white/10 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                  {record.job_template?.job_code || '---'}
+                </span>
+              </div>
+              <p className="text-white font-medium text-sm truncate">
+                {record.job_template?.title || t('Unknown Job')}
+              </p>
+              {record.trained_at && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {t('Trained')}: {new Date(record.trained_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1 items-end flex-shrink-0">
+              {record.is_trained ? (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">
+                  <CheckCircle className="w-3 h-3" />
+                  {t('Trained')}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">
+                  {t('Not Trained')}
+                </span>
+              )}
+              {record.is_trained && record.can_coach && (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  <Star className="w-3 h-3" />
+                  {t('Can Coach')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {record.notes && (
+            <div className="mt-2">
+              <button
+                onClick={() => setExpandedNoteId(expandedNoteId === record.job_template_id ? null : record.job_template_id)}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform ${expandedNoteId === record.job_template_id ? 'rotate-180' : ''}`} />
+                {t('Notes')}
+              </button>
+              {expandedNoteId === record.job_template_id && (
+                <p className="mt-1 text-xs text-gray-400 bg-white/5 rounded-lg p-2 border border-white/5">
+                  {record.notes}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

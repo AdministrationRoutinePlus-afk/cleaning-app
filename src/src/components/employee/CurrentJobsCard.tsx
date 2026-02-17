@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { JobSessionFull } from '@/types/database'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,7 +20,8 @@ export function CurrentJobsCard({ employeeId }: CurrentJobsCardProps) {
   const router = useRouter()
   const [currentJobs, setCurrentJobs] = useState<JobSessionFull[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     loadCurrentJobs()
@@ -109,9 +110,9 @@ export function CurrentJobsCard({ employeeId }: CurrentJobsCardProps) {
       const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
 
       if (diffHours > 0) {
-        return `${diffHours}h ${diffMinutes}m left`
+        return `${diffHours}h ${diffMinutes}m ${t('left')}`
       }
-      return `${diffMinutes}m left`
+      return `${diffMinutes}m ${t('left')}`
     }
 
     return ''

@@ -20,7 +20,8 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
   const [sending, setSending] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => {
     if (employer?.user_id) {
@@ -195,7 +196,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp)
-    return date.toLocaleTimeString('en-US', {
+    return date.toLocaleTimeString(undefined, {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
@@ -210,7 +211,7 @@ export function CustomerChat({ customer, employer }: CustomerChatProps) {
 
     if (date.toDateString() === today.toDateString()) return t('Today')
     if (date.toDateString() === yesterday.toDateString()) return t('Yesterday')
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   }
 
   const shouldShowDateSeparator = (index: number) => {

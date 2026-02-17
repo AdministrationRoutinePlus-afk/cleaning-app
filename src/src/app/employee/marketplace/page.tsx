@@ -51,6 +51,7 @@ export default function EmployeeMarketplacePage() {
   const [employeeStatus, setEmployeeStatus] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('marketplace')
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
+  const [claimingJobId, setClaimingJobId] = useState<string | null>(null)
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -100,6 +101,7 @@ export default function EmployeeMarketplacePage() {
         `)
         .eq('status', 'OFFERED')
         .not('scheduled_date', 'is', null) // Only jobs with scheduled dates
+        .gte('scheduled_date', new Date().toISOString().split('T')[0]) // Hide past jobs
         .order('scheduled_date', { ascending: true })
 
       if (offeredError) throw offeredError
@@ -401,7 +403,7 @@ export default function EmployeeMarketplacePage() {
       return t('Tomorrow')
     }
 
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       weekday: 'long',
       month: 'long',
       day: 'numeric'
@@ -464,10 +466,16 @@ export default function EmployeeMarketplacePage() {
       // Save to swipe history
       saveSwipeAction(job.id, 'interested')
 
-      // Remove from marketplace and add to interested
-      setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
-      setInterestedJobs(prev => [...prev, { ...job, status: 'CLAIMED' as const }])
-      setExpandedJobId(null)
+      // Show claiming animation
+      setClaimingJobId(job.id)
+
+      // Wait for animation, then move to interested
+      setTimeout(() => {
+        setMarketplaceJobs(prev => prev.filter(j => j.id !== job.id))
+        setInterestedJobs(prev => [...prev, { ...job, status: 'CLAIMED' as const }])
+        setExpandedJobId(null)
+        setClaimingJobId(null)
+      }, 1800)
 
     } catch (error) {
       console.error('Error claiming job:', error)
@@ -494,7 +502,7 @@ export default function EmployeeMarketplacePage() {
         .maybeSingle()
 
       if (employee) {
-        // Unclaim all jobs claimed/approved/refused by this employee (set back to OFFERED)
+        // Unclaim CLAIMED and REFUSED jobs only (APPROVED jobs require employer action)
         await supabase
           .from('job_sessions')
           .update({
@@ -503,7 +511,7 @@ export default function EmployeeMarketplacePage() {
             updated_at: new Date().toISOString()
           })
           .eq('assigned_to', employee.id)
-          .in('status', ['CLAIMED', 'APPROVED', 'REFUSED'])
+          .in('status', ['CLAIMED', 'REFUSED'])
       }
 
       // Clear localStorage and notify other tabs
@@ -696,21 +704,34 @@ export default function EmployeeMarketplacePage() {
                       <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10">
                         {formatDateHeader(dateKey)}
                         <span className="text-gray-500 font-normal ml-2">
-                          ({jobs.length} job{jobs.length !== 1 ? 's' : ''})
+                          ({jobs.length} {jobs.length !== 1 ? t('jobs') : t('job')})
                         </span>
                       </h3>
 
                       {/* Jobs for this date */}
                       <div className="space-y-3">
                         {jobs.map(job => (
-                          <MarketplaceJobCard
-                            key={job.id}
-                            jobSession={job}
-                            onClaim={() => handleClaimJob(job)}
-                            onSkip={() => handleSkipJob(job)}
-                            isExpanded={expandedJobId === job.id}
-                            onToggleExpand={() => toggleExpand(job.id)}
-                          />
+                          <div key={job.id} className="relative">
+                            <MarketplaceJobCard
+                              jobSession={job}
+                              onClaim={() => handleClaimJob(job)}
+                              onSkip={() => handleSkipJob(job)}
+                              isExpanded={expandedJobId === job.id}
+                              onToggleExpand={() => toggleExpand(job.id)}
+                            />
+                            {/* Claiming animation overlay */}
+                            {claimingJobId === job.id && (
+                              <div className="absolute inset-0 bg-green-600/90 rounded-2xl flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 z-20">
+                                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3 animate-bounce">
+                                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                                <p className="text-white font-bold text-lg">{t('Job Claimed!')}</p>
+                                <p className="text-green-100 text-sm mt-1">{t('Waiting for approval')}</p>
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -868,8 +889,8 @@ function JobListCard({
     if (isMultiDay) {
       const start = parseISO(job.scheduled_date!)
       const end = parseISO(job.scheduled_end_date!)
-      const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      const endStr = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
       return `${startStr} → ${endStr}`
     }
     const date = parseISO(dateStr)
@@ -881,7 +902,7 @@ function JobListCard({
     if (dateDay.getTime() === today.getTime()) return t('Today')
     if (dateDay.getTime() === tomorrow.getTime()) return t('Tomorrow')
 
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       weekday: 'short',
       month: 'short',
       day: 'numeric'

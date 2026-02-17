@@ -167,7 +167,7 @@ export function EmployeeChatView({ conversationId, onBack, title = 'Chat', readO
 
     if (date.toDateString() === today.toDateString()) return t('Today')
     if (date.toDateString() === yesterday.toDateString()) return t('Yesterday')
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   }
 
   const shouldShowDateSeparator = (index: number) => {

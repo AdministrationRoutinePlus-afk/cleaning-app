@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
+import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
 const PAGE_SIZE = 20
 
@@ -34,6 +35,8 @@ interface CompletedJob {
     title: string
     description: string | null
     address: string | null
+    duration_minutes: number | null
+    price_per_hour: number | null
     customer: {
       id: string
       full_name: string
@@ -58,6 +61,7 @@ interface HistoryTabProps {
 
 export function HistoryTab({ employerId }: HistoryTabProps) {
   const { t } = useTranslation()
+  const { formatDate: formatDateLocale } = useDateFormat()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const isMountedRef = useRef(true)
@@ -124,7 +128,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
     try {
       setLoading(true)
 
-      // Fetch completed/evaluated/cancelled/refused/missed jobs
+      // Fetch completed/evaluated/cancelled/refused/missed jobs scoped to employer
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('job_sessions')
         .select(`
@@ -142,6 +146,8 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             description,
             address,
             created_by,
+            duration_minutes,
+            price_per_hour,
             customer:customers(
               id,
               full_name,
@@ -153,6 +159,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
             full_name
           )
         `)
+        .eq('job_template.created_by', employerId)
         .in('status', ['COMPLETED', 'EVALUATED', 'CANCELLED', 'REFUSED', 'MISSED'])
         .order('scheduled_date', { ascending: false })
 
@@ -161,10 +168,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
         return
       }
 
-      // Filter by employer
-      let employerSessions = (sessionsData || []).filter(
-        (s: any) => s.job_template?.created_by === employerId
-      )
+      const employerSessions = sessionsData || []
 
       // Fetch evaluations for these sessions
       const sessionIds = employerSessions.map((s: any) => s.id)
@@ -273,8 +277,8 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
       job.employee?.full_name || '',
       job.status,
       job.evaluation ? String(job.evaluation.rating) : '',
-      '', // Duration not available on session
-      '', // Price not available on session
+      job.job_template.duration_minutes ? String(job.job_template.duration_minutes) : '',
+      job.job_template.price_per_hour ? String(job.job_template.price_per_hour) : '',
     ])
 
     const csvContent = [
@@ -461,7 +465,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
                 onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
               >
                 <div className="text-xs text-gray-500 w-16 shrink-0">
-                  {job.scheduled_date ? format(parseISO(job.scheduled_date), 'MMM d') : '-'}
+                  {job.scheduled_date ? formatDateLocale(parseISO(job.scheduled_date), 'MMM d') : '-'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -514,7 +518,7 @@ export function HistoryTab({ employerId }: HistoryTabProps) {
                     {job.completed_at && (
                       <div>
                         <span className="text-gray-500">{t('Completed:')}</span>{' '}
-                        <span className="text-gray-300">{format(parseISO(job.completed_at), 'MMM d, h:mm a')}</span>
+                        <span className="text-gray-300">{formatDateLocale(parseISO(job.completed_at), 'MMM d, h:mm a')}</span>
                       </div>
                     )}
                   </div>

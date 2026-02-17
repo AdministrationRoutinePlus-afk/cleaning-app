@@ -160,7 +160,7 @@ export default function CustomerReviewsPage() {
   const formatDate = (timestamp: string | null) => {
     if (!timestamp) return 'N/A'
     const date = new Date(timestamp)
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric'

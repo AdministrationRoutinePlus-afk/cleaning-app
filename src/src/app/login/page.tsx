@@ -7,8 +7,6 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
-type ProfileType = 'EMPLOYER' | 'EMPLOYEE'
-
 export default function LoginPage() {
   const router = useRouter()
   const { t } = useTranslation()
@@ -35,14 +33,7 @@ export default function LoginPage() {
     setFailedAttempts(0)
   }, [])
 
-  // Register state
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [regPassword, setRegPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [profileType, setProfileType] = useState<ProfileType>('EMPLOYEE')
-  const [regLoading, setRegLoading] = useState(false)
-  const [regError, setRegError] = useState<string | null>(null)
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,7 +91,7 @@ export default function LoginPage() {
         .single()
 
       if (customerData) {
-        router.push('/customer/reviews')
+        router.push('/customer/dashboard')
         return
       }
 
@@ -115,88 +106,6 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setRegLoading(true)
-    setRegError(null)
-
-    // Validation
-    if (regPassword !== confirmPassword) {
-      setRegError(t('Passwords do not match'))
-      setRegLoading(false)
-      return
-    }
-
-    if (regPassword.length < 6) {
-      setRegError(t('Password must be at least 6 characters long'))
-      setRegLoading(false)
-      return
-    }
-
-    try {
-      const supabase = createClient()
-
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: regPassword,
-        options: {
-          data: {
-            full_name: fullName,
-            profile_type: profileType,
-          },
-        },
-      })
-
-      if (authError) throw authError
-
-      if (!authData.user) {
-        throw new Error('No user returned from registration')
-      }
-
-      // Create profile based on type
-      if (profileType === 'EMPLOYER') {
-        const { error: profileError } = await supabase
-          .from('employers')
-          .insert({
-            user_id: authData.user.id,
-            full_name: fullName,
-            email: email,
-            phone: '',
-          })
-
-        if (profileError) throw profileError
-
-        router.push('/employer/jobs')
-      } else if (profileType === 'EMPLOYEE') {
-        const { error: profileError } = await supabase
-          .from('employees')
-          .insert({
-            user_id: authData.user.id,
-            full_name: fullName,
-            email: email,
-            phone: '',
-            status: 'PENDING',
-          })
-
-        if (profileError) throw profileError
-
-        router.push('/employee/pending')
-      }
-    } catch (err: unknown) {
-      console.error('Registration error:', err)
-      if (err instanceof Error) {
-        setRegError(err.message)
-      } else if (typeof err === 'object' && err !== null && 'message' in err) {
-        setRegError(String((err as { message: unknown }).message))
-      } else {
-        setRegError(t('An error occurred during registration'))
-      }
-    } finally {
-      setRegLoading(false)
     }
   }
 
