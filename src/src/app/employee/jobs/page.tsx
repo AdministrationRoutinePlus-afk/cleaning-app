@@ -1,17 +1,17 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import type { JobSessionFull, JobSession, JobTemplate, Customer, JobSplit, Employee, JobSplitStatus } from '@/types/database'
+import type { JobSessionFull, JobSession, JobTemplate, Customer, JobSplit, Employee, JobSplitStatus, EmployeeWeeklyAvailability, EmployeeSpecificAvailability } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { MyJobCard } from '@/components/employee/MyJobCard'
 import { MarketplaceJobCard } from '@/components/employee/MarketplaceJobCard'
 import { SplitRequestCard } from '@/components/employee/SplitRequestCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { MarketplacePageSkeleton } from '@/components/skeletons/MarketplaceCardSkeleton'
-import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle, ShoppingBag, Calendar, DollarSign, FileText, Users } from 'lucide-react'
+import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertTriangle, ShoppingBag, Calendar, DollarSign, FileText, Users, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
-import { parseISO, startOfDay } from 'date-fns'
+import { parseISO, startOfDay, getDay, format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, addMonths } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -71,6 +71,16 @@ export default function EmployeeJobsPage() {
   const [claimingJobId, setClaimingJobId] = useState<string | null>(null)
   const [skippedJobIds, setSkippedJobIds] = useState<Set<string>>(new Set())
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null)
+
+  // View mode & availability filter state
+  const [viewMode, setViewMode] = useState<'day' | 'month' | 'customer'>('day')
+  const [filterByAvailability, setFilterByAvailability] = useState(false)
+  const [availabilityMode, setAvailabilityMode] = useState<'fixed' | 'custom' | null>(null)
+  const [weeklyAvail, setWeeklyAvail] = useState<EmployeeWeeklyAvailability[]>([])
+  const [specificAvail, setSpecificAvail] = useState<EmployeeSpecificAvailability[]>([])
+  const [availLoaded, setAvailLoaded] = useState(false)
+  const [monthSelectedDay, setMonthSelectedDay] = useState<Date | null>(null)
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
 
   // Splits tab state
   const [incomingSplits, setIncomingSplits] = useState<SplitRequestWithDetails[]>([])
@@ -337,6 +347,61 @@ export default function EmployeeJobsPage() {
     return () => { supabase.removeChannel(channel) }
   }, [supabase, t])
 
+  // Fetch availability data when toggle is turned ON
+  useEffect(() => {
+    if (!filterByAvailability || !employeeId || availLoaded) return
+
+    const fetchAvailability = async () => {
+      try {
+        const { data: emp } = await supabase
+          .from('employees')
+          .select('availability_mode')
+          .eq('id', employeeId)
+          .maybeSingle()
+
+        if (!isMountedRef.current) return
+        const mode = emp?.availability_mode as 'fixed' | 'custom' | null
+        setAvailabilityMode(mode)
+
+        if (mode === 'fixed') {
+          const { data } = await supabase
+            .from('employee_weekly_availability')
+            .select('*')
+            .eq('employee_id', employeeId)
+          if (!isMountedRef.current) return
+          setWeeklyAvail(data || [])
+        } else if (mode === 'custom') {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const furthestDate = marketplaceJobs.reduce((max, j) => {
+            return j.scheduled_date && j.scheduled_date > max ? j.scheduled_date : max
+          }, todayStr)
+
+          const { data } = await supabase
+            .from('employee_specific_availability')
+            .select('*')
+            .eq('employee_id', employeeId)
+            .gte('date', todayStr)
+            .lte('date', furthestDate)
+          if (!isMountedRef.current) return
+          setSpecificAvail(data || [])
+        }
+
+        setAvailLoaded(true)
+      } catch (error) {
+        console.error('Error loading availability:', error)
+      }
+    }
+
+    fetchAvailability()
+  }, [filterByAvailability, employeeId, availLoaded, supabase, marketplaceJobs])
+
+  // Reset availability cache when toggle is turned off
+  useEffect(() => {
+    if (!filterByAvailability) {
+      setAvailLoaded(false)
+    }
+  }, [filterByAvailability])
+
   // Scroll to top on tab change
   useEffect(() => {
     const scrollContainer = document.getElementById('main-scroll-container')
@@ -476,17 +541,86 @@ export default function EmployeeJobsPage() {
     })
   }
 
-  // Group marketplace jobs by date
+  // Availability-filtered marketplace jobs (shared by all 3 views)
+  const filteredMarketplaceJobs = useMemo(() => {
+    if (!filterByAvailability) return marketplaceJobs
+
+    return marketplaceJobs.filter(job => {
+      if (!job.scheduled_date) return false
+      const jobDate = parseISO(job.scheduled_date)
+
+      if (availabilityMode === 'fixed') {
+        const dayOfWeek = getDay(jobDate)
+        const match = weeklyAvail.find(r => r.day_of_week === dayOfWeek)
+        return match?.is_available === true
+      } else if (availabilityMode === 'custom') {
+        const match = specificAvail.find(r => r.date === job.scheduled_date)
+        return match?.is_available === true
+      }
+      return true
+    })
+  }, [marketplaceJobs, filterByAvailability, availabilityMode, weeklyAvail, specificAvail])
+
+  // Group filtered jobs by date (Day view)
   const groupedMarketplaceJobs = useMemo(() => {
     const grouped: Record<string, JobSessionWithDetails[]> = {}
-    marketplaceJobs.forEach(job => {
+    filteredMarketplaceJobs.forEach(job => {
       if (!job.scheduled_date) return
       const dateKey = job.scheduled_date
       if (!grouped[dateKey]) grouped[dateKey] = []
       grouped[dateKey].push(job)
     })
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
-  }, [marketplaceJobs])
+  }, [filteredMarketplaceJobs])
+
+  // Group filtered jobs by customer (Customer view)
+  const customerGroupedJobs = useMemo(() => {
+    const grouped: Record<string, JobSessionWithDetails[]> = {}
+    filteredMarketplaceJobs.forEach(job => {
+      const name = job.job_template.customer?.full_name
+                || job.job_template.customer?.customer_code
+                || 'Unknown'
+      if (!grouped[name]) grouped[name] = []
+      grouped[name].push(job)
+    })
+    Object.values(grouped).forEach(jobs => {
+      jobs.sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''))
+    })
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
+  }, [filteredMarketplaceJobs])
+
+  // Month calendar grid
+  const monthDays = useMemo(() => {
+    const mStart = startOfMonth(currentMonth)
+    const mEnd = endOfMonth(currentMonth)
+    const calendarStart = startOfWeek(mStart, { weekStartsOn: 1 })
+    const calendarEnd = endOfWeek(mEnd, { weekStartsOn: 1 })
+    const days: Date[] = []
+    let day = calendarStart
+    while (day <= calendarEnd) {
+      days.push(day)
+      day = addDays(day, 1)
+    }
+    return days
+  }, [currentMonth])
+
+  // Jobs indexed by date for month view
+  const jobsByDate = useMemo(() => {
+    const map: Record<string, JobSessionWithDetails[]> = {}
+    filteredMarketplaceJobs.forEach(job => {
+      if (!job.scheduled_date) return
+      if (!map[job.scheduled_date]) map[job.scheduled_date] = []
+      map[job.scheduled_date].push(job)
+    })
+    return map
+  }, [filteredMarketplaceJobs])
+
+  // Jobs for selected day in month view
+  const selectedDayJobs = useMemo(() => {
+    if (!monthSelectedDay) return []
+    const key = format(monthSelectedDay, 'yyyy-MM-dd')
+    return jobsByDate[key] || []
+  }, [monthSelectedDay, jobsByDate])
 
   const formatDateHeader = (dateStr: string) => {
     const date = startOfDay(parseISO(dateStr))
@@ -618,7 +752,7 @@ export default function EmployeeJobsPage() {
         <div className="bg-white/10 rounded-2xl border border-white/20 p-4 mb-6">
           <div className="grid grid-cols-2 gap-3">
             {([
-              { key: 'find' as TopTab, label: 'Find Jobs', icon: ShoppingBag, color: 'green', badge: marketplaceJobs.length > 0 ? marketplaceJobs.length : undefined },
+              { key: 'find' as TopTab, label: 'Find Jobs', icon: ShoppingBag, color: 'green', badge: filteredMarketplaceJobs.length > 0 ? filteredMarketplaceJobs.length : undefined },
               { key: 'myjobs' as TopTab, label: 'My Jobs', icon: Briefcase, color: 'blue', badge: currentCount > 0 ? currentCount : undefined },
               { key: 'history' as TopTab, label: 'History', icon: History, color: 'purple', badge: historyCount > 0 ? historyCount : undefined },
               { key: 'splits' as TopTab, label: 'Splits', icon: Users, color: 'orange', badge: pendingSplitsCount > 0 ? pendingSplitsCount : undefined },
@@ -673,58 +807,288 @@ export default function EmployeeJobsPage() {
                   {t('Please contact your employer to restore access.')}
                 </p>
               </div>
-            ) : groupedMarketplaceJobs.length > 0 ? (
-              <div className="space-y-6">
-                <p className="text-center text-gray-400 text-sm">
-                  {t('Tap a job to view details and claim')}
-                </p>
+            ) : (
+              <>
+                {/* View Mode Selector Bar */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+                    {(['day', 'month', 'customer'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => {
+                          setViewMode(mode)
+                          setExpandedJobId(null)
+                          if (mode !== 'month') setMonthSelectedDay(null)
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          viewMode === mode
+                            ? 'bg-purple-600 text-white shadow-lg'
+                            : 'text-gray-400 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {mode === 'day' ? t('Day') : mode === 'month' ? t('Month') : t('Customer')}
+                      </button>
+                    ))}
+                  </div>
 
-                {groupedMarketplaceJobs.map(([dateKey, dateJobs]) => (
-                  <div key={dateKey}>
-                    <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10">
-                      {formatDateHeader(dateKey)}
-                      <span className="text-gray-500 font-normal ml-2">
-                        ({dateJobs.length} {dateJobs.length !== 1 ? t('jobs') : t('job')})
-                      </span>
-                    </h3>
+                  <button
+                    onClick={() => setFilterByAvailability(prev => !prev)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                      filterByAvailability
+                        ? 'bg-green-600/20 text-green-300 border-green-500/30'
+                        : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    <div className={`w-3 h-3 rounded-full border-2 transition-all ${
+                      filterByAvailability
+                        ? 'bg-green-400 border-green-400'
+                        : 'border-gray-500'
+                    }`} />
+                    {t('My Availability')}
+                  </button>
+                </div>
 
-                    <div className="space-y-3">
-                      {dateJobs.map(job => (
-                        <div key={job.id} className="relative">
-                          <MarketplaceJobCard
-                            jobSession={job}
-                            onClaim={() => handleClaimRequest(job)}
-                            onSkip={() => handleSkipJob(job)}
-                            isExpanded={expandedJobId === job.id}
-                            onToggleExpand={() => toggleExpand(job.id)}
-                          />
-                          {claimingJobId === job.id && (
-                            <div className="absolute inset-0 bg-green-600/90 rounded-2xl flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 z-20">
-                              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3 animate-bounce">
-                                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
+                {/* Availability info banner */}
+                {filterByAvailability && availLoaded && !availabilityMode && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 mb-4 text-center">
+                    <p className="text-yellow-300 text-xs">{t('No availability set')}</p>
+                  </div>
+                )}
+                {filterByAvailability && availLoaded && availabilityMode && (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
+                    <p className="text-green-300 text-xs">{t('Showing jobs matching your availability')}</p>
+                  </div>
+                )}
+
+                {/* DAY VIEW */}
+                {viewMode === 'day' && (
+                  groupedMarketplaceJobs.length > 0 ? (
+                    <div className="space-y-6">
+                      <p className="text-center text-gray-400 text-sm">
+                        {t('Tap a job to view details and claim')}
+                      </p>
+
+                      {groupedMarketplaceJobs.map(([dateKey, dateJobs]) => (
+                        <div key={dateKey}>
+                          <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10">
+                            {formatDateHeader(dateKey)}
+                            <span className="text-gray-500 font-normal ml-2">
+                              ({dateJobs.length} {dateJobs.length !== 1 ? t('jobs') : t('job')})
+                            </span>
+                          </h3>
+
+                          <div className="space-y-3">
+                            {dateJobs.map(job => (
+                              <div key={job.id} className="relative">
+                                <MarketplaceJobCard
+                                  jobSession={job}
+                                  onClaim={() => handleClaimRequest(job)}
+                                  onSkip={() => handleSkipJob(job)}
+                                  isExpanded={expandedJobId === job.id}
+                                  onToggleExpand={() => toggleExpand(job.id)}
+                                />
+                                {claimingJobId === job.id && (
+                                  <ClaimingOverlay />
+                                )}
                               </div>
-                              <p className="text-white font-bold text-lg">{t('Job Claimed!')}</p>
-                              <p className="text-green-100 text-sm mt-1">{t('Waiting for approval')}</p>
-                            </div>
-                          )}
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <FindJobsEmptyState filterByAvailability={filterByAvailability} />
+                  )
+                )}
+
+                {/* MONTH VIEW */}
+                {viewMode === 'month' && (
+                  <div className="space-y-4">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                      <div className="flex items-center justify-between p-3">
+                        <button
+                          onClick={() => {
+                            const prev = addMonths(currentMonth, -1)
+                            if (prev >= startOfMonth(new Date())) {
+                              setCurrentMonth(prev)
+                              setMonthSelectedDay(null)
+                            }
+                          }}
+                          className={`p-2 rounded-lg transition-colors ${
+                            startOfMonth(currentMonth) <= startOfMonth(new Date())
+                              ? 'text-gray-600 cursor-not-allowed'
+                              : 'text-gray-400 hover:text-white hover:bg-white/10'
+                          }`}
+                          disabled={startOfMonth(currentMonth) <= startOfMonth(new Date())}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCurrentMonth(startOfMonth(new Date()))
+                            setMonthSelectedDay(null)
+                          }}
+                          className="text-center"
+                        >
+                          <span className="text-white font-semibold text-sm capitalize">
+                            {format(currentMonth, 'MMMM yyyy')}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCurrentMonth(addMonths(currentMonth, 1))
+                            setMonthSelectedDay(null)
+                          }}
+                          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 px-3 mb-1">
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                          <div key={d} className="text-center text-[10px] font-medium text-gray-500 py-1">
+                            {t(d)}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 px-3 pb-3">
+                        {monthDays.map((day) => {
+                          const dateKey = format(day, 'yyyy-MM-dd')
+                          const dayJobs = jobsByDate[dateKey] || []
+                          const isInMonth = isSameMonth(day, currentMonth)
+                          const isToday = isSameDay(day, new Date())
+                          const isSelected = monthSelectedDay ? isSameDay(day, monthSelectedDay) : false
+                          const isPast = day < startOfDay(new Date())
+
+                          return (
+                            <button
+                              key={dateKey}
+                              onClick={() => {
+                                if (!isInMonth || isPast) return
+                                setMonthSelectedDay(isSelected ? null : day)
+                              }}
+                              disabled={!isInMonth || isPast}
+                              className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[48px] transition-all ${
+                                isSelected
+                                  ? 'bg-purple-600/30 border border-purple-400'
+                                  : isToday
+                                    ? 'bg-white/10 border border-white/20'
+                                    : isInMonth && !isPast
+                                      ? 'hover:bg-white/5 border border-transparent'
+                                      : 'border border-transparent'
+                              } ${!isInMonth || isPast ? 'opacity-30' : ''}`}
+                            >
+                              <span className={`text-xs font-semibold ${
+                                isSelected ? 'text-purple-300' : isToday ? 'text-white' : 'text-gray-400'
+                              }`}>
+                                {format(day, 'd')}
+                              </span>
+
+                              {dayJobs.length > 0 && isInMonth && (
+                                <span className={`mt-1 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${
+                                  isSelected
+                                    ? 'bg-purple-500/40 text-purple-200'
+                                    : 'bg-green-500/30 text-green-300'
+                                }`}>
+                                  {dayJobs.length}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {monthSelectedDay && (
+                      <div className="space-y-3">
+                        <h3 className="text-white font-semibold text-sm border-b border-white/10 pb-2">
+                          {format(monthSelectedDay, 'EEEE, MMMM d')}
+                          <span className="text-gray-500 font-normal ml-2">
+                            ({selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')})
+                          </span>
+                        </h3>
+
+                        {selectedDayJobs.length > 0 ? (
+                          selectedDayJobs.map(job => (
+                            <div key={job.id} className="relative">
+                              <MarketplaceJobCard
+                                jobSession={job}
+                                onClaim={() => handleClaimRequest(job)}
+                                onSkip={() => handleSkipJob(job)}
+                                isExpanded={expandedJobId === job.id}
+                                onToggleExpand={() => toggleExpand(job.id)}
+                              />
+                              {claimingJobId === job.id && (
+                                <ClaimingOverlay />
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="bg-white/5 rounded-xl p-6 text-center border border-white/10">
+                            <p className="text-gray-400 text-sm">{t('No jobs on this day')}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!monthSelectedDay && filteredMarketplaceJobs.length > 0 && (
+                      <p className="text-center text-gray-400 text-sm">
+                        {t('Tap a job to view details and claim')}
+                      </p>
+                    )}
+
+                    {filteredMarketplaceJobs.length === 0 && (
+                      <FindJobsEmptyState filterByAvailability={filterByAvailability} />
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
-                <ShoppingBag className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {t('All caught up!')}
-                </h3>
-                <p className="text-gray-300 mb-4">
-                  {t('No jobs available right now. Check back later!')}
-                </p>
-              </div>
+                )}
+
+                {/* CUSTOMER VIEW */}
+                {viewMode === 'customer' && (
+                  customerGroupedJobs.length > 0 ? (
+                    <div className="space-y-6">
+                      <p className="text-center text-gray-400 text-sm">
+                        {t('Tap a job to view details and claim')}
+                      </p>
+
+                      {customerGroupedJobs.map(([customerName, cJobs]) => (
+                        <div key={customerName}>
+                          <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10 flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-purple-400" />
+                            {customerName}
+                            <span className="text-gray-500 font-normal">
+                              ({cJobs.length} {cJobs.length !== 1 ? t('jobs') : t('job')})
+                            </span>
+                          </h3>
+
+                          <div className="space-y-3">
+                            {cJobs.map(job => (
+                              <div key={job.id} className="relative">
+                                <MarketplaceJobCard
+                                  jobSession={job}
+                                  onClaim={() => handleClaimRequest(job)}
+                                  onSkip={() => handleSkipJob(job)}
+                                  isExpanded={expandedJobId === job.id}
+                                  onToggleExpand={() => toggleExpand(job.id)}
+                                />
+                                {claimingJobId === job.id && (
+                                  <ClaimingOverlay />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <FindJobsEmptyState filterByAvailability={filterByAvailability} />
+                  )
+                )}
+              </>
             )}
           </div>
         )}
@@ -949,6 +1313,41 @@ export default function EmployeeJobsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+// Claiming animation overlay (reused across views)
+function ClaimingOverlay() {
+  const { t } = useTranslation()
+  return (
+    <div className="absolute inset-0 bg-green-600/90 rounded-2xl flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 z-20">
+      <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3 animate-bounce">
+        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <p className="text-white font-bold text-lg">{t('Job Claimed!')}</p>
+      <p className="text-green-100 text-sm mt-1">{t('Waiting for approval')}</p>
+    </div>
+  )
+}
+
+// Empty state for Find Jobs views
+function FindJobsEmptyState({ filterByAvailability }: { filterByAvailability: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <div className="bg-white/10 rounded-2xl shadow-xl p-12 text-center border border-white/20">
+      <ShoppingBag className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+      <h3 className="text-lg font-semibold text-white mb-2">
+        {t('All caught up!')}
+      </h3>
+      <p className="text-gray-300 mb-4">
+        {filterByAvailability
+          ? t('Showing jobs matching your availability')
+          : t('No jobs available right now. Check back later!')
+        }
+      </p>
     </div>
   )
 }
