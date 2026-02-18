@@ -82,6 +82,7 @@ export default function EmployeeJobsPage() {
   const [availLoaded, setAvailLoaded] = useState(false)
   const [monthSelectedDay, setMonthSelectedDay] = useState<Date | null>(null)
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
 
   // Splits tab state
   const [incomingSplits, setIncomingSplits] = useState<SplitRequestWithDetails[]>([])
@@ -1065,39 +1066,58 @@ export default function EmployeeJobsPage() {
                 {/* CUSTOMER VIEW */}
                 {viewMode === 'customer' && (
                   customerGroupedJobs.length > 0 ? (
-                    <div className="space-y-6">
-                      <p className="text-center text-gray-400 text-sm">
-                        {t('Tap a job to view details and claim')}
-                      </p>
-
-                      {customerGroupedJobs.map(([customerName, cJobs]) => (
-                        <div key={customerName}>
-                          <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10 flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-purple-400" />
-                            {customerName}
-                            <span className="text-gray-500 font-normal">
-                              ({cJobs.length} {cJobs.length !== 1 ? t('jobs') : t('job')})
-                            </span>
-                          </h3>
-
-                          <div className="space-y-3">
-                            {cJobs.map(job => (
-                              <div key={job.id} className="relative">
-                                <MarketplaceJobCard
-                                  jobSession={job}
-                                  onClaim={() => handleClaimRequest(job)}
-                                  onSkip={() => handleSkipJob(job)}
-                                  isExpanded={expandedJobId === job.id}
-                                  onToggleExpand={() => toggleExpand(job.id)}
-                                />
-                                {claimingJobId === job.id && (
-                                  <ClaimingOverlay />
-                                )}
+                    <div className="space-y-2">
+                      {customerGroupedJobs.map(([customerName, cJobs]) => {
+                        const isOpen = expandedCustomer === customerName
+                        return (
+                          <div key={customerName}>
+                            <button
+                              onClick={() => setExpandedCustomer(isOpen ? null : customerName)}
+                              className={`w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all ${
+                                isOpen
+                                  ? 'bg-purple-600/20 border border-purple-500/30'
+                                  : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Building2 className={`w-4 h-4 ${isOpen ? 'text-purple-400' : 'text-gray-500'}`} />
+                                <span className={`font-semibold text-sm ${isOpen ? 'text-white' : 'text-gray-300'}`}>
+                                  {customerName}
+                                </span>
                               </div>
-                            ))}
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs rounded-full px-2 py-0.5 ${
+                                  isOpen
+                                    ? 'bg-purple-500/30 text-purple-300'
+                                    : 'bg-white/10 text-gray-400'
+                                }`}>
+                                  {cJobs.length} {cJobs.length !== 1 ? t('jobs') : t('job')}
+                                </span>
+                                <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                              </div>
+                            </button>
+
+                            {isOpen && (
+                              <div className="space-y-3 mt-3 mb-4">
+                                {cJobs.map(job => (
+                                  <div key={job.id} className="relative">
+                                    <MarketplaceJobCard
+                                      jobSession={job}
+                                      onClaim={() => handleClaimRequest(job)}
+                                      onSkip={() => handleSkipJob(job)}
+                                      isExpanded={expandedJobId === job.id}
+                                      onToggleExpand={() => toggleExpand(job.id)}
+                                    />
+                                    {claimingJobId === job.id && (
+                                      <ClaimingOverlay />
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <FindJobsEmptyState filterByAvailability={filterByAvailability} />

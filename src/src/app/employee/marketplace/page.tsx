@@ -63,6 +63,7 @@ export default function EmployeeMarketplacePage() {
   const [availLoaded, setAvailLoaded] = useState(false)
   const [monthSelectedDay, setMonthSelectedDay] = useState<Date | null>(null)
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -1114,47 +1115,68 @@ export default function EmployeeMarketplacePage() {
                   {/* CUSTOMER VIEW */}
                   {viewMode === 'customer' && (
                     customerGroupedJobs.length > 0 ? (
-                      <div className="space-y-6">
-                        <p className="text-center text-gray-400 text-sm">
-                          {t('Tap a job to view details and claim')}
-                        </p>
-
-                        {customerGroupedJobs.map(([customerName, jobs]) => (
-                          <div key={customerName}>
-                            <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10 flex items-center gap-2">
-                              <Building2 className="w-4 h-4 text-purple-400" />
-                              {customerName}
-                              <span className="text-gray-500 font-normal">
-                                ({jobs.length} {jobs.length !== 1 ? t('jobs') : t('job')})
-                              </span>
-                            </h3>
-
-                            <div className="space-y-3">
-                              {jobs.map(job => (
-                                <div key={job.id} className="relative">
-                                  <MarketplaceJobCard
-                                    jobSession={job}
-                                    onClaim={() => handleClaimJob(job)}
-                                    onSkip={() => handleSkipJob(job)}
-                                    isExpanded={expandedJobId === job.id}
-                                    onToggleExpand={() => toggleExpand(job.id)}
-                                  />
-                                  {claimingJobId === job.id && (
-                                    <div className="absolute inset-0 bg-green-600/90 rounded-2xl flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 z-20">
-                                      <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3 animate-bounce">
-                                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                      </div>
-                                      <p className="text-white font-bold text-lg">{t('Job Claimed!')}</p>
-                                      <p className="text-green-100 text-sm mt-1">{t('Waiting for approval')}</p>
-                                    </div>
-                                  )}
+                      <div className="space-y-2">
+                        {/* Customer name buttons */}
+                        {customerGroupedJobs.map(([customerName, jobs]) => {
+                          const isOpen = expandedCustomer === customerName
+                          return (
+                            <div key={customerName}>
+                              <button
+                                onClick={() => setExpandedCustomer(isOpen ? null : customerName)}
+                                className={`w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all ${
+                                  isOpen
+                                    ? 'bg-purple-600/20 border border-purple-500/30'
+                                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Building2 className={`w-4 h-4 ${isOpen ? 'text-purple-400' : 'text-gray-500'}`} />
+                                  <span className={`font-semibold text-sm ${isOpen ? 'text-white' : 'text-gray-300'}`}>
+                                    {customerName}
+                                  </span>
                                 </div>
-                              ))}
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs rounded-full px-2 py-0.5 ${
+                                    isOpen
+                                      ? 'bg-purple-500/30 text-purple-300'
+                                      : 'bg-white/10 text-gray-400'
+                                  }`}>
+                                    {jobs.length} {jobs.length !== 1 ? t('jobs') : t('job')}
+                                  </span>
+                                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                                </div>
+                              </button>
+
+                              {/* Expanded jobs for this customer */}
+                              {isOpen && (
+                                <div className="space-y-3 mt-3 mb-4">
+                                  {jobs.map(job => (
+                                    <div key={job.id} className="relative">
+                                      <MarketplaceJobCard
+                                        jobSession={job}
+                                        onClaim={() => handleClaimJob(job)}
+                                        onSkip={() => handleSkipJob(job)}
+                                        isExpanded={expandedJobId === job.id}
+                                        onToggleExpand={() => toggleExpand(job.id)}
+                                      />
+                                      {claimingJobId === job.id && (
+                                        <div className="absolute inset-0 bg-green-600/90 rounded-2xl flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300 z-20">
+                                          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3 animate-bounce">
+                                            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                          </div>
+                                          <p className="text-white font-bold text-lg">{t('Job Claimed!')}</p>
+                                          <p className="text-green-100 text-sm mt-1">{t('Waiting for approval')}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ) : (
                       <MarketplaceEmptyState
