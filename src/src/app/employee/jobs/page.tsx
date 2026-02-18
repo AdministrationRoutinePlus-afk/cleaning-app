@@ -74,7 +74,7 @@ export default function EmployeeJobsPage() {
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null)
 
   // View mode & availability filter state
-  const [viewMode, setViewMode] = useState<'day' | 'month' | 'customer'>('day')
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'customer'>('day')
   const [filterByAvailability, setFilterByAvailability] = useState(false)
   const [availabilityMode, setAvailabilityMode] = useState<'fixed' | 'custom' | null>(null)
   const [weeklyAvail, setWeeklyAvail] = useState<EmployeeWeeklyAvailability[]>([])
@@ -83,6 +83,8 @@ export default function EmployeeJobsPage() {
   const [monthSelectedDay, setMonthSelectedDay] = useState<Date | null>(null)
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
 
   // Splits tab state
   const [incomingSplits, setIncomingSplits] = useState<SplitRequestWithDetails[]>([])
@@ -638,6 +640,15 @@ export default function EmployeeJobsPage() {
     return jobsByDate[key] || []
   }, [monthSelectedDay, jobsByDate])
 
+  // Week view: 7 days from currentWeekStart
+  const weekDays = useMemo(() => {
+    const days: Date[] = []
+    for (let i = 0; i < 7; i++) {
+      days.push(addDays(currentWeekStart, i))
+    }
+    return days
+  }, [currentWeekStart])
+
   const formatDateHeader = (dateStr: string) => {
     const date = startOfDay(parseISO(dateStr))
     const today = startOfDay(new Date())
@@ -826,30 +837,31 @@ export default function EmployeeJobsPage() {
             ) : (
               <>
                 {/* View Mode Selector Bar */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between gap-2 mb-4">
                   <div className="flex gap-1 bg-white/5 rounded-xl p-1">
-                    {(['day', 'month', 'customer'] as const).map(mode => (
+                    {(['day', 'week', 'month', 'customer'] as const).map(mode => (
                       <button
                         key={mode}
                         onClick={() => {
                           setViewMode(mode)
                           setExpandedJobId(null)
+                          setExpandedDate(null)
                           if (mode !== 'month') setMonthSelectedDay(null)
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           viewMode === mode
                             ? 'bg-purple-600 text-white shadow-lg'
                             : 'text-gray-400 hover:text-white hover:bg-white/10'
                         }`}
                       >
-                        {mode === 'day' ? t('Day') : mode === 'month' ? t('Month') : t('Customer')}
+                        {mode === 'day' ? t('Day') : mode === 'week' ? t('Week') : mode === 'month' ? t('Month') : t('Customer')}
                       </button>
                     ))}
                   </div>
 
                   <button
                     onClick={() => setFilterByAvailability(prev => !prev)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex-shrink-0 ${
                       filterByAvailability
                         ? 'bg-green-600/20 text-green-300 border-green-500/30'
                         : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'
@@ -876,45 +888,196 @@ export default function EmployeeJobsPage() {
                   </div>
                 )}
 
-                {/* DAY VIEW */}
+                {/* DAY VIEW (accordion) */}
                 {viewMode === 'day' && (
                   groupedMarketplaceJobs.length > 0 ? (
-                    <div className="space-y-6">
-                      <p className="text-center text-gray-400 text-sm">
-                        {t('Tap a job to view details and claim')}
-                      </p>
-
-                      {groupedMarketplaceJobs.map(([dateKey, dateJobs]) => (
-                        <div key={dateKey}>
-                          <h3 className="text-white font-semibold text-sm mb-3 sticky top-0 bg-gray-900/95 py-2 px-1 -mx-1 z-10 border-b border-white/10">
-                            {formatDateHeader(dateKey)}
-                            <span className="text-gray-500 font-normal ml-2">
-                              ({dateJobs.length} {dateJobs.length !== 1 ? t('jobs') : t('job')})
-                            </span>
-                          </h3>
-
-                          <div className="space-y-3">
-                            {dateJobs.map(job => (
-                              <div key={job.id} className="relative">
-                                <MarketplaceJobCard
-                                  jobSession={job}
-                                  onClaim={() => handleClaimRequest(job)}
-                                  onSkip={() => handleSkipJob(job)}
-                                  isExpanded={expandedJobId === job.id}
-                                  onToggleExpand={() => toggleExpand(job.id)}
-                                />
-                                {claimingJobId === job.id && (
-                                  <ClaimingOverlay />
-                                )}
+                    <div className="space-y-2">
+                      {groupedMarketplaceJobs.map(([dateKey, dateJobs]) => {
+                        const isOpen = expandedDate === dateKey
+                        return (
+                          <div key={dateKey}>
+                            <button
+                              onClick={() => setExpandedDate(isOpen ? null : dateKey)}
+                              className={`w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all ${
+                                isOpen
+                                  ? 'bg-green-600/20 border border-green-500/30'
+                                  : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Calendar className={`w-4 h-4 ${isOpen ? 'text-green-400' : 'text-gray-500'}`} />
+                                <span className={`font-semibold text-sm capitalize ${isOpen ? 'text-white' : 'text-gray-300'}`}>
+                                  {formatDateHeader(dateKey)}
+                                </span>
                               </div>
-                            ))}
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs rounded-full px-2 py-0.5 ${
+                                  isOpen
+                                    ? 'bg-green-500/30 text-green-300'
+                                    : 'bg-white/10 text-gray-400'
+                                }`}>
+                                  {dateJobs.length} {dateJobs.length !== 1 ? t('jobs') : t('job')}
+                                </span>
+                                <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                              </div>
+                            </button>
+
+                            {isOpen && (
+                              <div className="space-y-3 mt-3 mb-4">
+                                {dateJobs.map(job => (
+                                  <div key={job.id} className="relative">
+                                    <MarketplaceJobCard
+                                      jobSession={job}
+                                      onClaim={() => handleClaimRequest(job)}
+                                      onSkip={() => handleSkipJob(job)}
+                                      isExpanded={expandedJobId === job.id}
+                                      onToggleExpand={() => toggleExpand(job.id)}
+                                    />
+                                    {claimingJobId === job.id && (
+                                      <ClaimingOverlay />
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <FindJobsEmptyState filterByAvailability={filterByAvailability} />
                   )
+                )}
+
+                {/* WEEK VIEW */}
+                {viewMode === 'week' && (
+                  <div className="space-y-4">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                      <div className="flex items-center justify-between p-3">
+                        <button
+                          onClick={() => {
+                            const prev = addDays(currentWeekStart, -7)
+                            if (prev >= startOfWeek(new Date(), { weekStartsOn: 1 })) {
+                              setCurrentWeekStart(prev)
+                              setExpandedDate(null)
+                            }
+                          }}
+                          className={`p-2 rounded-lg transition-colors ${
+                            currentWeekStart <= startOfWeek(new Date(), { weekStartsOn: 1 })
+                              ? 'text-gray-600 cursor-not-allowed'
+                              : 'text-gray-400 hover:text-white hover:bg-white/10'
+                          }`}
+                          disabled={currentWeekStart <= startOfWeek(new Date(), { weekStartsOn: 1 })}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
+                            setExpandedDate(null)
+                          }}
+                          className="text-center"
+                        >
+                          <span className="text-white font-semibold text-sm">
+                            {format(currentWeekStart, 'd MMM', { locale: fr })} — {format(addDays(currentWeekStart, 6), 'd MMM', { locale: fr })}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCurrentWeekStart(addDays(currentWeekStart, 7))
+                            setExpandedDate(null)
+                          }}
+                          className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 px-3 pb-3">
+                        {weekDays.map((day) => {
+                          const dateKey = format(day, 'yyyy-MM-dd')
+                          const dayJobs = jobsByDate[dateKey] || []
+                          const isToday = isSameDay(day, new Date())
+                          const isPast = day < startOfDay(new Date())
+                          const isSelected = expandedDate === dateKey
+
+                          return (
+                            <button
+                              key={dateKey}
+                              onClick={() => {
+                                if (isPast && dayJobs.length === 0) return
+                                setExpandedDate(isSelected ? null : dateKey)
+                              }}
+                              className={`flex flex-col items-center justify-start rounded-lg p-1.5 min-h-[60px] transition-all ${
+                                isSelected
+                                  ? 'bg-green-600/30 border border-green-400'
+                                  : isToday
+                                    ? 'bg-white/10 border border-white/20'
+                                    : 'hover:bg-white/5 border border-transparent'
+                              } ${isPast && dayJobs.length === 0 ? 'opacity-30' : ''}`}
+                            >
+                              <span className="text-[10px] text-gray-500 capitalize">
+                                {format(day, 'EEE', { locale: fr })}
+                              </span>
+                              <span className={`text-sm font-bold ${
+                                isSelected ? 'text-green-300' : isToday ? 'text-white' : 'text-gray-300'
+                              }`}>
+                                {format(day, 'd')}
+                              </span>
+
+                              {dayJobs.length > 0 && (
+                                <span className={`mt-0.5 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${
+                                  isSelected
+                                    ? 'bg-green-500/40 text-green-200'
+                                    : 'bg-green-500/30 text-green-300'
+                                }`}>
+                                  {dayJobs.length}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {expandedDate && (
+                      <div className="space-y-3">
+                        <h3 className="text-white font-semibold text-sm border-b border-white/10 pb-2 capitalize">
+                          {formatDateHeader(expandedDate)}
+                          <span className="text-gray-500 font-normal ml-2">
+                            ({(jobsByDate[expandedDate] || []).length} {(jobsByDate[expandedDate] || []).length !== 1 ? t('jobs') : t('job')})
+                          </span>
+                        </h3>
+
+                        {(jobsByDate[expandedDate] || []).length > 0 ? (
+                          (jobsByDate[expandedDate] || []).map(job => (
+                            <div key={job.id} className="relative">
+                              <MarketplaceJobCard
+                                jobSession={job}
+                                onClaim={() => handleClaimRequest(job)}
+                                onSkip={() => handleSkipJob(job)}
+                                isExpanded={expandedJobId === job.id}
+                                onToggleExpand={() => toggleExpand(job.id)}
+                              />
+                              {claimingJobId === job.id && (
+                                <ClaimingOverlay />
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="bg-white/5 rounded-xl p-6 text-center border border-white/10">
+                            <p className="text-gray-400 text-sm">{t('No jobs on this day')}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {filteredMarketplaceJobs.length === 0 && (
+                      <FindJobsEmptyState filterByAvailability={filterByAvailability} />
+                    )}
+                  </div>
                 )}
 
                 {/* MONTH VIEW */}
