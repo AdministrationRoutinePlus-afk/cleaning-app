@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import type { JobTemplate, JobSessionFull, Customer } from '@/types/database'
+import type { JobTemplate, JobSessionFull, Customer, JobExchange, JobSplit } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ScheduleJobPopup } from '@/components/employer/ScheduleJobPopup'
 import { format, differenceInDays, differenceInMinutes, parseISO } from 'date-fns'
-import { AlertTriangle, Calendar, User, Search, X, MapPin, Briefcase, Clock, Users, CalendarDays, Check, ChevronDown, ChevronUp, Send, Timer } from 'lucide-react'
+import { AlertTriangle, Calendar, User, Search, X, MapPin, Briefcase, Clock, Users, CalendarDays, Check, ChevronDown, ChevronUp, Send, Timer, ArrowLeftRight, GitBranch } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,7 @@ import { addDays } from 'date-fns'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 import { useDateFormat } from '@/lib/i18n/useDateFormat'
 
-type StatusFilter = 'all' | 'unclaimed' | 'pending' | 'scheduled' | 'in_progress' | 'issues'
+type StatusFilter = 'all' | 'unclaimed' | 'pending' | 'scheduled' | 'in_progress' | 'issues' | 'exchanges' | 'splits'
 
 interface ActiveJobsTabProps {
   employerId: string
@@ -46,6 +46,20 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
   const [urgencyMessage, setUrgencyMessage] = useState('')
   const [urgencySending, setUrgencySending] = useState(false)
   const [urgencySelectAll, setUrgencySelectAll] = useState(false)
+
+  // Exchange & Split state
+  interface ExchangeWithDetails extends JobExchange {
+    from_employee: { full_name: string } | null
+    to_employee: { full_name: string } | null
+    job_session: JobSessionFull | null
+  }
+  interface SplitWithDetails extends JobSplit {
+    requester: { full_name: string } | null
+    partner: { full_name: string } | null
+    job_session: JobSessionFull | null
+  }
+  const [pendingExchanges, setPendingExchanges] = useState<ExchangeWithDetails[]>([])
+  const [pendingSplits, setPendingSplits] = useState<SplitWithDetails[]>([])
 
   // Filter state
   type FilterTab = 'employee' | 'customer' | 'dates' | null
@@ -97,6 +111,47 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       if (!isMountedRef.current) return
 
       setSessions(sessionsData as JobSessionFull[] || [])
+
+      // Load pending exchanges
+      const { data: exchangesData } = await supabase
+        .from('job_exchanges')
+        .select(`
+          *,
+          from_employee:employees!job_exchanges_from_employee_id_fkey(full_name),
+          to_employee:employees!job_exchanges_to_employee_id_fkey(full_name),
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(
+              id, title, job_code, client_code, customer_id,
+              customer:customers(id, full_name, customer_code)
+            ),
+            employee:employees!job_sessions_assigned_to_fkey(id, full_name)
+          )
+        `)
+        .eq('status', 'PENDING')
+        .not('to_employee_id', 'is', null)
+
+      if (isMountedRef.current) setPendingExchanges((exchangesData || []) as ExchangeWithDetails[])
+
+      // Load pending splits (waiting for employer approval)
+      const { data: splitsData } = await supabase
+        .from('job_splits')
+        .select(`
+          *,
+          requester:employees!job_splits_requested_by_fkey(full_name),
+          partner:employees!job_splits_partner_id_fkey(full_name),
+          job_session:job_sessions(
+            *,
+            job_template:job_templates(
+              id, title, job_code, client_code, customer_id,
+              customer:customers(id, full_name, customer_code)
+            ),
+            employee:employees!job_sessions_assigned_to_fkey(id, full_name)
+          )
+        `)
+        .eq('status', 'PENDING_EMPLOYER')
+
+      if (isMountedRef.current) setPendingSplits((splitsData || []) as SplitWithDetails[])
     } catch (error) {
       console.error('Error fetching active sessions:', error)
       if (isMountedRef.current) toast.error(t('Failed to load active jobs'))
@@ -321,6 +376,79 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
     }
   }
 
+  // Handle exchange approve/deny
+  const handleExchangeDecision = async (exchangeId: string, approve: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('job_exchanges')
+        .update({
+          status: approve ? 'APPROVED' : 'DENIED',
+          decided_at: new Date().toISOString(),
+          decided_by: employerId,
+        })
+        .eq('id', exchangeId)
+
+      if (error) throw error
+
+      if (approve) {
+        // Find the exchange to get session and new employee
+        const exchange = pendingExchanges.find(e => e.id === exchangeId)
+        if (exchange?.to_employee_id && exchange?.job_session_id) {
+          await supabase
+            .from('job_sessions')
+            .update({
+              assigned_to: exchange.to_employee_id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', exchange.job_session_id)
+        }
+        toast.success(t('Exchange approved'))
+      } else {
+        toast.success(t('Exchange denied'))
+      }
+
+      await fetchData()
+    } catch (error) {
+      console.error('Error handling exchange:', error)
+      toast.error(t('Failed to process exchange'))
+    }
+  }
+
+  // Handle split approve/deny
+  const handleSplitDecision = async (splitId: string, approve: boolean) => {
+    try {
+      const split = pendingSplits.find(s => s.id === splitId)
+      const { error } = await supabase
+        .from('job_splits')
+        .update({
+          status: approve ? 'APPROVED' : 'DENIED_EMPLOYER',
+          decided_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', splitId)
+
+      if (error) throw error
+
+      if (approve && split?.partner_id && split?.job_session_id) {
+        await supabase
+          .from('job_sessions')
+          .update({
+            split_with: split.partner_id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', split.job_session_id)
+        toast.success(t('Split approved'))
+      } else {
+        toast.success(t('Split denied'))
+      }
+
+      await fetchData()
+    } catch (error) {
+      console.error('Error handling split:', error)
+      toast.error(t('Failed to process split'))
+    }
+  }
+
   // Status filter counts
   const statusCounts = {
     all: sessions.length,
@@ -332,6 +460,8 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       const ds = getDisplayStatus(s)
       return ds === 'MISSED' || ds === 'OVERDUE'
     }).length,
+    exchanges: pendingExchanges.length,
+    splits: pendingSplits.length,
   }
 
   const getStatusBadge = (status: string) => {
@@ -563,6 +693,8 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
           { key: 'scheduled' as StatusFilter, label: t('Scheduled') },
           { key: 'in_progress' as StatusFilter, label: t('In Progress') },
           { key: 'issues' as StatusFilter, label: t('Issues') },
+          { key: 'exchanges' as StatusFilter, label: t('Exchanges') },
+          { key: 'splits' as StatusFilter, label: t('Splits') },
         ]).map(({ key, label }) => (
           <button
             key={key}
@@ -800,8 +932,143 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
         </div>
       )}
 
+      {/* Exchange Cards */}
+      {statusFilter === 'exchanges' && (
+        pendingExchanges.length === 0 ? (
+          <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+            <p className="text-gray-400">{t('No pending exchanges')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pendingExchanges.map(exchange => {
+              const session = exchange.job_session as any
+              const jobTemplate = session?.job_template
+              return (
+                <div key={exchange.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ArrowLeftRight className="w-4 h-4 text-orange-400" />
+                    <span className="text-sm font-bold text-orange-300">{t('Exchange Request')}</span>
+                    <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 text-xs">{t('Pending')}</Badge>
+                  </div>
+                  {jobTemplate && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                        {session.full_job_code || session.session_code}
+                      </span>
+                      <span className="text-sm font-medium text-white">{jobTemplate.title}</span>
+                    </div>
+                  )}
+                  <div className="space-y-1 text-sm mb-3">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="w-3.5 h-3.5 text-red-400" />
+                      <span>{t('From:')}</span>
+                      <span className="text-white font-medium">{exchange.from_employee?.full_name || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="w-3.5 h-3.5 text-green-400" />
+                      <span>{t('To:')}</span>
+                      <span className="text-white font-medium">{exchange.to_employee?.full_name || '—'}</span>
+                    </div>
+                    {exchange.reason && (
+                      <div className="text-xs text-gray-500 mt-1 italic">&ldquo;{exchange.reason}&rdquo;</div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleExchangeDecision(exchange.id, true)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Check className="w-4 h-4 mr-1" />
+                      {t('Approve')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleExchangeDecision(exchange.id, false)}
+                      className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 bg-transparent border"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      {t('Deny')}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* Split Cards */}
+      {statusFilter === 'splits' && (
+        pendingSplits.length === 0 ? (
+          <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+            <p className="text-gray-400">{t('No pending splits')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pendingSplits.map(split => {
+              const session = split.job_session as any
+              const jobTemplate = session?.job_template
+              return (
+                <div key={split.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <GitBranch className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm font-bold text-purple-300">{t('Split Request')}</span>
+                    <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 text-xs">{t('Pending')}</Badge>
+                  </div>
+                  {jobTemplate && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-mono text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                        {session.full_job_code || session.session_code}
+                      </span>
+                      <span className="text-sm font-medium text-white">{jobTemplate.title}</span>
+                    </div>
+                  )}
+                  <div className="space-y-1 text-sm mb-3">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="w-3.5 h-3.5 text-blue-400" />
+                      <span>{t('Requested by:')}</span>
+                      <span className="text-white font-medium">{split.requester?.full_name || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="w-3.5 h-3.5 text-purple-400" />
+                      <span>{t('Partner:')}</span>
+                      <span className="text-white font-medium">{split.partner?.full_name || '—'}</span>
+                    </div>
+                    {split.partner_minutes && (
+                      <div className="text-xs text-gray-500">
+                        {t('Partner time')}: {Math.floor(split.partner_minutes / 60)}h{split.partner_minutes % 60 > 0 ? `${split.partner_minutes % 60}m` : ''}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleSplitDecision(split.id, true)}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Check className="w-4 h-4 mr-1" />
+                      {t('Approve')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSplitDecision(split.id, false)}
+                      className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 bg-transparent border"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      {t('Deny')}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
       {/* Session Cards */}
-      {filteredSessions.length === 0 ? (
+      {statusFilter !== 'exchanges' && statusFilter !== 'splits' && (
+        filteredSessions.length === 0 ? (
         <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
           <p className="text-gray-400">
             {hasActiveFilters ? t('No matching sessions') : statusFilter === 'all' ? t('No active sessions') : `${t('No')} ${t(statusFilter.replace('_', ' '))} ${t('sessions')}`}
@@ -915,7 +1182,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
             )
           })}
         </div>
-      )}
+      ))}
 
       {/* Schedule Job Popup */}
       <ScheduleJobPopup

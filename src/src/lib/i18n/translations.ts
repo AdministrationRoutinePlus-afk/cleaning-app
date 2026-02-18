@@ -1327,6 +1327,18 @@ export const fr: Record<string, string> = {
   'Assigning...': 'Assignation...',
   'Consider assigning a coach from the schedule view': 'Pensez à assigner un formateur depuis la vue calendrier',
 
+  // ========== Exchanges & Splits (Active Jobs) ==========
+  'Exchanges': 'Échanges',
+  'No pending exchanges': 'Aucun échange en attente',
+  'No pending splits': 'Aucun partage en attente',
+  'Exchange approved': 'Échange approuvé',
+  'Failed to process exchange': 'Échec du traitement de l\'échange',
+  'Failed to process split': 'Échec du traitement du partage',
+  'From:': 'De :',
+  'To:': 'À :',
+  'Requested by:': 'Demandé par :',
+  'Partner:': 'Partenaire :',
+
   // ========== Multi-day Jobs ==========
   'Multi-day': 'Plusieurs jours',
   'A job was just claimed by another employee': 'Un emploi vient d\'\u00eatre r\u00e9clam\u00e9 par un autre employ\u00e9',
