@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { formatDate, formatTime } from '@/lib/utils/dateFormatters'
-import { Check, X, Clock, Calendar, MapPin, User, ChevronRight } from 'lucide-react'
+import { Check, X, Clock, Calendar, MapPin, User, ChevronRight, AlertTriangle, GraduationCap } from 'lucide-react'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 
@@ -33,6 +33,8 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
   const [showRefuseDialog, setShowRefuseDialog] = useState(false)
   const [refuseReason, setRefuseReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  // Map of sessionId -> { is_trained, can_coach }
+  const [trainingMap, setTrainingMap] = useState<Record<string, { is_trained: boolean; can_coach: boolean }>>({})
   const supabase = createClient()
 
   useEffect(() => {
@@ -51,7 +53,26 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
         .order('scheduled_date', { ascending: true })
 
       if (error) throw error
-      setSessions((data || []) as JobSessionWithDetails[])
+      const allSessions = (data || []) as JobSessionWithDetails[]
+      setSessions(allSessions)
+
+      // Load training status for CLAIMED sessions with assigned employees
+      const claimedWithEmployee = allSessions.filter(s => s.status === 'CLAIMED' && s.assigned_to && s.job_template_id)
+      if (claimedWithEmployee.length > 0) {
+        const pairs = claimedWithEmployee.map(s => ({ employee_id: s.assigned_to!, template_id: s.job_template_id }))
+        const { data: trainings } = await supabase
+          .from('employee_job_training')
+          .select('employee_id, job_template_id, is_trained, can_coach')
+          .in('employee_id', [...new Set(pairs.map(p => p.employee_id))])
+          .in('job_template_id', [...new Set(pairs.map(p => p.template_id))])
+
+        const map: Record<string, { is_trained: boolean; can_coach: boolean }> = {}
+        for (const s of claimedWithEmployee) {
+          const match = trainings?.find(t => t.employee_id === s.assigned_to && t.job_template_id === s.job_template_id)
+          map[s.id] = match ? { is_trained: match.is_trained, can_coach: match.can_coach } : { is_trained: false, can_coach: false }
+        }
+        setTrainingMap(map)
+      }
     } catch (error) {
       console.error('Error loading sessions:', error)
     } finally {
@@ -235,6 +256,20 @@ export function JobsOverviewContent({ employerId }: JobsOverviewContentProps) {
                   </div>
                 )}
               </div>
+
+              {/* Training warning for untrained employees */}
+              {activeTab === 'confirm' && session.status === 'CLAIMED' && trainingMap[session.id] && !trainingMap[session.id].is_trained && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span className="text-sm text-amber-300 font-medium">{t('This employee is not trained for this job')}</span>
+                  </div>
+                  <div className="flex items-center gap-2 ml-6">
+                    <GraduationCap className="w-4 h-4 text-purple-400 shrink-0" />
+                    <span className="text-xs text-purple-300">{t('Consider assigning a coach from the schedule view')}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Actions for CLAIMED status */}
               {activeTab === 'confirm' && session.status === 'CLAIMED' && (

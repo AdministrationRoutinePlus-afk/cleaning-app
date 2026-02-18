@@ -1325,6 +1325,7 @@ export const fr: Record<string, string> = {
   'Failed to assign coach': 'Échec de l\'assignation du formateur',
   'Please select a coach': 'Veuillez sélectionner un formateur',
   'Assigning...': 'Assignation...',
+  'Consider assigning a coach from the schedule view': 'Pensez à assigner un formateur depuis la vue calendrier',
 
   // ========== Multi-day Jobs ==========
   'Multi-day': 'Plusieurs jours',
