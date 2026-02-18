@@ -488,15 +488,21 @@ export default function EmployeeMarketplacePage() {
     })
   }, [marketplaceJobs, filterByAvailability, availLoaded, availabilityMode, weeklyAvail, specificAvail])
 
-  // Group jobs by scheduled_date (Day view)
+  // Group jobs by ALL dates in their range (Day view)
   const groupedJobs = useMemo(() => {
     const grouped: Record<string, JobSessionWithDetails[]> = {}
 
     filteredMarketplaceJobs.forEach(job => {
       if (!job.scheduled_date) return
-      const dateKey = job.scheduled_date
-      if (!grouped[dateKey]) grouped[dateKey] = []
-      grouped[dateKey].push(job)
+      const start = parseISO(job.scheduled_date)
+      const end = job.scheduled_end_date ? parseISO(job.scheduled_end_date) : start
+      let day = start
+      while (day <= end) {
+        const dateKey = format(day, 'yyyy-MM-dd')
+        if (!grouped[dateKey]) grouped[dateKey] = []
+        grouped[dateKey].push(job)
+        day = addDays(day, 1)
+      }
     })
 
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
@@ -535,13 +541,20 @@ export default function EmployeeMarketplacePage() {
     return days
   }, [currentMonth])
 
-  // Jobs indexed by date string for month view
+  // Jobs indexed by ALL dates in their range for week/month views
   const jobsByDate = useMemo(() => {
     const map: Record<string, JobSessionWithDetails[]> = {}
     filteredMarketplaceJobs.forEach(job => {
       if (!job.scheduled_date) return
-      if (!map[job.scheduled_date]) map[job.scheduled_date] = []
-      map[job.scheduled_date].push(job)
+      const start = parseISO(job.scheduled_date)
+      const end = job.scheduled_end_date ? parseISO(job.scheduled_end_date) : start
+      let day = start
+      while (day <= end) {
+        const dateKey = format(day, 'yyyy-MM-dd')
+        if (!map[dateKey]) map[dateKey] = []
+        map[dateKey].push(job)
+        day = addDays(day, 1)
+      }
     })
     return map
   }, [filteredMarketplaceJobs])

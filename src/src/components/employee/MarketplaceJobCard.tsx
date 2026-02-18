@@ -181,15 +181,6 @@ export function MarketplaceJobCard({
               </div>
             )}
 
-            {/* Pay / Duration info row (#7) */}
-            {(payDisplay || durationDisplay) && (
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
-                {payDisplay && <span className="text-yellow-300 font-bold">{payDisplay}</span>}
-                {payDisplay && durationDisplay && <span>&middot;</span>}
-                {durationDisplay && <span>{durationDisplay}</span>}
-              </div>
-            )}
-
             {/* Row 1: Job & Duration */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center gap-2">
