@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { parseISO } from 'date-fns'
+import { parseISO, format } from 'date-fns'
+import { fr } from 'date-fns/locale/fr'
 import { ChevronDown, Clock, DollarSign, Calendar, FileText, FileSpreadsheet, CalendarRange, CheckCircle, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -99,17 +100,15 @@ export function MarketplaceJobCard({
   const isMultiDay = jobSession.scheduled_date && jobSession.scheduled_end_date &&
     jobSession.scheduled_end_date !== jobSession.scheduled_date
 
-  // Format date range for multi-day jobs
+  // Format date range for display
   const formatDateRange = () => {
     if (!jobSession.scheduled_date) return t('Flexible')
     const start = parseISO(jobSession.scheduled_date)
-    const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     if (isMultiDay) {
       const end = parseISO(jobSession.scheduled_end_date!)
-      const endStr = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-      return `${startStr} \u2192 ${endStr}`
+      return `${format(start, 'd MMM', { locale: fr })} → ${format(end, 'd MMM', { locale: fr })}`
     }
-    return start.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+    return format(start, 'EEEE d MMMM', { locale: fr })
   }
 
   const handleDragEnd = async (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -178,6 +177,14 @@ export function MarketplaceJobCard({
                     {t('Not Trained')}
                   </span>
                 )}
+              </div>
+            )}
+
+            {/* Date row */}
+            {jobSession.scheduled_date && (
+              <div className="bg-white/10 rounded-lg px-3 py-2 flex items-center justify-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <span className="text-white font-semibold text-sm capitalize">{formatDateRange()}</span>
               </div>
             )}
 
