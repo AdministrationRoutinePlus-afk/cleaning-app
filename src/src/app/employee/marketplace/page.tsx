@@ -948,6 +948,7 @@ export default function EmployeeMarketplacePage() {
                       <div className="space-y-2">
                         {groupedJobs.map(([dateKey, jobs]) => {
                           const isOpen = expandedDate === dateKey
+                          const avail = filterByAvailability && availLoaded && isAvailableDay(parseISO(dateKey))
                           return (
                             <div key={dateKey}>
                               <button
@@ -955,12 +956,14 @@ export default function EmployeeMarketplacePage() {
                                 className={`w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all ${
                                   isOpen
                                     ? 'bg-green-600/20 border border-green-500/30'
-                                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                    : avail
+                                      ? 'bg-green-500/10 border border-green-500/40 shadow-[0_0_8px_rgba(34,197,94,0.15)]'
+                                      : 'bg-white/5 border border-white/10 hover:bg-white/10'
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <Calendar className={`w-4 h-4 ${isOpen ? 'text-green-400' : 'text-gray-500'}`} />
-                                  <span className={`font-semibold text-sm capitalize ${isOpen ? 'text-white' : 'text-gray-300'}`}>
+                                  <Calendar className={`w-4 h-4 ${isOpen ? 'text-green-400' : avail ? 'text-green-400' : 'text-gray-500'}`} />
+                                  <span className={`font-semibold text-sm capitalize ${isOpen ? 'text-white' : avail ? 'text-green-300' : 'text-gray-300'}`}>
                                     {formatDateHeader(dateKey)}
                                   </span>
                                 </div>
@@ -968,11 +971,13 @@ export default function EmployeeMarketplacePage() {
                                   <span className={`text-xs rounded-full px-2 py-0.5 ${
                                     isOpen
                                       ? 'bg-green-500/30 text-green-300'
-                                      : 'bg-white/10 text-gray-400'
+                                      : avail
+                                        ? 'bg-green-500/20 text-green-300'
+                                        : 'bg-white/10 text-gray-400'
                                   }`}>
                                     {jobs.length} {jobs.length !== 1 ? t('jobs') : t('job')}
                                   </span>
-                                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                                  <ChevronRight className={`w-4 h-4 ${avail && !isOpen ? 'text-green-500' : 'text-gray-500'} transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                                 </div>
                               </button>
 
