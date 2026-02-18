@@ -670,6 +670,21 @@ export default function EmployeeJobsPage() {
     return days
   }, [currentWeekStart])
 
+  // Check if a given day matches employee availability
+  const isAvailableDay = (day: Date): boolean => {
+    if (!filterByAvailability || !availLoaded || !availabilityMode) return false
+    if (availabilityMode === 'fixed') {
+      const dow = getDay(day) // 0=Sun..6=Sat
+      const match = weeklyAvail.find(r => r.day_of_week === dow)
+      return match?.is_available === true
+    } else if (availabilityMode === 'custom') {
+      const dateStr = format(day, 'yyyy-MM-dd')
+      const match = specificAvail.find(r => r.date === dateStr)
+      return match?.is_available === true
+    }
+    return false
+  }
+
   const formatDateHeader = (dateStr: string) => {
     const date = startOfDay(parseISO(dateStr))
     const today = startOfDay(new Date())
@@ -1023,6 +1038,7 @@ export default function EmployeeJobsPage() {
                           const isToday = isSameDay(day, new Date())
                           const isPast = day < startOfDay(new Date())
                           const isSelected = expandedDate === dateKey
+                          const avail = filterByAvailability && availLoaded && isAvailableDay(day)
 
                           return (
                             <button
@@ -1034,16 +1050,18 @@ export default function EmployeeJobsPage() {
                               className={`flex flex-col items-center justify-start rounded-lg p-1.5 min-h-[60px] transition-all ${
                                 isSelected
                                   ? 'bg-green-600/30 border border-green-400'
-                                  : isToday
-                                    ? 'bg-white/10 border border-white/20'
-                                    : 'hover:bg-white/5 border border-transparent'
+                                  : avail
+                                    ? 'bg-green-500/10 border border-green-500/40 shadow-[0_0_8px_rgba(34,197,94,0.15)]'
+                                    : isToday
+                                      ? 'bg-white/10 border border-white/20'
+                                      : 'hover:bg-white/5 border border-transparent'
                               } ${isPast && dayJobs.length === 0 ? 'opacity-30' : ''}`}
                             >
-                              <span className="text-[10px] text-gray-500 capitalize">
+                              <span className={`text-[10px] capitalize ${avail && !isSelected ? 'text-green-400' : 'text-gray-500'}`}>
                                 {format(day, 'EEE', { locale: fr })}
                               </span>
                               <span className={`text-sm font-bold ${
-                                isSelected ? 'text-green-300' : isToday ? 'text-white' : 'text-gray-300'
+                                isSelected ? 'text-green-300' : avail ? 'text-green-300' : isToday ? 'text-white' : 'text-gray-300'
                               }`}>
                                 {format(day, 'd')}
                               </span>
@@ -1163,6 +1181,7 @@ export default function EmployeeJobsPage() {
                           const isToday = isSameDay(day, new Date())
                           const isSelected = monthSelectedDay ? isSameDay(day, monthSelectedDay) : false
                           const isPast = day < startOfDay(new Date())
+                          const avail = filterByAvailability && availLoaded && isInMonth && !isPast && isAvailableDay(day)
 
                           return (
                             <button
@@ -1175,15 +1194,17 @@ export default function EmployeeJobsPage() {
                               className={`flex flex-col items-center justify-start rounded-lg p-1 min-h-[48px] transition-all ${
                                 isSelected
                                   ? 'bg-purple-600/30 border border-purple-400'
-                                  : isToday
-                                    ? 'bg-white/10 border border-white/20'
-                                    : isInMonth && !isPast
-                                      ? 'hover:bg-white/5 border border-transparent'
-                                      : 'border border-transparent'
+                                  : avail
+                                    ? 'bg-green-500/10 border border-green-500/40 shadow-[0_0_8px_rgba(34,197,94,0.15)]'
+                                    : isToday
+                                      ? 'bg-white/10 border border-white/20'
+                                      : isInMonth && !isPast
+                                        ? 'hover:bg-white/5 border border-transparent'
+                                        : 'border border-transparent'
                               } ${!isInMonth || isPast ? 'opacity-30' : ''}`}
                             >
                               <span className={`text-xs font-semibold ${
-                                isSelected ? 'text-purple-300' : isToday ? 'text-white' : 'text-gray-400'
+                                isSelected ? 'text-purple-300' : avail ? 'text-green-300' : isToday ? 'text-white' : 'text-gray-400'
                               }`}>
                                 {format(day, 'd')}
                               </span>
