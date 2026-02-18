@@ -12,6 +12,7 @@ import { Briefcase, History, Play, ThumbsUp, Clock, CheckCircle, XCircle, AlertT
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/useTranslation'
 import { parseISO, startOfDay, getDay, format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, addMonths } from 'date-fns'
+import { fr } from 'date-fns/locale/fr'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -629,7 +630,7 @@ export default function EmployeeJobsPage() {
     tomorrow.setDate(tomorrow.getDate() + 1)
     if (date.getTime() === today.getTime()) return t('Today')
     if (date.getTime() === tomorrow.getTime()) return t('Tomorrow')
-    return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+    return format(date, 'EEEE d MMMM', { locale: fr })
   }
 
   // --- My Jobs logic ---
@@ -932,7 +933,7 @@ export default function EmployeeJobsPage() {
                           className="text-center"
                         >
                           <span className="text-white font-semibold text-sm capitalize">
-                            {format(currentMonth, 'MMMM yyyy')}
+                            {format(currentMonth, 'MMMM yyyy', { locale: fr })}
                           </span>
                         </button>
 
@@ -1006,7 +1007,7 @@ export default function EmployeeJobsPage() {
                     {monthSelectedDay && (
                       <div className="space-y-3">
                         <h3 className="text-white font-semibold text-sm border-b border-white/10 pb-2">
-                          {format(monthSelectedDay, 'EEEE, MMMM d')}
+                          {format(monthSelectedDay, 'EEEE d MMMM', { locale: fr })}
                           <span className="text-gray-500 font-normal ml-2">
                             ({selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')})
                           </span>
@@ -1267,32 +1268,33 @@ export default function EmployeeJobsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">{t('Claim This Job?')}</AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-3 pt-2">
+              <div className="space-y-4 pt-2">
                 {confirmJob && (
                   <>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <FileText className="w-4 h-4 text-purple-400" />
-                      <span className="font-semibold">{confirmJob.job_template.title}</span>
+                    <div className="flex items-center gap-3 text-gray-200">
+                      <FileText className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                      <span className="font-bold text-lg text-white">{confirmJob.job_template.title}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <span className="text-sm">{confirmJob.job_template.customer?.full_name || confirmJob.job_template.customer?.customer_code || ''}</span>
+                    <div className="flex items-center gap-3 text-gray-200">
+                      <Building2 className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                      <span className="text-base font-medium">{confirmJob.job_template.customer?.full_name || confirmJob.job_template.customer?.customer_code || ''}</span>
                     </div>
                     {confirmJob.scheduled_date && (
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <Calendar className="w-4 h-4 text-green-400" />
-                        <span className="text-sm">
-                          {parseISO(confirmJob.scheduled_date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                      <div className="flex items-center gap-3 text-gray-200">
+                        <Calendar className="w-5 h-5 text-green-400 flex-shrink-0" />
+                        <span className="text-base capitalize">
+                          {format(parseISO(confirmJob.scheduled_date), 'EEEE d MMMM', { locale: fr })}
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center gap-4 text-gray-300">
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4 text-yellow-400" />
-                        <span className="text-sm font-semibold text-yellow-300">{formatPrice(confirmJob.job_template.price_per_hour)}</span>
+                    <div className="flex items-center gap-6 text-gray-200">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-5 h-5 text-yellow-400" />
+                        <span className="text-base font-bold text-yellow-300">{formatPrice(confirmJob.job_template.price_per_hour)}</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4 text-blue-400" />
-                        <span className="text-sm">{formatDuration(confirmJob.job_template.duration_minutes)}</span>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-blue-400" />
+                        <span className="text-base font-medium">{formatDuration(confirmJob.job_template.duration_minutes)}</span>
                       </div>
                     </div>
                   </>

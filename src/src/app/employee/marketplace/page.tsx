@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { MarketplacePageSkeleton } from '@/components/skeletons/MarketplaceCardSkeleton'
 import { parseISO, startOfDay, getDay, format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, addMonths } from 'date-fns'
+import { fr } from 'date-fns/locale/fr'
 import { ShoppingBag, Users, ArrowRightLeft, Clock, DollarSign, Calendar, CalendarRange, FileText, UserPlus, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import Image from 'next/image'
 import { useTranslation } from '@/lib/i18n/useTranslation'
@@ -540,11 +541,7 @@ export default function EmployeeMarketplacePage() {
       return t('Tomorrow')
     }
 
-    return date.toLocaleDateString(undefined, {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric'
-    })
+    return format(date, 'EEEE d MMMM', { locale: fr })
   }
 
   // Toggle expand state
@@ -968,7 +965,7 @@ export default function EmployeeMarketplacePage() {
                             className="text-center"
                           >
                             <span className="text-white font-semibold text-sm capitalize">
-                              {format(currentMonth, 'MMMM yyyy')}
+                              {format(currentMonth, 'MMMM yyyy', { locale: fr })}
                             </span>
                           </button>
 
@@ -1045,7 +1042,7 @@ export default function EmployeeMarketplacePage() {
                       {monthSelectedDay && (
                         <div className="space-y-3">
                           <h3 className="text-white font-semibold text-sm border-b border-white/10 pb-2">
-                            {format(monthSelectedDay, 'EEEE, MMMM d')}
+                            {format(monthSelectedDay, 'EEEE d MMMM', { locale: fr })}
                             <span className="text-gray-500 font-normal ml-2">
                               ({selectedDayJobs.length} {selectedDayJobs.length !== 1 ? t('jobs') : t('job')})
                             </span>
