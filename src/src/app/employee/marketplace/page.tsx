@@ -444,20 +444,34 @@ export default function EmployeeMarketplacePage() {
   }
 
   // Availability-filtered jobs (shared by all 3 views)
+  // For multi-day jobs, show the job if the employee is available on ANY day in the range
   const filteredMarketplaceJobs = useMemo(() => {
     if (!filterByAvailability) return marketplaceJobs
 
     return marketplaceJobs.filter(job => {
       if (!job.scheduled_date) return false
-      const jobDate = parseISO(job.scheduled_date)
+      const startDate = parseISO(job.scheduled_date)
+      const endDate = job.scheduled_end_date ? parseISO(job.scheduled_end_date) : startDate
+
+      // Build array of all days in the job's date range
+      const jobDays: Date[] = []
+      let d = startDate
+      while (d <= endDate) {
+        jobDays.push(d)
+        d = addDays(d, 1)
+      }
 
       if (availabilityMode === 'fixed') {
-        const dayOfWeek = getDay(jobDate) // 0=Sun..6=Sat
-        const match = weeklyAvail.find(r => r.day_of_week === dayOfWeek)
-        return match?.is_available === true
+        return jobDays.some(day => {
+          const match = weeklyAvail.find(r => r.day_of_week === getDay(day))
+          return match?.is_available === true
+        })
       } else if (availabilityMode === 'custom') {
-        const match = specificAvail.find(r => r.date === job.scheduled_date)
-        return match?.is_available === true
+        return jobDays.some(day => {
+          const dateStr = format(day, 'yyyy-MM-dd')
+          const match = specificAvail.find(r => r.date === dateStr)
+          return match?.is_available === true
+        })
       }
       return true // no availability mode set → show all
     })
