@@ -1316,6 +1316,15 @@ export const fr: Record<string, string> = {
   'Training Notes': 'Notes de formation',
   'No job templates available': 'Aucun modèle d\'emploi disponible',
   'Mark as trained to enable coaching': 'Marquer comme formé pour activer le coaching',
+  'Assign a Coach': 'Assigner un formateur',
+  'Select a coach (formateur) to accompany this employee on the job.': 'Sélectionnez un formateur pour accompagner cet employé sur le travail.',
+  'Available Coaches': 'Formateurs disponibles',
+  'No coaches available for this job': 'Aucun formateur disponible pour cet emploi',
+  'Confirm Coach': 'Confirmer le formateur',
+  'Coach assigned successfully': 'Formateur assigné avec succès',
+  'Failed to assign coach': 'Échec de l\'assignation du formateur',
+  'Please select a coach': 'Veuillez sélectionner un formateur',
+  'Assigning...': 'Assignation...',
 
   // ========== Multi-day Jobs ==========
   'Multi-day': 'Plusieurs jours',

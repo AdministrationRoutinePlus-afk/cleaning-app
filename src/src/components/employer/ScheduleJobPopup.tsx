@@ -128,6 +128,9 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
   const [splitPartnerName, setSplitPartnerName] = useState<string | null>(null)
   const [splitPartnerMinutes, setSplitPartnerMinutes] = useState<number | null>(null)
   const [trainingStatus, setTrainingStatus] = useState<{ is_trained: boolean; can_coach: boolean } | null>(null)
+  const [isAssigningCoach, setIsAssigningCoach] = useState(false)
+  const [coachCandidates, setCoachCandidates] = useState<(Employee & { can_coach: boolean })[]>([])
+  const [selectedCoachId, setSelectedCoachId] = useState('')
 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -659,6 +662,68 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     }
   }
 
+  const loadCoachCandidates = async () => {
+    if (!jobSession?.job_template_id) return
+
+    // Find employees who can coach this job template
+    const { data: trainings } = await supabase
+      .from('employee_job_training')
+      .select('employee_id')
+      .eq('job_template_id', jobSession.job_template_id)
+      .eq('can_coach', true)
+
+    if (!trainings || trainings.length === 0) {
+      setCoachCandidates([])
+      return
+    }
+
+    const coachIds = trainings.map(t => t.employee_id)
+
+    // Get employee details for coaches (only ACTIVE, exclude the assigned employee)
+    const { data: employees } = await supabase
+      .from('employees')
+      .select('id, full_name, email, phone, status')
+      .in('id', coachIds)
+      .eq('status', 'ACTIVE')
+      .order('full_name')
+
+    if (employees) {
+      const filtered = employees.filter(e => e.id !== jobSession.assigned_to) as (Employee & { can_coach: boolean })[]
+      setCoachCandidates(filtered)
+    }
+  }
+
+  const handleAssignCoach = async () => {
+    if (!selectedCoachId) {
+      toast.error(t('Please select a coach'))
+      return
+    }
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('job_sessions')
+        .update({
+          split_with: selectedCoachId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobSession.id)
+
+      if (error) throw error
+
+      toast.success(t('Coach assigned successfully'))
+      setIsAssigningCoach(false)
+      setSelectedCoachId('')
+      onUpdate()
+      onClose()
+    } catch (error) {
+      console.error('Error assigning coach:', error)
+      toast.error(t('Failed to assign coach'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleClose = () => {
     setIsRescheduling(false)
     setIsModifyingPrice(false)
@@ -666,12 +731,14 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
     setIsRefusing(false)
     setIsReassigning(false)
     setIsRecovering(false)
+    setIsAssigningCoach(false)
     setNewDate('')
     setNewTime('')
     setNewPrice('')
     setMessageContent('')
     setRefuseReason('')
     setReassignEmployeeId('')
+    setSelectedCoachId('')
     setSelectedEmployeeIds([])
     setSelectAll(false)
     onClose()
@@ -798,11 +865,26 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             ) : (
               <p className="text-gray-500 text-sm">{t('No employee assigned yet')}</p>
             )}
-            {/* Training status warning */}
+            {/* Training status warning + assign coach */}
             {jobSession.employee && trainingStatus && !trainingStatus.is_trained && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-                <span className="text-sm text-amber-300 font-medium">{t('This employee is not trained for this job')}</span>
+              <div className="space-y-2">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                  <span className="text-sm text-amber-300 font-medium">{t('This employee is not trained for this job')}</span>
+                </div>
+                {!jobSession.split_with && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setIsAssigningCoach(true)
+                      loadCoachCandidates()
+                    }}
+                    className="w-full bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30"
+                  >
+                    <GraduationCap className="w-4 h-4 mr-2" />
+                    {t('Assign a Coach')}
+                  </Button>
+                )}
               </div>
             )}
             {jobSession.employee && trainingStatus && trainingStatus.is_trained && (
@@ -1141,6 +1223,58 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
             </div>
           )}
 
+          {/* Assign Coach Section */}
+          {isAssigningCoach && (
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 space-y-4">
+              <h3 className="font-semibold text-lg text-purple-300">{t('Assign a Coach')}</h3>
+              <p className="text-sm text-gray-400">
+                {t('Select a coach (formateur) to accompany this employee on the job.')}
+              </p>
+              <div className="space-y-2">
+                <Label className="text-gray-300">{t('Available Coaches')}</Label>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1">
+                  {coachCandidates.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">{t('No coaches available for this job')}</p>
+                  ) : (
+                    coachCandidates.map(coach => {
+                      const isSelected = selectedCoachId === coach.id
+                      return (
+                        <button
+                          key={coach.id}
+                          type="button"
+                          onClick={() => setSelectedCoachId(coach.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors ${
+                            isSelected
+                              ? 'bg-purple-600/30 border border-purple-500/50 text-white'
+                              : 'hover:bg-white/10 text-gray-300'
+                          }`}
+                        >
+                          <GraduationCap className={`w-4 h-4 shrink-0 ${isSelected ? 'text-purple-300' : 'text-purple-500'}`} />
+                          <span className="flex-1">{coach.full_name}</span>
+                          <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px]">
+                            {t('Coach')}
+                          </Badge>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAssignCoach}
+                  disabled={loading || !selectedCoachId}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {loading ? t('Assigning...') : t('Confirm Coach')}
+                </Button>
+                <Button variant="outline" onClick={() => { setIsAssigningCoach(false); setSelectedCoachId('') }} disabled={loading} className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+                  {t('Cancel')}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Push to Messages Section */}
           {isPushingMessage && (
             <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 space-y-4">
@@ -1215,7 +1349,7 @@ export function ScheduleJobPopup({ jobSession, open, onClose, onUpdate }: Schedu
 
         {/* Footer with action buttons */}
         <DialogFooter className="!flex-col gap-2">
-          {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && !isReassigning && !isRecovering && (
+          {!isRescheduling && !isModifyingPrice && !isPushingMessage && !isRefusing && !isReassigning && !isRecovering && !isAssigningCoach && (
             <>
               {/* Primary actions */}
               {jobSession.status === 'CLAIMED' && (
