@@ -193,7 +193,7 @@ export default function EmployeeJobsPage() {
         `)
         .eq('status', 'OFFERED')
         .not('scheduled_date', 'is', null)
-        .gte('scheduled_date', new Date().toISOString().split('T')[0])
+        .gte('scheduled_date', format(new Date(), 'yyyy-MM-dd'))
         .order('scheduled_date', { ascending: true })
 
       if (offeredError) throw offeredError
@@ -375,7 +375,7 @@ export default function EmployeeJobsPage() {
           if (!isMountedRef.current) return
           setWeeklyAvail(data || [])
         } else if (mode === 'custom') {
-          const todayStr = new Date().toISOString().split('T')[0]
+          const todayStr = format(new Date(), 'yyyy-MM-dd')
           const furthestDate = marketplaceJobs.reduce((max, j) => {
             return j.scheduled_date && j.scheduled_date > max ? j.scheduled_date : max
           }, todayStr)
@@ -845,8 +845,8 @@ export default function EmployeeJobsPage() {
             ) : (
               <>
                 {/* View Mode Selector Bar */}
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+                <div className="flex flex-col gap-3 mb-5">
+                  <div className="flex gap-1.5 bg-white/5 rounded-2xl p-1.5">
                     {(['day', 'week', 'month', 'customer'] as const).map(mode => (
                       <button
                         key={mode}
@@ -856,7 +856,7 @@ export default function EmployeeJobsPage() {
                           setExpandedDate(null)
                           if (mode !== 'month') setMonthSelectedDay(null)
                         }}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-bold transition-all ${
                           viewMode === mode
                             ? 'bg-purple-600 text-white shadow-lg'
                             : 'text-gray-400 hover:text-white hover:bg-white/10'
@@ -869,13 +869,13 @@ export default function EmployeeJobsPage() {
 
                   <button
                     onClick={() => setFilterByAvailability(prev => !prev)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex-shrink-0 ${
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
                       filterByAvailability
                         ? 'bg-green-600/20 text-green-300 border-green-500/30'
                         : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'
                     }`}
                   >
-                    <div className={`w-3 h-3 rounded-full border-2 transition-all ${
+                    <div className={`w-4 h-4 rounded-full border-2 transition-all ${
                       filterByAvailability
                         ? 'bg-green-400 border-green-400'
                         : 'border-gray-500'
