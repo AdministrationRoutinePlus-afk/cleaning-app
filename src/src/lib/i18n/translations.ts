@@ -1741,4 +1741,9 @@ export const fr: Record<string, string> = {
 
   // -- Date Range Filters --
   'Until': 'Jusqu\'au',
+
+  // -- Employee Marketplace Views --
+  'My Availability': 'Mes disponibilités',
+  'Showing jobs matching your availability': 'Emplois selon vos disponibilités',
+  'No jobs on this day': 'Aucun emploi ce jour',
 }
