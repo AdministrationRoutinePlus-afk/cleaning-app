@@ -555,7 +555,7 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
       </div>
 
       {/* Status Filter Row */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="flex flex-wrap gap-2 pb-1">
         {([
           { key: 'all' as StatusFilter, label: t('All') },
           { key: 'unclaimed' as StatusFilter, label: t('Unclaimed') },
@@ -567,12 +567,12 @@ export function ActiveJobsTab({ employerId }: ActiveJobsTabProps) {
           <button
             key={key}
             onClick={() => setStatusFilter(key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors whitespace-nowrap ${
               statusFilter === key
                 ? key === 'issues' && statusCounts.issues > 0
-                  ? 'bg-red-600 text-white'
-                  : 'bg-blue-600 text-white'
-                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'bg-blue-600 text-white shadow-lg'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
             }`}
           >
             {label} ({statusCounts[key]})
