@@ -330,6 +330,9 @@ export default function EmployeeMarketplacePage() {
   useEffect(() => {
     if (!filterByAvailability) {
       setAvailLoaded(false)
+      setAvailabilityMode(null)
+      setWeeklyAvail([])
+      setSpecificAvail([])
     }
   }, [filterByAvailability])
 
@@ -446,17 +449,22 @@ export default function EmployeeMarketplacePage() {
     broadcastChannelRef.current?.postMessage({ type: 'swipe-update' })
   }
 
-  // Availability-filtered jobs (shared by all 3 views)
+  // Availability-filtered jobs (shared by all views)
   // For multi-day jobs, show the job if the employee is available on ANY day in the range
+  // If no availability records exist, show all jobs (don't hide everything)
   const filteredMarketplaceJobs = useMemo(() => {
-    if (!filterByAvailability) return marketplaceJobs
+    if (!filterByAvailability || !availLoaded) return marketplaceJobs
+
+    // No availability mode or no records → show all
+    if (!availabilityMode) return marketplaceJobs
+    if (availabilityMode === 'fixed' && weeklyAvail.length === 0) return marketplaceJobs
+    if (availabilityMode === 'custom' && specificAvail.length === 0) return marketplaceJobs
 
     return marketplaceJobs.filter(job => {
       if (!job.scheduled_date) return false
       const startDate = parseISO(job.scheduled_date)
       const endDate = job.scheduled_end_date ? parseISO(job.scheduled_end_date) : startDate
 
-      // Build array of all days in the job's date range
       const jobDays: Date[] = []
       let d = startDate
       while (d <= endDate) {
@@ -476,9 +484,9 @@ export default function EmployeeMarketplacePage() {
           return match?.is_available === true
         })
       }
-      return true // no availability mode set → show all
+      return true
     })
-  }, [marketplaceJobs, filterByAvailability, availabilityMode, weeklyAvail, specificAvail])
+  }, [marketplaceJobs, filterByAvailability, availLoaded, availabilityMode, weeklyAvail, specificAvail])
 
   // Group jobs by scheduled_date (Day view)
   const groupedJobs = useMemo(() => {
